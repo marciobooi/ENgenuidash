@@ -1,6 +1,8 @@
 import { CircleAlert, CircleCheck, Factory, Info, Leaf, LoaderCircle, PlugZap, TriangleAlert, Zap } from 'lucide-react'
 import { AreaChart, BarChart, LineChart, PieChart } from './components/charts'
+import { InsightsPanel } from './components/insights'
 import { KpiCard, KpiGrid } from './components/kpi'
+import { insightParts } from './genui/insights'
 import { notify } from './components/toast'
 import type { Strings } from './i18n'
 import './ComponentsGallery.css'
@@ -76,6 +78,16 @@ export default function ComponentsGallery({ locale, t }: { locale: string; t: St
         <KpiCard label="Final energy consumption" value={893} unit="Mtoe" delta={2.1} deltaLabel="vs 2022" goodDirection="down" decimals={0} icon={Zap} locale={locale} />
         <KpiCard label="Electricity price" value={0.29} unit="€/kWh" delta={0} deltaLabel="vs 2022" goodDirection="neutral" decimals={2} icon={PlugZap} caption="Households" locale={locale} />
       </KpiGrid>
+
+      <InsightsPanel
+        title={t.keyInsights}
+        items={[
+          { tone: 'record', parts: insightParts(t.dInsights.leader, { name: 'Country A', value: '24.5%', period: '2023' }) },
+          { tone: 'up', parts: insightParts(t.dInsights.topRiser, { name: 'Country B', change: '+2.1 pp', period: '2022' }) },
+          { tone: 'down', parts: insightParts(t.dInsights.topFaller, { name: 'Country C', change: '-0.8 pp', period: '2022' }) },
+          { tone: 'neutral', parts: insightParts(t.dInsights.aboveEu, { n: '2', total: '3', eu: '23.0%' }) },
+        ]}
+      />
 
       <div className="gallery__grid">
         <LineChart

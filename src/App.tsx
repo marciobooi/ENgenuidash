@@ -444,7 +444,8 @@ export default function App() {
     openChat()
     const described = await datasetDescription(spec.plan.dataset).catch(() => null)
     const insights = spec.insights.map((i) => `• ${i.parts.map((p) => (typeof p === 'string' ? p : p.strong)).join('')}`)
-    const answer = [described?.text, spec.summary.join(' '), insights.join('\n')].filter(Boolean).join('\n\n')
+    // The insights already restate the summary's facts; the summary is used only when there are none.
+    const answer = [described?.text, insights.length ? insights.join('\n') : spec.summary.join(' ')].filter(Boolean).join('\n\n')
     const sources = [
       spec.source,
       ...(described?.url ? [{ code: spec.plan.dataset, title: `${described.title} › ${described.section}`, url: described.url }] : []),

@@ -1,9 +1,10 @@
-import { Database, ExternalLink, Info, Minus, Sparkles, Trophy, TrendingDown, TrendingUp } from 'lucide-react'
+import { Database, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { AreaChart, BarChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
+import { InsightsPanel } from '../components/insights'
 import { KpiCard, KpiGrid } from '../components/kpi'
 import { DataTable } from '../components/table'
 import { BreakdownCard } from './BreakdownCard'
-import type { DashboardControls, DashboardSpec, Insight, Suggestion, WidgetSpec } from './types'
+import type { DashboardControls, DashboardSpec, Suggestion, WidgetSpec } from './types'
 import './dashboard.css'
 
 export interface DashboardLabels {
@@ -136,7 +137,7 @@ export function Dashboard({
             <p>{spec.summary.join(' ')}</p>
           </div>
         )}
-        {spec.insights.length > 0 && <Insights items={spec.insights} label={labels.keyInsights} />}
+        <InsightsPanel title={labels.keyInsights} items={spec.insights} />
         {spec.notes.filter(Boolean).map((n) => (
           <p key={n} className="dash__note">
             <Info size={14} aria-hidden="true" />
@@ -295,26 +296,5 @@ function SourceLine({ spec, labels }: { spec: DashboardSpec; labels: DashboardLa
       <ExternalLink size={11} aria-hidden="true" />
       <span className="sr-only"> ({labels.opensNewTab})</span>
     </a>
-  )
-}
-
-const INSIGHT_ICONS = { record: Trophy, up: TrendingUp, down: TrendingDown, neutral: Minus }
-
-function Insights({ items, label }: { items: Insight[]; label: string }) {
-  return (
-    <section className="dash__insights" aria-label={label}>
-      <h3 className="dash__insights-title">{label}</h3>
-      <ul>
-        {items.map((item, i) => {
-          const Icon = INSIGHT_ICONS[item.tone]
-          return (
-            <li key={i} className={`dash__insight dash__insight--${item.tone}`}>
-              <Icon size={16} aria-hidden="true" />
-              <span>{item.parts.map((p, k) => (typeof p === 'string' ? p : <strong key={k}>{p.strong}</strong>))}</span>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
   )
 }

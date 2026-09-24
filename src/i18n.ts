@@ -72,8 +72,8 @@ const en = {
   dNoteBottom: 'Showing the {n} lowest of {total} countries in {period}.',
   keyInsights: 'Key insights',
   dInsights: {
-    record: '{period} is the highest value on record ({value}, data since {since}).',
-    recordLow: '{period} is the lowest value on record ({value}, data since {since}).',
+    record: '{period} has the highest value of {since}–{period} ({value}).',
+    recordLow: '{period} has the lowest value of {since}–{period} ({value}).',
     streakUp: 'Rising for {n} periods in a row up to {period}.',
     streakDown: 'Falling for {n} periods in a row up to {period}.',
     sinceStart: '{change} since {since}.',
@@ -265,8 +265,8 @@ export const STRINGS: Record<Lang, Strings> = {
     dNoteBottom: 'Die {n} niedrigsten von {total} Ländern im Zeitraum {period}.',
     keyInsights: 'Wichtigste Erkenntnisse',
     dInsights: {
-      record: '{period} ist der höchste Wert der Reihe ({value}, Daten seit {since}).',
-      recordLow: '{period} ist der niedrigste Wert der Reihe ({value}, Daten seit {since}).',
+      record: '{period} hat den höchsten Wert im Zeitraum {since}–{period} ({value}).',
+      recordLow: '{period} hat den niedrigsten Wert im Zeitraum {since}–{period} ({value}).',
       streakUp: 'Anstieg in {n} Zeiträumen in Folge bis {period}.',
       streakDown: 'Rückgang in {n} Zeiträumen in Folge bis {period}.',
       sinceStart: '{change} seit {since}.',
@@ -453,8 +453,8 @@ export const STRINGS: Record<Lang, Strings> = {
     dNoteBottom: 'Les {n} pays les plus bas sur {total} en {period}.',
     keyInsights: 'Points clés',
     dInsights: {
-      record: '{period} est la valeur la plus élevée de la série ({value}, données depuis {since}).',
-      recordLow: '{period} est la valeur la plus basse de la série ({value}, données depuis {since}).',
+      record: '{period} affiche la valeur la plus élevée de la période {since}–{period} ({value}).',
+      recordLow: '{period} affiche la valeur la plus basse de la période {since}–{period} ({value}).',
       streakUp: 'En hausse sur {n} périodes consécutives jusqu’à {period}.',
       streakDown: 'En baisse sur {n} périodes consécutives jusqu’à {period}.',
       sinceStart: '{change} depuis {since}.',

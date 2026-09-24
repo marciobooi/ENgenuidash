@@ -45,6 +45,8 @@ interface Series {
 export interface InsightInput {
   intent: Plan['intent']
   multi: boolean
+  /** A "top 5" selection: every country shown is above the EU value by construction. */
+  ranked?: boolean
   focusPeriod?: string
   series: Series[]
   euRef?: Series
@@ -63,7 +65,7 @@ export interface InsightInput {
 const MAX_INSIGHTS = 4
 
 /** Fills a template; placeholder values become emphasised parts. */
-function parts(template: string, values: Record<string, string>): InsightPart[] {
+export function insightParts(template: string, values: Record<string, string>): InsightPart[] {
   const out: InsightPart[] = []
   let last = 0
   for (const m of template.matchAll(/\{(\w+)\}/g)) {
@@ -84,7 +86,7 @@ export function computeInsights(input: InsightInput, s: InsightStrings): Insight
     a == null || b == null ? null : isPercent ? b - a : a !== 0 ? ((b - a) / Math.abs(a)) * 100 : null
   const val = (v: number) => fmt.value(v, unit)
   const out: Insight[] = []
-  const add = (tone: Insight['tone'], template: string, values: Record<string, string>) => out.push({ tone, parts: parts(template, values) })
+  const add = (tone: Insight['tone'], template: string, values: Record<string, string>) => out.push({ tone, parts: insightParts(template, values) })
 
   if (!input.multi) {
     // ---------- one series over time ----------
@@ -95,8 +97,9 @@ export function computeInsights(input: InsightInput, s: InsightStrings): Insight
     const cur = x.data[at]
     if (cur == null) return out
     const upTo = pts.filter((p) => p.i <= at)
-    const max = Math.max(...pts.map((p) => p.v))
-    const min = Math.min(...pts.map((p) => p.v))
+    // Record within the data up to the period shown ("2018 has the highest value of 2009–2018").
+    const max = Math.max(...upTo.map((p) => p.v))
+    const min = Math.min(...upTo.map((p) => p.v))
     if (cur === max) add('record', s.record, { period: P[at], value: val(cur), since: P[pts[0].i] })
     else if (cur === min) add('down', s.recordLow, { period: P[at], value: val(cur), since: P[pts[0].i] })
 
@@ -137,9 +140,9 @@ export function computeInsights(input: InsightInput, s: InsightStrings): Insight
 
     // Largest single-period move.
     let best: { d: number; i: number } | null = null
-    for (let k = 1; k < pts.length; k++) {
-      const d = change(pts[k - 1].v, pts[k].v)
-      if (d != null && (!best || Math.abs(d) > Math.abs(best.d))) best = { d, i: pts[k].i }
+    for (let k = 1; k < upTo.length; k++) {
+      const d = change(upTo[k - 1].v, upTo[k].v)
+      if (d != null && (!best || Math.abs(d) > Math.abs(best.d))) best = { d, i: upTo[k].i }
     }
     if (best && Math.abs(best.d) >= 0.1) {
       add(best.d > 0 ? 'up' : 'down', best.d > 0 ? s.biggestJump : s.biggestDrop, { change: fmt.signed(best.d, changeUnit), period: P[best.i] })
@@ -194,8 +197,9 @@ export function computeInsights(input: InsightInput, s: InsightStrings): Insight
       add('neutral', s.gapRatio, { a: top.x.name, b: bottom.x.name, ratio: `${fmt.number(top.v / bottom.v, 1)}×` })
     }
     const eu = input.euRef?.data[at]
-    if (eu != null && ranked.length >= 3) {
-      const above = ranked.filter((r) => r.v > eu).length
+    const above = eu != null ? ranked.filter((r) => r.v > eu).length : 0
+    // (skipped when obvious: a top-5 list that is entirely above, or a bottom list entirely below)
+    if (eu != null && ranked.length >= 3 && !(input.ranked && (above === 0 || above === ranked.length))) {
       add('neutral', s.aboveEu, { n: String(above), total: String(ranked.length), eu: val(eu) })
     }
     const moves = ranked

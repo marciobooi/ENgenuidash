@@ -560,7 +560,7 @@ export async function buildDashboard(
   })
 
   const insights = computeInsights(
-    { intent: plan.intent, multi, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
+    { intent: plan.intent, multi, ranked: !!topNote, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
     s.insights,
   )
 

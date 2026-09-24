@@ -124,14 +124,10 @@ export interface KpiSpec {
   trend?: (number | null)[]
 }
 
-/** Text with emphasised values: plain strings and { strong } parts. */
-export type InsightPart = string | { strong: string }
+import type { InsightItem, InsightPart } from '../components/insights'
 
-export interface Insight {
-  /** Drives the icon and accent: a record, a rise, a fall or a neutral comparison. */
-  tone: 'record' | 'up' | 'down' | 'neutral'
-  parts: InsightPart[]
-}
+export type Insight = InsightItem
+export type { InsightPart }
 
 export interface SeriesSpec {
   name: string

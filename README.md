@@ -7,7 +7,8 @@ entirely in the browser — no backend. Built with React + Vite, styled with the
 
 - **WebGPU** is used when available (`q4f16`, ~275 MB); otherwise it falls back to **WASM/CPU** (`q4`, ~390 MB).
 - The ONNX Runtime wasm files are served from this app (`public/ort`, copied by `scripts/copy-ort.mjs`), not a CDN.
-- Model weights are downloaded once from the Hugging Face Hub and kept in the browser cache.
+- The model is served by the app itself from `public/models` — the browser never contacts the Hugging Face Hub.
+  It is downloaded automatically (once) the first time you run `npm run dev` or `npm run build`.
 
 ## Run
 
@@ -16,13 +17,14 @@ npm install
 npm run dev
 ```
 
-## Fully offline
+## Model files
 
-Download the model into `public/models` once; the app then loads it from its own origin and never contacts the Hub:
-
-```bash
-npm run model:download
-```
+`npm run dev` and `npm run build` check `public/models` and download SmolLM2 there on the first run
+(all three weight formats, ~1 GB, SHA-256 verified; `scripts/ensure-model.mjs`). The folder is
+git-ignored and copied into `dist/` by the build, so a deployment serves the model itself. If the
+download fails, dev/build still continue: dashboards work without the model, and
+`npm run model:download` retries it. Users never see any of this: the model loads silently in the
+background, and a failed load is retried automatically.
 
 ## Code
 
@@ -83,5 +85,36 @@ content is authorised with acknowledgement: https://ec.europa.eu/eurostat/about-
   questions only process the new tokens. History is capped (3 exchanges, 1,536 tokens).
 - Per-reply stats (time to first token, tokens/s, reused tokens) are logged in development.
 
-`npm run model:download` stores the model in `public/models` for fully offline use (atomic writes,
-SHA-256 verified against the Hub).
+The model is loaded only from `public/models` (atomic writes, SHA-256 verified against the Hub at
+download time).
+
+## Understanding follow-up messages
+
+With a dashboard on screen, a message goes through these steps:
+
+1. **Rules** (`src/genui/planner.ts`, `refinePlan`): "top 5", "add Germany", "in 2018", "as bar
+   chart"… are applied instantly. Countries, years, units and codes come from the Eurostat
+   dictionary and codelists.
+2. **Action menu** (`src/genui/actions.ts`): if the rules cannot map the message ("show the trend",
+   "which countries depend the most?"), the app builds up to 8 concrete options from the current
+   dashboard. Each option is a canonical command run through the same rules, so it is always a
+   valid plan.
+3. **Model pick**: SmolLM2 reads the numbered options and the app takes the probability of each
+   option number as the next token (one forward pass, no free text — `choose` in the worker). A
+   pick with probability ≥ `CHOICE_MIN_PROB` (`src/llm/config.ts`) is applied; otherwise, or while
+   the model is loading, the best options are shown as buttons ("Did you mean…?").
+
+"Explain these figures" never uses free generation: it quotes Eurostat's own description of the
+dataset (from the knowledge base) followed by the computed summary and key insights.
+
+### Measuring it
+
+`src/eval/cases.ts` holds labelled follow-up messages (EN/DE/FR). Add one whenever a real message
+is misunderstood.
+
+```bash
+npm run eval:actions      # rules + fallback, in Node
+npm run dev               # then open http://localhost:5173/#/eval for the model's accuracy and speed
+```
+
+The `#/eval` page exists only in development builds.

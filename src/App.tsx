@@ -4,7 +4,6 @@ import {
   CircleAlert,
   Database,
   ExternalLink,
-  Info,
   LayoutDashboard,
   MessagesSquare,
   PlugZap,
@@ -14,7 +13,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import ComponentsGallery from './ComponentsGallery'
 import { Header } from './Header'
 import { StarsMark } from './Icons'
@@ -27,12 +26,13 @@ import {
   type EnergyCodelists,
   type EnergyDictionary,
 } from './data/eurostat'
+import { choicePrompt, dashboardActions, isExplainRequest, rankByOverlap, type DashboardAction } from './genui/actions'
 import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
 import { planQuestion, refinePlan } from './genui/planner'
 import type { DashboardSpec, Plan, Suggestion } from './genui/types'
-import { GENERATION, SYSTEM_PROMPT } from './llm/config'
-import { createScopeChecker, normalize } from './llm/energyScope'
+import { CHOICE_MIN_PROB, GENERATION, SYSTEM_PROMPT } from './llm/config'
+import { createScopeChecker } from './llm/energyScope'
 import { directDefinition, loadGlossary } from './llm/glossary'
 import { bestSentences, CONFIDENT_SCORE, datasetDescription, knowledgeDocFreq, loadKnowledge, MODEL_MIN_SCORE, searchKnowledge } from './llm/knowledge'
 import { buildVocabulary } from './llm/vocabulary'
@@ -41,9 +41,8 @@ import { useLocalLLM, type UIMessage } from './llm/useLocalLLM'
 import { APP_ABBR, STRINGS, type Lang, type Strings } from './i18n'
 import './App.css'
 
-function formatBytes(n: number) {
-  return n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} kB`
-}
+// Development-only evaluation page (#/eval); the import is dropped from production builds.
+const EvalPage = import.meta.env.DEV ? lazy(() => import('./eval/EvalPage')) : null
 
 const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')
@@ -98,7 +97,6 @@ export default function App() {
   const [route, setRoute] = useState(() => window.location.hash)
   const t = STRINGS[lang]
   const [announcement, setAnnouncement] = useState('')
-  const announcedPct = useRef(-1)
   const [dict, setDict] = useState<EnergyDictionary | null>(null)
   const [codelists, setCodelists] = useState<EnergyCodelists | null>(null)
   const scope = useMemo(() => createScopeChecker(dict, codelists), [dict, codelists])
@@ -120,21 +118,9 @@ export default function App() {
   // so streamed tokens aren't read out one by one; the full reply is announced at the end.
   const llm = useLocalLLM((e) => {
     switch (e.type) {
-      case 'progress': {
-        const step = e.total ? Math.floor((e.loaded / e.total) * 4) * 25 : 0
-        if (step > announcedPct.current) {
-          announcedPct.current = step
-          setAnnouncement(t.loadingPercent.replace('{pct}', String(step)))
-        }
-        break
-      }
-      // Toasts are read out by Sonner's own live region, so they don't also go to the announcer.
-      case 'ready':
-        notify.success(t.modelReadyTitle, { description: t.modelReadyDesc })
-        break
+      // Loading is silent: the model downloads in the background and data questions work meanwhile.
       case 'error':
-        if (e.duringLoad) setAnnouncement(`${t.loadFailed}. ${e.message}`)
-        else notify.error(t.generationFailed, { description: e.message })
+        if (!e.duringLoad) notify.error(t.generationFailed, { description: e.message })
         break
       case 'retrieving':
         setAnnouncement(t.searchingData)
@@ -154,6 +140,15 @@ export default function App() {
   useEffect(() => {
     chatOpenRef.current = chatOpen
   }, [chatOpen])
+
+  // If the model fails to load (e.g. a dropped connection), retry quietly: 5 s, 20 s, 60 s.
+  const loadRetries = useRef(0)
+  useEffect(() => {
+    if (llm.status !== 'error' || loadRetries.current >= 3) return
+    const delay = [5_000, 20_000, 60_000][loadRetries.current++]
+    const timer = window.setTimeout(llm.load, delay)
+    return () => window.clearTimeout(timer)
+  }, [llm.status, llm.load])
 
   useEffect(() => {
     document.documentElement.lang = lang
@@ -192,9 +187,6 @@ export default function App() {
     }
   }, [chatOpen])
 
-  const files = Object.values(llm.progress)
-  const loaded = files.reduce((s, f) => s + f.loaded, 0)
-  const total = files.reduce((s, f) => s + f.total, 0)
 
   const ready = llm.status === 'ready'
   const busy = llm.generating || building
@@ -287,6 +279,7 @@ export default function App() {
     if (verdict === 'off-topic' && !refinesDashboard) {
       // With a dashboard on screen, a message made of known words is most likely a change we
       // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
+      if (current && unknown.length === 0 && resolveWithActions(text)) return
       const message = current && unknown.length === 0 ? t.notApplied : t.offTopic
       llm.reply(text, message, 'refusal')
       setAnnouncement(message)
@@ -312,6 +305,8 @@ export default function App() {
       const result = planQuestion(text, dict, codelists)
       conceptual = result.kind === 'explain'
       if (result.kind === 'plan') return void runPlan(result.plan, text)
+      // A follow-up the rules cannot map ("show the trend", "which ones are highest?") → the action menu.
+      if (current && verdict === 'follow-up' && result.kind === 'none' && resolveWithActions(text)) return
       if (result.kind === 'clarify') {
         llm.append(
           { role: 'user', content: text },
@@ -390,14 +385,53 @@ export default function App() {
     if (s.explain) void explainDashboard(s.label)
   }
 
-  /** Typed variants of the "Explain these figures" suggestion. */
-  function isExplainRequest(text: string) {
-    const q = normalize(text).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
-    if (q === normalize(t.dSugExplain) || q === normalize(t.explainQuestion).replace(/[^a-z0-9 ]/g, '').trim()) return true
-    return (
-      /\b(explain|describe|interpret|what do|what does|erklar|beschreib|expliqu|decri|interpret)/.test(q) &&
-      /\b(these|this|the|those) (figures|numbers|data|values|results|chart|charts|dashboard)\b|\bdiese[nrs]? (zahlen|daten|werte|grafik)\b|\b(ces|ce|les) (chiffres|donnees|valeurs|resultats|graphique)\b/.test(q)
-    )
+  const runAction = (a: { plan?: Plan; explain?: boolean }, question: string) =>
+    a.explain ? void explainDashboard(question) : a.plan ? void runPlan(a.plan, question) : undefined
+
+  /**
+   * A dashboard change the rules could not map. The options come from dashboardActions (each a
+   * plan built by the rules); the model only picks an option number. A confident pick is run;
+   * otherwise, or while the model is loading, the best options are offered as buttons.
+   * Returns false when there is nothing to offer.
+   */
+  function resolveWithActions(text: string): boolean {
+    if (!current || !dict || !codelists) return false
+    const actions = dashboardActions(current, text, dict, codelists, t.actions, STRINGS.en.actions, lang)
+    if (!actions.length) return false
+
+    const offer = (ranked: DashboardAction[]) => {
+      llm.append(
+        { role: 'user', content: text },
+        {
+          role: 'assistant',
+          content: t.didYouMean,
+          choices: ranked.slice(0, 4).map((a) => ({ label: a.label, query: a.label, plan: a.plan, explain: a.explain })),
+        },
+      )
+      setAnnouncement(t.didYouMean)
+      openChat()
+    }
+    if (!ready) {
+      offer(rankByOverlap(actions, text))
+      return true
+    }
+
+    setBuilding(true)
+    setAnnouncement(t.choosing)
+    void llm
+      .choose(choicePrompt(current, text, actions, STRINGS.en.actions), actions.length + 1)
+      .then((probs) => {
+        setBuilding(false)
+        const best = probs.indexOf(Math.max(...probs))
+        if (best < actions.length && probs[best] >= CHOICE_MIN_PROB) return runAction(actions[best], text)
+        // Not confident (or "none of these"): the options the model rated highest, as buttons.
+        offer(actions.map((a, i) => ({ a, p: probs[i] })).sort((x, y) => y.p - x.p).map((x) => x.a))
+      })
+      .catch(() => {
+        setBuilding(false)
+        offer(rankByOverlap(actions, text))
+      })
+    return true
   }
 
   /**
@@ -447,33 +481,6 @@ export default function App() {
     { icon: <Zap size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaWind },
     { icon: <Database size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaSave },
   ]
-
-  const banner =
-    llm.status === 'loading' ? (
-      <div className="banner">
-        <Info size={18} aria-hidden="true" />
-        <div className="banner__text">
-          <span>
-            {total
-              ? t.loadingOf.replace('{loaded}', formatBytes(loaded)).replace('{total}', formatBytes(total))
-              : t.loading}
-          </span>
-          <span className="banner__sub">{t.cacheNote}</span>
-          <progress className="banner__progress" value={loaded} max={total || 1} aria-label={t.loading} />
-        </div>
-      </div>
-    ) : llm.status === 'error' ? (
-      <div className="banner banner--error">
-        <CircleAlert size={18} aria-hidden="true" />
-        <div className="banner__text">
-          <span>{t.loadFailed}</span>
-          <span className="banner__sub">{llm.error}</span>
-        </div>
-        <button type="button" className="ecl-button ecl-button--secondary ecl-button--s" onClick={llm.load}>
-          {t.tryAgain}
-        </button>
-      </div>
-    ) : null
 
   const canSend = !!input.trim() && !busy && (!!dict || ready)
   const composer = (
@@ -557,7 +564,12 @@ export default function App() {
         <ul className="msg__choices">
           {m.choices.map((c) => (
             <li key={c.label}>
-              <button type="button" className="suggestion-chip" disabled={busy} onClick={() => send(c.query)}>
+              <button
+                type="button"
+                className="suggestion-chip"
+                disabled={busy}
+                onClick={() => (c.plan || c.explain ? runAction(c, c.label) : send(c.query))}
+              >
                 {c.label}
               </button>
             </li>
@@ -613,6 +625,12 @@ export default function App() {
   let page: ReactNode
   if (route === '#/components') {
     page = <ComponentsGallery locale={lang} t={t} />
+  } else if (EvalPage && route === '#/eval') {
+    page = (
+      <Suspense>
+        <EvalPage dict={dict} codelists={codelists} choose={llm.choose} ready={ready} />
+      </Suspense>
+    )
   } else if (current) {
     page = (
       <main className="dash-page" id="main" tabIndex={-1}>
@@ -647,7 +665,6 @@ export default function App() {
         <h2 className="sr-only">{t.conversation}</h2>
         {thread}
         <div className="dock">
-          {banner}
           {composer}
         </div>
       </main>
@@ -662,7 +679,6 @@ export default function App() {
           </h2>
           <p className="welcome__sub">{t.welcomeSub}</p>
         </div>
-        {banner}
         {composer}
         <section className="ideas" aria-labelledby="ideas-title">
           <h3 className="ideas__title" id="ideas-title">
@@ -740,8 +756,7 @@ export default function App() {
             </div>
             {thread}
             <div className="chat-modal__dock">
-              {banner}
-              {composer}
+                  {composer}
             </div>
           </dialog>
         </>

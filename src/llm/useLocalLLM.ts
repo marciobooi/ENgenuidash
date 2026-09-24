@@ -8,6 +8,7 @@ import type {
   WorkerResponse,
 } from './protocol'
 import type { Source } from './grounding'
+import type { Plan } from '../genui/types'
 
 export type ModelStatus = 'loading' | 'ready' | 'error'
 
@@ -20,7 +21,7 @@ export interface UIMessage extends ChatMessage {
   /** Link to a dashboard built for this message. */
   card?: { index: number; title: string }
   /** One-click answers to a clarifying question. */
-  choices?: { label: string; query: string }[]
+  choices?: { label: string; query: string; plan?: Plan; explain?: boolean }[]
   /** Shown with a progress indicator until updated (e.g. while a dashboard is built). */
   pending?: boolean
   /** UI-only message (dashboards, refusals, clarifications): never sent to the model. */
@@ -70,6 +71,9 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
   const [generating, setGenerating] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
   const [tps, setTps] = useState<number | null>(null)
+  // Pending multiple-choice requests, by id.
+  const choicesRef = useRef(new Map<number, { resolve: (p: number[]) => void; reject: (e: Error) => void }>())
+  const choiceIdRef = useRef(0)
 
   useEffect(() => {
     onEventRef.current = onEvent
@@ -136,6 +140,13 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
           setPhase('idle')
           emit({ type: 'done', text: replyRef.current.trim(), stopped: stoppedRef.current })
           break
+        case 'choice': {
+          const pending = choicesRef.current.get(msg.id)
+          choicesRef.current.delete(msg.id)
+          if (msg.probs) pending?.resolve(msg.probs)
+          else pending?.reject(new Error(msg.error ?? 'No answer'))
+          break
+        }
         case 'error':
           setError(msg.message)
           setGenerating(false)
@@ -207,6 +218,20 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
     [messages, send],
   )
 
+  /**
+   * Asks the model to pick one of `count` numbered options (see the worker's `choose`).
+   * Resolves with one probability per option; never adds anything to the chat.
+   */
+  const choose = useCallback(
+    (messages: ChatMessage[], count: number) =>
+      new Promise<number[]>((resolve, reject) => {
+        const id = ++choiceIdRef.current
+        choicesRef.current.set(id, { resolve, reject })
+        send({ type: 'choose', id, messages, count })
+      }),
+    [send],
+  )
+
   /** Adds a question and a fixed answer without running the model (e.g. off-topic refusal). */
   const reply = useCallback((question: string, answer: string, kind?: UIMessage['kind'], sources?: Source[]) => {
     setError(null)
@@ -244,5 +269,5 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
     send({ type: 'reset' })
   }, [send])
 
-  return { status, error, progress, runtime, stats, messages, generating, phase, tps, load, ask, reply, append, updateLast, stop, clear }
+  return { status, error, progress, runtime, stats, messages, generating, phase, tps, load, ask, choose, reply, append, updateLast, stop, clear }
 }

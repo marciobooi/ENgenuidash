@@ -6,6 +6,7 @@ import {
   TextStreamer,
   env,
   type DynamicCache,
+  type Tensor,
 } from '@huggingface/transformers'
 import { MODEL_ID, type ChatMessage, type GenerationStats, type WorkerRequest, type WorkerResponse } from './protocol'
 
@@ -63,8 +64,8 @@ async function resetCache() {
 
 // ---------- loading ----------
 
-// Prefer model files placed in public/models (scripts/download-model.mjs) so the app
-// works fully offline. Otherwise fetch once from the Hugging Face Hub.
+// The model is served by this app from public/models (downloaded at dev/build time by
+// scripts/ensure-model.mjs). The browser never contacts the Hugging Face Hub.
 async function hasLocalModel(): Promise<boolean> {
   try {
     const res = await fetch(`${base}models/${MODEL_ID}/config.json`, { method: 'HEAD' })
@@ -98,8 +99,9 @@ async function selectRuntime(): Promise<{ device: Device; dtype: 'q4f16' | 'q4' 
 async function load() {
   const started = performance.now()
   const [local, runtime] = await Promise.all([hasLocalModel(), selectRuntime()])
-  env.allowLocalModels = local
-  env.allowRemoteModels = !local
+  if (!local) throw new Error(`Model files not found in public/models/${MODEL_ID} (run npm run model:download).`)
+  env.allowLocalModels = true
+  env.allowRemoteModels = false
   env.localModelPath = `${base}models/`
 
   const progress_callback = (p: { status: string; file?: string; loaded?: number; total?: number }) => {
@@ -119,8 +121,8 @@ async function load() {
   await model.generate({ ...warm, max_new_tokens: 1 })
 
   const loadMs = Math.round(performance.now() - started)
-  log(`ready: ${runtime.device}/${runtime.dtype} from ${local ? 'local files' : 'hub/cache'} in ${loadMs} ms`)
-  post({ type: 'ready', device: runtime.device, dtype: runtime.dtype, source: local ? 'local' : 'hub', loadMs })
+  log(`ready: ${runtime.device}/${runtime.dtype} from local files in ${loadMs} ms`)
+  post({ type: 'ready', device: runtime.device, dtype: runtime.dtype, source: 'local', loadMs })
 }
 
 // ---------- prompt building ----------
@@ -240,6 +242,43 @@ async function generate({ messages, options }: Extract<WorkerRequest, { type: 'g
   }
 }
 
+// ---------- multiple choice ----------
+
+/**
+ * Scores a numbered menu: runs the prompt once and reads the next-token probabilities of the
+ * answers "1".."count" (softmax over those tokens only). No sampling, so the result is
+ * deterministic and always one of the options.
+ */
+async function choose({ id, messages, count }: Extract<WorkerRequest, { type: 'choose' }>) {
+  if (!tokenizer || !model) throw new Error('Model is not loaded yet.')
+  if (busy) throw new Error('The model is busy.')
+  if (count < 1 || count > 9) throw new Error('Between 1 and 9 options are supported.')
+  busy = true
+  const started = performance.now()
+  let outputs: Record<string, Tensor> | null = null
+  try {
+    const inputs = tokenize(messages)
+    outputs = (await model(inputs)) as unknown as Record<string, Tensor>
+    const last = outputs.logits.slice(null, -1, null).to('float32')
+    const logits = last.data as Float32Array
+    const scores = Array.from({ length: count }, (_, i) => {
+      const [token] = tokenizer!.encode(String(i + 1), { add_special_tokens: false })
+      return logits[token]
+    })
+    last.dispose()
+    const max = Math.max(...scores)
+    const exps = scores.map((s) => Math.exp(s - max))
+    const sum = exps.reduce((a, b) => a + b, 0)
+    const probs = exps.map((e) => e / sum)
+    log(`choose: ${inputs.input_ids.dims[1]} tokens, ${Math.round(performance.now() - started)} ms, ${probs.map((p) => p.toFixed(2)).join(' ')}`)
+    post({ type: 'choice', id, probs })
+  } finally {
+    // Free every output (logits and the per-layer key/value tensors, possibly on the GPU).
+    for (const t of Object.values(outputs ?? {})) t?.dispose?.()
+    busy = false
+  }
+}
+
 self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
   const msg = e.data
   try {
@@ -257,9 +296,14 @@ self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
       case 'reset':
         await resetCache()
         break
+      case 'choose':
+        await choose(msg)
+        break
     }
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (msg.type === 'choose') return post({ type: 'choice', id: msg.id, error: message })
     if (msg.type === 'load') loading = null
-    post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+    post({ type: 'error', message })
   }
 })

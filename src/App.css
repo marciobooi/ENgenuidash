@@ -99,77 +99,6 @@ main:focus {
   color: var(--ecl-color-dark-80);
 }
 
-/* ---------- Banner (loading / errors) ---------- */
-.banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px 10px 14px;
-  background: #fff;
-  border: 1px solid var(--ecl-color-dark-10);
-  border-radius: 14px;
-  font-size: 0.875rem;
-  color: var(--ecl-color-dark-100);
-  box-shadow: 0 1px 2px var(--ecl-color-dark-alpha-50);
-}
-
-.banner > svg {
-  flex: none;
-  color: var(--ecl-color-primary);
-}
-
-.banner--error {
-  background: var(--ecl-color-error-5);
-  border-color: var(--ecl-color-error-midtone);
-}
-
-.banner--error > svg {
-  color: var(--ecl-color-error);
-}
-
-.banner__text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.banner__sub {
-  font-size: 0.8125rem;
-  color: var(--ecl-color-dark-80);
-  overflow-wrap: anywhere;
-}
-
-.banner__progress {
-  width: 100%;
-  height: 3px;
-  margin-top: 6px;
-  appearance: none;
-  border: 0;
-  border-radius: 2px;
-  background: var(--ecl-color-primary-10);
-  overflow: hidden;
-}
-
-.banner__progress::-webkit-progress-bar {
-  background: var(--ecl-color-primary-10);
-}
-
-.banner__progress::-webkit-progress-value {
-  background: var(--ecl-color-primary);
-  border-radius: 2px;
-  transition: width 0.2s;
-}
-
-.banner__progress::-moz-progress-bar {
-  background: var(--ecl-color-primary);
-}
-
-.banner .ecl-button {
-  flex: none;
-}
-
 /* ---------- Composer ---------- */
 .composer {
   display: flex;
@@ -253,11 +182,6 @@ main:focus {
   color: var(--ecl-color-dark-40);
   border-color: var(--ecl-color-dark-5);
   cursor: default;
-}
-
-.banner .icon-btn {
-  border-color: transparent;
-  background: transparent;
 }
 
 .send-btn {
@@ -566,15 +490,10 @@ main:focus {
   .idea__go {
     transition: none;
   }
-
-  .banner__progress::-webkit-progress-value {
-    transition: none;
-  }
 }
 
 @media (forced-colors: active) {
   .composer,
-  .banner,
   .idea__icon,
   .send-btn {
     border: 1px solid CanvasText;

@@ -1,6 +1,6 @@
-// Downloads SmolLM2-360M-Instruct into public/models so the app runs with no network access at
-// all. Without it, the browser fetches the model from the Hugging Face Hub on first load and
-// keeps it in the Cache API.
+// Downloads SmolLM2-360M-Instruct into public/models; the app serves the model itself and never
+// fetches it from the Hugging Face Hub at runtime. Runs automatically (once) before `dev` and
+// `build` via scripts/ensure-model.mjs.
 //
 //   npm run model:download                    # all weight formats the app can pick
 //   npm run model:download -- --dtypes q4f16  # only WebGPU fp16 weights (~275 MB)
@@ -103,4 +103,4 @@ await Promise.all(
     }
   }),
 )
-console.log('Done. The app loads these files instead of the Hub (see src/llm/worker.ts).')
+console.log('Done. The app serves these files itself (see src/llm/worker.ts).')

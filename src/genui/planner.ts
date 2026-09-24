@@ -97,6 +97,11 @@ function detectTop(p: Parsed): Plan['top'] {
   return undefined
 }
 
+/** Places named in free text (EU27 countries, neighbours, the EU itself). */
+export function placesInText(text: string, codelists: EnergyCodelists): { codes: string[]; eu: boolean } {
+  return detectGeos(parse(text), codelists)
+}
+
 // ---------- time ----------
 
 interface TimeIntent {

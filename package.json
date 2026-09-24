@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-ort.mjs",
+    "predev": "node scripts/copy-ort.mjs && node scripts/ensure-model.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/copy-ort.mjs",
+    "prebuild": "node scripts/copy-ort.mjs && node scripts/ensure-model.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -15,7 +15,8 @@
     "eurostat:glossary": "node scripts/build-eurostat-glossary.mjs",
     "eurostat:knowledge": "node scripts/build-eurostat-knowledge.mjs",
     "eurostat:all": "npm run eurostat:dictionary && npm run eurostat:glossary && npm run eurostat:knowledge && npm run eurostat:geo",
-    "eurostat:geo": "node scripts/build-eurostat-geo.mjs"
+    "eurostat:geo": "node scripts/build-eurostat-geo.mjs",
+    "eval:actions": "tsx scripts/eval-actions.ts"
   },
   "dependencies": {
     "@ecl/preset-eu": "^5.3.1",
@@ -41,6 +42,7 @@
     "fast-xml-parser": "^5.11.1",
     "globals": "^17.12.0",
     "highcharts": "^13.1.1",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.69.0",
     "vite": "^8.3.0"

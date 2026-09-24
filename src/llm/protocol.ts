@@ -20,6 +20,11 @@ export type WorkerRequest =
   | { type: 'interrupt' }
   /** Clears the conversation KV cache (new chat). */
   | { type: 'reset' }
+  /**
+   * Multiple choice: one forward pass, then the probability of each answer "1".."count" as the
+   * next token. The model can only pick one of the options given, never write free text.
+   */
+  | { type: 'choose'; id: number; messages: ChatMessage[]; count: number }
 
 /** Performance numbers for one reply (also logged to the console in development). */
 export interface GenerationStats {
@@ -45,8 +50,9 @@ export interface FileProgress {
 
 export type WorkerResponse =
   | { type: 'progress'; file: string; loaded: number; total: number }
-  | { type: 'ready'; device: 'webgpu' | 'wasm'; dtype: string; source: 'local' | 'hub'; loadMs: number }
+  | { type: 'ready'; device: 'webgpu' | 'wasm'; dtype: string; source: 'local'; loadMs: number }
   | { type: 'start' }
   | { type: 'token'; text: string; tps: number; numTokens: number }
   | { type: 'done'; stats?: GenerationStats }
   | { type: 'error'; message: string }
+  | { type: 'choice'; id: number; probs?: number[]; error?: string }

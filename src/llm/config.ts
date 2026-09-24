@@ -28,3 +28,9 @@ export const GENERATION: GenerationOptions = {
   /** Values above 1 discourage repetition loops; much higher would stop it quoting numbers from the data. */
   repetition_penalty: 1.15,
 }
+
+/**
+ * Minimum probability for acting on the model's pick from the dashboard action menu. Below it the
+ * options are shown as buttons instead ("Did you mean…?").
+ */
+export const CHOICE_MIN_PROB = 0.5

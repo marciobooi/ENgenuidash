@@ -82,3 +82,20 @@ test('labelled follow-ups: no wrong action, every case handled by the rules', as
   const s = summarize(results)
   assert.equal(s.correct, s.total, `${s.asked} messages fall back to buttons`)
 })
+
+test('German and French "why" questions are answered, not refused', () => {
+  for (const text of ['Warum ist Erdgas für die Stromerzeugung wichtig?', 'Pourquoi l’énergie nucléaire est-elle importante en France ?']) {
+    const r = route(text)
+    assert.ok(r.kind === 'answer' || r.kind === 'plan', `${text} → ${r.kind}${r.kind === 'rephrase' ? ` (${r.unknown})` : ''}`)
+  }
+})
+
+test('"produire" is understood in a French question', () => {
+  const r = route('Pourquoi le gaz naturel est-il important pour produire de l’électricité ?')
+  assert.notEqual(r.kind, 'rephrase', JSON.stringify(r))
+})
+
+test('German price compounds ("Strompreise") plan a price dashboard', () => {
+  assert.match(planOf('Strompreise für Haushalte in Deutschland').dataset, /^nrg_pc_204/)
+  assert.match(planOf('Gaspreise für die Industrie in Frankreich').dataset, /^nrg_pc_203/)
+})

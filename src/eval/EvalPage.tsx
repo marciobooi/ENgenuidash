@@ -19,7 +19,7 @@ export default function EvalPage({
   codelists: EnergyCodelists | null
   choose: Choose
   ready: boolean
-  /** Model loaded on this device (the large one on computers with WebGPU, else the small one). */
+  /** Model loaded on this device. */
   model?: string
 }) {
   const [results, setResults] = useState<CaseResult[]>([])

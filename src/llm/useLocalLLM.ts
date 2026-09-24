@@ -53,14 +53,9 @@ export type LLMEvent =
   | { type: 'start' }
   | { type: 'done'; text: string; stopped: boolean }
 
-/**
- * Development only: `?model=small` or `?model=large` in the URL forces that model, to compare
- * speed and answers on one machine (e.g. the phone model on a computer).
- */
-function forcedModel(): 'small' | 'large' | undefined {
-  if (!import.meta.env.DEV) return undefined
-  const m = new URLSearchParams(location.search).get('model')
-  return m === 'small' || m === 'large' ? m : undefined
+/** Drops a "(…)" of a few words without digits after the last sentence: "…grids. (Energy security)" → "…grids." */
+export function withoutSourceTag(text: string): string {
+  return text.replace(/([.!?])\s*\((?=[^()]*[a-z])[^()\d]{2,60}\)\s*\.?$/i, '$1').trim()
 }
 
 /**
@@ -155,6 +150,15 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
           if (msg.stats) setStats(msg.stats)
           setGenerating(false)
           setPhase('idle')
+          {
+            // Small models like to end with an invented source tag ("(Energiewende)"); the real
+            // sources are listed under the answer, so a final bracket without numbers is dropped.
+            const clean = withoutSourceTag(replyRef.current.trim())
+            if (clean !== replyRef.current.trim()) {
+              replyRef.current = clean
+              setMessages((m) => [...m.slice(0, -1), { ...m[m.length - 1], content: clean }])
+            }
+          }
           emit({ type: 'done', text: replyRef.current.trim(), stopped: stoppedRef.current })
           break
         case 'choice': {
@@ -175,7 +179,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     }
 
     // Start downloading the model as soon as the page opens (unless the user is asked first).
-    if (autoLoadRef.current) worker.postMessage({ type: 'load', mobile: isMobileDevice(), model: forcedModel() } satisfies WorkerRequest)
+    if (autoLoadRef.current) worker.postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)
@@ -189,7 +193,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     setError(null)
     setStatus('loading')
     loadingRef.current = true
-    send({ type: 'load', mobile: isMobileDevice(), model: forcedModel() })
+    send({ type: 'load', mobile: isMobileDevice() })
   }, [send])
 
   const ask = useCallback(

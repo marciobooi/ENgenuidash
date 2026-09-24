@@ -2,7 +2,6 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { dashboardActions, scoreActions, rankByOverlap } from '../genui/actions'
 import { routeMessage } from '../genui/route'
 import { STRINGS } from '../i18n'
-import { CHOICE_MIN_PROB } from '../llm/config'
 import { createScopeChecker } from '../llm/energyScope'
 import type { ChatMessage } from '../llm/protocol'
 import { buildVocabulary } from '../llm/vocabulary'
@@ -33,8 +32,8 @@ export interface CaseResult {
 
 /**
  * Runs every labelled follow-up through the same steps as the app: routeMessage (topic guard,
- * vocabulary check, rules) → action menu → model pick. Without `choose` only the rules and the
- * word-overlap fallback are measured. `docFreq`: knowledge-base word frequencies (vocabulary check).
+ * vocabulary check, rules) → action menu (buttons). With `choose`, the model's pick from the
+ * menu is measured too (the app does not apply it). `docFreq`: knowledge-base word frequencies (vocabulary check).
  */
 export async function runEval(
   dict: EnergyDictionary,
@@ -77,7 +76,8 @@ export async function runEval(
       prob = probs[best]
     }
 
-    const outcome = rules ?? (!menu || !actions.length ? 'none' : model && model !== 'none' && (prob ?? 0) >= CHOICE_MIN_PROB ? model : 'ask')
+    // The app shows the menu as buttons; the model's pick is measured but never applied.
+    const outcome = rules ?? (!menu || !actions.length ? 'none' : 'ask')
     const verdict: CaseResult['verdict'] =
       outcome === c.expect || (c.expect === 'none' && outcome === 'ask') ? 'correct' : outcome === 'ask' ? 'asked' : 'wrong'
     const missing = !['none', 'other'].includes(c.expect) && !actions.some((a) => a.id === c.expect)

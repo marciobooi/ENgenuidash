@@ -1,7 +1,7 @@
 /**
- * Phones and tablets get the small model (downloaded once, ~275–390 MB); computers get the large
- * one. Detected automatically, never shown to the user. Runs on the main thread, where screen and
- * pointer information is available (workers cannot see it).
+ * Phones and tablets: asked before the model download (DownloadNotice), and on CPU they get the
+ * smaller q4 weights instead of q8. Detected automatically. Runs on the main thread, where screen
+ * and pointer information is available (workers cannot see it).
  */
 export function isMobileDevice(): boolean {
   const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean }; deviceMemory?: number }

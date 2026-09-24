@@ -1,5 +1,5 @@
 {
-  "$comment": "Language models the app can run in the browser. scripts/download-model.mjs downloads them into public/models and copies these settings into public/models/manifest.json, which src/llm/worker.ts reads. 'small' is for phones and tablets and is the fallback everywhere; 'large' is for computers with WebGPU. chatTemplate: variables for the chat template (thinking stays off for option picking). thinking: reason before free-form answers, hidden from the user, at most thinkingBudget tokens (off for 'large': at the ~6 tokens/s a browser gets, 512 reasoning tokens delayed every answer by over a minute). generation: overrides of src/llm/config.ts GENERATION for free-form answers.",
+  "$comment": "Language models the app can run in the browser. scripts/download-model.mjs downloads them into public/models and copies these settings into public/models/manifest.json, which src/llm/worker.ts reads. 'small' runs on every device (Qwen3.5-0.8B was dropped: about 10× slower in the browser, with no better answers). chatTemplate: variables for the chat template (thinking stays off for option picking). thinking: reason before free-form answers, hidden from the user, at most thinkingBudget tokens. generation: overrides of src/llm/config.ts GENERATION for free-form answers.",
   "small": {
     "id": "onnx-community/Qwen3-0.6B-ONNX",
     "sessions": ["model"],
@@ -8,15 +8,5 @@
     "reuseCache": true,
     "chatTemplate": { "enable_thinking": false },
     "thinking": false
-  },
-  "large": {
-    "id": "onnx-community/Qwen3.5-0.8B-ONNX",
-    "sessions": ["embed_tokens", "decoder_model_merged"],
-    "dtypes": ["q4f16"],
-    "maxInputTokens": 3072,
-    "reuseCache": false,
-    "chatTemplate": { "enable_thinking": false },
-    "thinking": false,
-    "generation": { "temperature": 0.6, "top_p": 0.95, "repetition_penalty": 1.05 }
   }
 }

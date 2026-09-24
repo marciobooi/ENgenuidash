@@ -28,12 +28,13 @@ import {
   type EnergyCodelists,
   type EnergyDictionary,
 } from './data/eurostat'
-import { dashboardActions, scoreActions, rankByOverlap, type DashboardAction } from './genui/actions'
+import { dashboardActions, rankByOverlap, type DashboardAction } from './genui/actions'
 import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
 import { routeMessage } from './genui/route'
+import { questionLanguage, searchQuery } from './llm/crossLingual'
 import type { DashboardSpec, Plan, Suggestion } from './genui/types'
-import { CHOICE_MIN_PROB, GENERATION, SYSTEM_PROMPT } from './llm/config'
+import { GENERATION, SYSTEM_PROMPT } from './llm/config'
 import { createScopeChecker } from './llm/energyScope'
 import { directDefinition, loadGlossary } from './llm/glossary'
 import { bestSentences, CONFIDENT_SCORE, datasetDescription, knowledgeDocFreq, loadKnowledge, MODEL_MIN_SCORE, searchKnowledge } from './llm/knowledge'
@@ -281,8 +282,11 @@ export default function App() {
               // Follow-ups ("and in Germany?") reuse the previous question to find the dataset.
               const query = verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text
               const g = await groundQuestion(query, dict, codelists, lang, signal, { includeData: !conceptual })
+              // The background is English; say which language to answer in, every time (the history
+              // may hold an earlier "Answer in German.").
+              const answerIn = { en: 'Answer in English.', de: 'Answer in German.', fr: 'Answer in French.' }[questionLanguage(text, lang)]
               return {
-                prompt: g.context ? `${text}\n\n${g.context}` : text,
+                prompt: [text, g.context, answerIn].filter(Boolean).join('\n\n'),
                 sources: g.sources,
               }
             },
@@ -371,7 +375,7 @@ export default function App() {
     // 5. Our Eurostat documents answer it well → quote them (extractive answer).
     // 6. They support it (every key word found) → the model, with the passages as background.
     // 7. Otherwise ("what is the date of oil") → ask the user to rephrase; never a free-form guess.
-    const query = verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text
+    const query = searchQuery(verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text)
     void answerFromDocuments(text, query).then((outcome) => {
       if (outcome === 'model') askModel(text, verdict, previous, conceptual)
       else if (outcome === 'unclear') {
@@ -436,26 +440,10 @@ export default function App() {
       setAnnouncement(t.didYouMean)
       openChat()
     }
-    if (!ready) {
-      offer(rankByOverlap(actions, text))
-      return true
-    }
-
-    setBuilding(true)
-    setAnnouncement(t.choosing)
-    void scoreActions(llm.choose, current, text, actions, STRINGS.en.actions)
-      .then(({ probs }) => {
-        setBuilding(false)
-        const best = probs.indexOf(Math.max(...probs))
-        if (best < actions.length && probs[best] >= CHOICE_MIN_PROB) return runAction(actions[best], text)
-        // Not confident (or "none of these"): offer the options as buttons, in word-overlap order,
-        // which ranks better than the model's low-confidence scores (see #/eval).
-        offer(rankByOverlap(actions, text))
-      })
-      .catch(() => {
-        setBuilding(false)
-        offer(rankByOverlap(actions, text))
-      })
+    // The options as buttons, most word overlap first. The model does not pick for the user: on
+    // the labelled follow-ups (#/eval) its picks were right 0 of 69 times, even when confident,
+    // while the rules now handle every labelled case directly.
+    offer(rankByOverlap(actions, text))
     return true
   }
 

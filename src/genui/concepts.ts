@@ -24,7 +24,7 @@ export const PRODUCTS: (Concept & { siec: string })[] = [
   { id: 'bioenergy', siec: 'BIOE', stems: ['bioenerg', 'biomass', 'biomasse'] },
   { id: 'renewables', siec: 'RA000', stems: ['renewabl', 'erneuerbar', 'renouvelable', 'green energy', 'grune energie'] },
   { id: 'nuclear', siec: 'N900H', stems: ['nuclear', 'nuklear', 'kernkraft', 'kernenergie', 'atom', 'nucleaire'] },
-  { id: 'gas', siec: 'G3000', stems: ['natural gas', 'gas', 'erdgas', 'gaz'] },
+  { id: 'gas', siec: 'G3000', stems: ['natural gas', 'gas', 'erdgas', 'gaz', 'gaspreis', 'gasverbrauch', 'gasversorgung', 'gasimport', 'gasspeicher', 'gaskraftwerk'] },
   { id: 'oil', siec: 'O4000XBIO', stems: ['oil', 'petroleum', 'erdol', 'mineralol', 'ol', 'petrole', 'petrolier'] },
   { id: 'coal', siec: 'C0000X0350-0370', stems: ['coal', 'kohle', 'charbon', 'solid fossil'] },
   { id: 'fossil', siec: 'FE', stems: ['fossil'] },
@@ -38,7 +38,8 @@ export const FLOWS: (Concept & { nrgBal: string })[] = [
   { id: 'industry', nrgBal: 'FC_IND_E', stems: ['industry', 'industrial', 'industrie'] },
   { id: 'transport', nrgBal: 'FC_TRA_E', stems: ['transport', 'verkehr'] },
   { id: 'services', nrgBal: 'FC_OTH_CP_E', stems: ['services', 'commercial', 'dienstleist', 'tertiaire'] },
-  { id: 'imports', nrgBal: 'IMP', stems: ['import', 'einfuhr', 'importat'] },
+  // 'import$' is the exact word: a prefix would also match "important".
+  { id: 'imports', nrgBal: 'IMP', stems: ['import$', 'imports', 'imported', 'importing', 'importe', 'importiert', 'einfuhr', 'importat'] },
   { id: 'exports', nrgBal: 'EXP', stems: ['export', 'ausfuhr'] },
   { id: 'production', nrgBal: 'PPRD', stems: ['produc', 'erzeug', 'forder', 'generat', 'gewinn'] },
   { id: 'grossConsumption', nrgBal: 'GIC', stems: ['gross inland', 'bruttoinlands', 'consommation interieure brute'] },
@@ -68,7 +69,8 @@ export const MONTHLY: Record<string, { dataset: string; flows: Record<string, st
 
 /** Indicator datasets that answer a question directly. */
 export const METRICS: (Concept & { id: string })[] = [
-  { id: 'price', stems: ['price', 'preis', 'prix', 'tarif', 'cost', 'kosten', 'cout', 'bill', 'rechnung', 'facture'] },
+  // German compounds ("Strompreise") need the whole compound: 7+ letters match inside words.
+  { id: 'price', stems: ['price', 'preis', 'prix', 'tarif', 'cost', 'kosten', 'cout', 'bill', 'rechnung', 'facture', 'strompreis', 'gaspreis', 'energiepreis', 'heizolpreis', 'energiekosten', 'stromkosten', 'stromrechnung'] },
   { id: 'dependency', stems: ['depend', 'abhangig', 'dependance'] },
   { id: 'intensity', stems: ['intensity', 'intensitat', 'intensite'] },
   { id: 'perCapita', stems: ['per capita', 'per person', 'per head', 'pro kopf', 'par habitant'] },

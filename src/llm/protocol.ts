@@ -15,8 +15,7 @@ export interface GenerationOptions {
 
 export type WorkerRequest =
   /** `mobile`: phones and tablets load the small model (see device.ts and models.json). */
-  /** `model` forces one model ('small' | 'large'); development only, see useLocalLLM. */
-  | { type: 'load'; mobile: boolean; model?: 'small' | 'large' }
+  | { type: 'load'; mobile: boolean }
   | { type: 'generate'; messages: ChatMessage[]; options: GenerationOptions }
   | { type: 'interrupt' }
   /** Clears the conversation KV cache (new chat). */

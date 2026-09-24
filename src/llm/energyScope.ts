@@ -22,6 +22,8 @@ const STEMS = [
   'fossil', 'fossile', 'coal', 'kohle', 'charbon', 'lignite', 'braunkohle', 'anthracite', 'coke', 'koks',
   'peat', 'torf', 'tourbe', 'oil', 'erdöl', 'petrol', 'pétrol', 'diesel', 'gasoline', 'benzin', 'kerosene',
   'kerosin', 'kérosène', 'naphtha', 'lpg', 'crude', 'rohöl', 'brut', 'gas', 'erdgas', 'gaz', 'lng', 'shale',
+  // German compounds that start with a short stem ("gas" alone only matches the whole word)
+  'gaspreis', 'gasverbrauch', 'gasversorgung', 'gasimport', 'gasspeicher', 'gaskraftwerk',
   // nuclear & renewables
   'nuclear', 'nuklear', 'kernkraft', 'kernenergie', 'nucléaire', 'uranium', 'uran', 'renewabl', 'erneuerbar',
   'renouvelable', 'solar', 'solaire', 'photovolta', 'wind', 'éolien', 'eolien', 'hydro', 'wasserkraft',

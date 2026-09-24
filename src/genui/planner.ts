@@ -54,6 +54,8 @@ function parse(question: string): Parsed {
 
 function matches(p: Parsed, stem: string): boolean {
   const s = stem.trim()
+  // "word$": that exact word only.
+  if (s.endsWith('$')) return p.words.includes(s.slice(0, -1))
   if (s.includes(' ')) return p.text.includes(` ${s}`)
   if (s.length <= 4) return p.words.some((w) => w === s || w === `${s}s` || w === `${s}es`)
   // Long stems also match inside German compounds: "stromverbrauch" contains "verbrauch".

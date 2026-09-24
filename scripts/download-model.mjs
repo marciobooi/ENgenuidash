@@ -4,8 +4,8 @@
 //
 //   npm run model:download
 //
-// Each browser downloads only one of these: phones get the small model, computers with WebGPU
-// the large one (see src/llm/worker.ts). Settings from models.json are copied into the manifest.
+// Each browser downloads one format of the model (see src/llm/worker.ts). Settings from
+// models.json are copied into the manifest.
 //
 // The file list comes from the Hub API, so repositories that name or split their ONNX files
 // differently (external .onnx_data files, per-part models) are handled. What was downloaded is
@@ -146,9 +146,11 @@ for (const [key, model] of Object.entries(MODELS)) {
   }
 }
 
-// Keep entries of models that were downloaded earlier but could not be checked this time.
+// Keep entries of models that were downloaded earlier but could not be checked this time;
+// models no longer listed in models.json are dropped.
 const manifestPath = join(ROOT, 'manifest.json')
-const previous = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {}
+const stored = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {}
+const previous = Object.fromEntries(Object.entries(stored).filter(([key]) => key in MODELS))
 mkdirSync(ROOT, { recursive: true })
 writeFileSync(manifestPath, JSON.stringify({ ...previous, ...manifest }, null, 2) + '\n')
 console.log(`\nWrote ${manifestPath}. The app serves these files itself (see src/llm/worker.ts).`)

@@ -66,7 +66,7 @@ const QUESTION_WORDS = new Set(
         // "wie hat sich das entwickelt", "lieber als Balken", "s'il te plaît")
         'ones prefer rather draw plot alone back raw instead instead ' +
         'hat sich lieber zuruck allein ' +
-        'plait prefere plutot retour seul seule',
+        'plait prefere plutot retour seul seule produire produit produite produisent erzeugen erzeugt',
     )
     .split(/\s+/),
 )
@@ -125,7 +125,7 @@ export function buildVocabulary(
   for (const term of plannerTerms()) {
     // Single words only: a phrase ("to date", "hors taxe") must not make its words known on
     // their own ("what is the date of oil?").
-    const t = normalize(term).trim()
+    const t = normalize(term).trim().replace(/\$$/, '')
     if (t.includes(' ')) continue
     addText(t)
     if (t.length >= 5) stems.push(t)
@@ -134,7 +134,8 @@ export function buildVocabulary(
 
   return {
     unknownWords(text, knowledgeDocFreq) {
-      const words = normalize(text).replace(/[’']/g, ' ').split(/[^a-z0-9_-]+/).filter(Boolean)
+      // Hyphens split words too: "est-elle", "peut-on", "Kraft-Wärme".
+      const words = normalize(text).replace(/[’']/g, ' ').split(/[^a-z0-9_]+/).filter(Boolean)
       return words.filter((w) => {
         if (w.length <= 2 || STOPWORDS.has(w) || /\d/.test(w) || w.includes('_')) return false
         if (placeWords.has(w) || hasEnergySignal(w)) return false

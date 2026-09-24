@@ -12,6 +12,7 @@ import {
 import { unitFromText } from '../genui/planner'
 import { normalize } from './energyScope'
 import { findDefinitions } from './glossary'
+import { searchQuery } from './crossLingual'
 import { searchKnowledge, type Passage } from './knowledge'
 
 /**
@@ -193,13 +194,15 @@ export async function groundQuestion(
   { includeData = true }: { includeData?: boolean } = {},
 ): Promise<Grounding> {
   // Verified definitions for concepts in the question ("SIEC", "ktoe", "energy intensity"…).
-  const definitions = findDefinitions(question)
+  // German and French questions also search with their English terms (the documents are English).
+  const english = searchQuery(question)
+  const definitions = findDefinitions(english)
   const glossary = definitions.length ? `Definitions:\n${definitions.map((d) => `- ${d}`).join('\n')}` : null
   if (!dict || !codelists) return { context: glossary, sources: [] }
 
   // Best passages from our own knowledge base (dataset metadata, articles, glossary).
   const searchDatasetsFirst = searchDatasets(dict, searchTerms(question).join(' '), { codelists, limit: 1 })
-  const passages = await searchKnowledge(question, { datasets: searchDatasetsFirst.map((d) => d.code) }).catch(() => [])
+  const passages = await searchKnowledge(english, { datasets: searchDatasetsFirst.map((d) => d.code) }).catch(() => [])
   const docs = background(passages)
 
   const query = searchTerms(question).join(' ')

@@ -65,7 +65,7 @@ async function resetCache() {
 // scripts/ensure-model.mjs, listed in public/models/manifest.json). The browser never contacts
 // the Hugging Face Hub.
 
-type ModelKey = 'small' | 'large'
+type ModelKey = 'small'
 
 /** A downloaded model: its settings (from src/llm/models.json) and each format's part dtypes. */
 interface ModelEntry {
@@ -73,7 +73,7 @@ interface ModelEntry {
   dtypes: Record<string, Record<string, string>>
   /** Prompt budget; older turns are dropped beyond it (small models follow long prompts worse). */
   maxInputTokens?: number
-  /** Reuse the KV cache across turns (off for hybrid-attention models such as Qwen3.5). */
+  /** Reuse the KV cache across turns (off for hybrid-attention models). */
   reuseCache?: boolean
   /** Chat-template variables, e.g. { enable_thinking: false }. */
   chatTemplate?: Record<string, unknown>
@@ -122,15 +122,13 @@ async function gpuSupport(): Promise<{ webgpu: boolean; f16: boolean }> {
 }
 
 /**
- * Models to try, best first. Computers with WebGPU (fp16 shaders) get the large model; phones,
- * tablets and everything else get the small one: q4f16 on WebGPU with fp16 shaders, q4 on other
- * WebGPU devices (q4f16 fails without fp16). On CPU (WASM), computers use q8 (faster there) and
- * phones q4 (half the download). The small model is also the fallback if the large one fails.
+ * Formats to try, best first: q4f16 on WebGPU with fp16 shaders, q4 on other WebGPU devices
+ * (q4f16 fails without fp16). On CPU (WASM), computers use q8 (faster there) and phones q4 (half
+ * the download).
  */
 function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, manifest: Manifest): Candidate[] {
   const has = (key: ModelKey, dtype: string) => !!manifest[key]?.dtypes[dtype]
   const out: Candidate[] = []
-  if (!mobile && gpu.webgpu && gpu.f16 && has('large', 'q4f16')) out.push({ key: 'large', device: 'webgpu', dtype: 'q4f16' })
   if (gpu.webgpu && gpu.f16 && has('small', 'q4f16')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4f16' })
   else if (gpu.webgpu && has('small', 'q4')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4' })
   const cpu: Candidate['dtype'][] = mobile ? ['q4', 'q8'] : ['q8', 'q4']
@@ -164,7 +162,7 @@ async function loadCandidate(c: Candidate, manifest: Manifest) {
   await model.generate({ ...warm, max_new_tokens: 1 })
 }
 
-async function load(mobile: boolean, force?: ModelKey) {
+async function load(mobile: boolean) {
   const started = performance.now()
   const [manifest, gpu] = await Promise.all([readManifest(), gpuSupport()])
   if (!manifest) throw new Error('No language model in public/models (run npm run model:download).')
@@ -174,7 +172,7 @@ async function load(mobile: boolean, force?: ModelKey) {
   // URLs, and with remote models off it then treats tokenizer_config.json as missing.
   env.localModelPath = new URL(`${base}models/`).pathname
 
-  const list = candidates(mobile, gpu, manifest).filter((c) => !force || c.key === force)
+  const list = candidates(mobile, gpu, manifest)
   if (!list.length) throw new Error('No downloaded model runs on this device.')
   let lastError: unknown
   for (const c of list) {
@@ -403,7 +401,7 @@ self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
   try {
     switch (msg.type) {
       case 'load':
-        loading ??= load(msg.mobile, msg.model)
+        loading ??= load(msg.mobile)
         await loading
         break
       case 'generate':

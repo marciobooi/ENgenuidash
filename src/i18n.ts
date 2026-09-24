@@ -158,7 +158,6 @@ const en = {
   notUnderstoodWord: 'I don’t have Eurostat energy information about “{word}”.',
   notUnderstood: "I'm not sure what you mean. I can show Eurostat energy data (for example consumption, production, imports or prices by country and year), explain energy terms, or answer questions from Eurostat's energy documents. Try one of these:",
   didYouMean: 'I’m not sure which change you mean. Did you mean one of these?',
-  choosing: 'Working out what you mean…',
   actions: {
     trend: 'Show the evolution over time',
     allCountries: 'Compare all EU countries',
@@ -357,7 +356,6 @@ export const STRINGS: Record<Lang, Strings> = {
     notUnderstoodWord: 'Zu „{word}“ habe ich keine Eurostat-Energieinformationen.',
     notUnderstood: 'Ich bin nicht sicher, was Sie meinen. Ich kann Eurostat-Energiedaten zeigen (zum Beispiel Verbrauch, Erzeugung, Importe oder Preise nach Land und Jahr), Energiebegriffe erklären oder Fragen anhand der Eurostat-Energiedokumente beantworten. Versuchen Sie zum Beispiel:',
     didYouMean: 'Ich bin nicht sicher, welche Änderung Sie meinen. Meinten Sie eine dieser?',
-    choosing: 'Ich prüfe, was Sie meinen…',
     actions: {
       trend: 'Entwicklung im Zeitverlauf zeigen',
       allCountries: 'Alle EU-Länder vergleichen',
@@ -551,7 +549,6 @@ export const STRINGS: Record<Lang, Strings> = {
     notUnderstoodWord: "Je n'ai pas d'informations énergétiques d'Eurostat sur « {word} ».",
     notUnderstood: "Je ne suis pas sûr de comprendre. Je peux afficher les données énergétiques d'Eurostat (par exemple consommation, production, importations ou prix par pays et par année), expliquer des termes de l'énergie ou répondre à partir des documents d'Eurostat sur l'énergie. Essayez par exemple :",
     didYouMean: 'Je ne suis pas sûr de la modification souhaitée. Vouliez-vous dire l’une de celles-ci ?',
-    choosing: 'Je cherche ce que vous voulez dire…',
     actions: {
       trend: 'Afficher l’évolution dans le temps',
       allCountries: 'Comparer tous les pays de l’UE',

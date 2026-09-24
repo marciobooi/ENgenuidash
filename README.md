@@ -5,11 +5,11 @@ backend. Built with React + Vite, styled with the
 [Europa Component Library](https://ec.europa.eu/component-library/) (`@ecl/preset-eu`), and powered by
 [Transformers.js](https://huggingface.co/docs/transformers.js) running ONNX Runtime in a Web Worker.
 
-- **Phones and tablets** run [Qwen3-0.6B](https://huggingface.co/onnx-community/Qwen3-0.6B-ONNX).
-  **Computers with WebGPU** run the stronger [Qwen3.5-0.8B](https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX)
-  (text part only). Both are
-  multilingual (EN/DE/FR and more) and Apache 2.0.
-  Each browser downloads only its model, once, and chooses it automatically (`src/llm/device.ts`).
+- Every device runs [Qwen3-0.6B](https://huggingface.co/onnx-community/Qwen3-0.6B-ONNX)
+  (multilingual, Apache 2.0), downloaded once in the format that suits it. Phones and tablets are
+  asked first (the download is about 0.6–0.9 GB); computers download it silently. Qwen3.5-0.8B was
+  tried on computers and dropped: in the browser it was about 10× slower (47 s vs 4.5 s for the same
+  answer) and its answers were not better.
 - The ONNX Runtime wasm files are served from this app (`public/ort`, copied by `scripts/copy-ort.mjs`), not a CDN.
 - The model is served by the app itself from `public/models` — the browser never contacts the Hugging Face Hub.
   It is downloaded automatically (once) the first time you run `npm run dev` or `npm run build`.
@@ -25,7 +25,7 @@ npm run dev
 
 The models are listed in `src/llm/models.json`. `npm run dev` and `npm run build` download them
 into `public/models` on the first run (`scripts/ensure-model.mjs`): the file list comes from the Hub
-API, only the parts the app uses are fetched (no vision encoder for Qwen3.5), files are SHA-256
+API, only the parts the app uses are fetched, files are SHA-256
 verified, and `public/models/manifest.json` records what is available. The folder is git-ignored
 and copied into `dist/` by the build, so a deployment serves the models itself. If a download
 fails, dev/build still continue: dashboards work without a model, and `npm run model:download`
@@ -83,23 +83,18 @@ content is authorised with acknowledgement: https://ec.europa.eu/eurostat/about-
 
 ## Local model runtime
 
-`src/llm/worker.ts` runs the model in a Web Worker and picks it per device, best first:
-
-1. Computer with WebGPU and fp16 shaders → Qwen3.5-0.8B (`q4f16`).
-2. Otherwise Qwen3-0.6B: `q4f16` on WebGPU with fp16 shaders, `q4` on other WebGPU devices; on
-   CPU (WASM) `q8` on computers (faster) and `q4` on phones (half the download).
-
-If a model fails to load (for example an operator a browser's WebGPU lacks), the next one is tried.
+`src/llm/worker.ts` runs Qwen3-0.6B in a Web Worker, in the best format for the device: `q4f16` on
+WebGPU with fp16 shaders, `q4` on other WebGPU devices; on CPU (WASM) `q8` on computers (faster)
+and `q4` on phones (half the download). If a format fails to load (for example an operator a
+browser's WebGPU lacks), the next one is tried.
 
 - Tokenizer and weights load in parallel; model and ONNX Runtime files are kept in the Cache API.
-- Qwen3-0.6B reuses the KV cache across turns when the new prompt extends the previous one, so
-  follow-up questions only process the new tokens. History is capped (3 exchanges; 2,048 tokens for
-  Qwen3-0.6B, 3,072 for Qwen3.5).
-- **Thinking** is supported but off (`"thinking": false` in `src/llm/models.json`): at the ~6
-  tokens/s a browser gets, 512 reasoning tokens delayed every answer by over a minute, and grounded
-  answers gain little from it. When on, the `<think>` block is hidden (`src/llm/thinking.ts`, also
-  when the chat template opens it in the prompt, as Qwen3.5's does) and the worker closes the
-  reasoning after `thinkingBudget` tokens. Option picking never uses thinking.
+- The KV cache is reused across turns when the new prompt extends the previous one, so follow-up
+  questions only process the new tokens. History is capped (3 exchanges, 2,048 tokens).
+- **Thinking** is supported but off (`"thinking": false` in `src/llm/models.json`): reasoning
+  tokens delayed every answer by over a minute, and grounded answers gain little from it. When on,
+  the `<think>` block is hidden (`src/llm/thinking.ts`, also when the chat template opens it in the
+  prompt) and the worker closes the reasoning after `thinkingBudget` tokens. Option picking never uses thinking.
 - All settings live in `src/llm/models.json` and travel with the files in
   `public/models/manifest.json`.
 - Per-reply stats (time to first token, tokens/s, reused tokens) are logged in development.
@@ -114,14 +109,12 @@ With a dashboard on screen, a message goes through these steps:
 1. **Rules** (`src/genui/planner.ts`, `refinePlan`): "top 5", "add Germany", "in 2018", "as bar
    chart"… are applied instantly. Countries, years, units and codes come from the Eurostat
    dictionary and codelists.
-2. **Action menu** (`src/genui/actions.ts`): if the rules cannot map the message ("show the trend",
-   "which countries depend the most?"), the app builds up to 8 concrete options from the current
-   dashboard. Each option is a canonical command run through the same rules, so it is always a
-   valid plan.
-3. **Model pick**: the model reads the numbered options and the app takes the probability of each
-   option number as the next token (one forward pass, no free text — `choose` in the worker). A
-   pick with probability ≥ `CHOICE_MIN_PROB` (`src/llm/config.ts`) is applied; otherwise, or while
-   the model is loading, the best options are shown as buttons ("Did you mean…?").
+2. **Action menu** (`src/genui/actions.ts`): if the rules cannot map the message, the app builds up
+   to 8 concrete options from the current dashboard and shows the best four as buttons ("Did you
+   mean…?"), most word overlap first. Each option is a canonical command run through the same
+   rules, so it is always a valid plan. The model does not pick for the user: measured on the
+   labelled follow-ups (`#/eval`), its picks were right 0 of 69 times, even when confident
+   (`scoreActions` still measures it there, with contextual calibration).
 
 "Explain these figures" never uses free generation: it quotes Eurostat's own description of the
 dataset (from the knowledge base) followed by the computed summary and key insights.

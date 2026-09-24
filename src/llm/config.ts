@@ -4,7 +4,7 @@ import type { GenerationOptions } from './protocol'
 
 /**
  * Instruction sent at the start of every conversation. Kept short and in plain sentences on purpose:
- * small models (SmolLM2-360M on phones) tend to repeat long, Markdown-structured prompts back
+ * small models (Qwen3-0.6B) tend to repeat long, Markdown-structured prompts back
  * instead of following them. The app also blocks off-topic questions
  * before they reach the model (see energyScope.ts) and adds Eurostat data to energy questions
  * (see grounding.ts); this prompt is the model-side half of that.
@@ -14,7 +14,8 @@ export const SYSTEM_PROMPT = [
   'Use only the definitions, background, Eurostat data and dataset information given in the message.',
   'Background documents may contain older figures: for numbers, prefer the Eurostat data.',
   'If no Eurostat data is given, explain the concept and do not describe trends or numbers.',
-  'Quote numbers with their unit, period and country, and name the dataset code.',
+  'Quote numbers with their unit, period and country.',
+  'Do not cite sources, documents or dataset codes: the app shows the sources under your answer.',
   'Use only units that are listed; never invent or convert numbers or units.',
   'If the data does not answer the question, say so. Answer in two to four short sentences.',
 ].join(' ')
@@ -29,9 +30,3 @@ export const GENERATION: GenerationOptions = {
   /** Values above 1 discourage repetition loops; much higher would stop it quoting numbers from the data. */
   repetition_penalty: 1.15,
 }
-
-/**
- * Minimum probability for acting on the model's pick from the dashboard action menu. Below it the
- * options are shown as buttons instead ("Did you mean…?").
- */
-export const CHOICE_MIN_PROB = 0.5

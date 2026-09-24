@@ -6,8 +6,11 @@ backend. Built with React + Vite, styled with the
 [Transformers.js](https://huggingface.co/docs/transformers.js) running ONNX Runtime in a Web Worker.
 
 - Every device runs [Qwen3-0.6B](https://huggingface.co/onnx-community/Qwen3-0.6B-ONNX)
-  (multilingual, Apache 2.0), downloaded once in the format that suits it. Phones and tablets are
-  asked first (the download is about 0.6–0.9 GB); computers download it silently. Qwen3.5-0.8B was
+  (multilingual, Apache 2.0), downloaded once in the format that suits it. **The model is
+  optional**: nothing is downloaded on a first visit. Dashboards, definitions, quotes from Eurostat's
+  documents, key insights and greetings need no model. It is downloaded (about 0.6–0.9 GB, after
+  the user agrees) only when someone asks for a fuller, written answer; after that it loads on each
+  visit. Qwen3.5-0.8B was
   tried on computers and dropped: in the browser it was about 10× slower (47 s vs 4.5 s for the same
   answer) and its answers were not better.
 - The ONNX Runtime wasm files are served from this app (`public/ort`, copied by `scripts/copy-ort.mjs`), not a CDN.

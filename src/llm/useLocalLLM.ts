@@ -23,7 +23,8 @@ export interface UIMessage extends ChatMessage {
   /** Link to a dashboard built for this message. */
   card?: { index: number; title: string }
   /** One-click answers to a clarifying question. */
-  choices?: { label: string; query: string; plan?: Plan; explain?: boolean }[]
+  /** Buttons under a message; `fuller` asks the model for a written answer to `query`. */
+  choices?: { label: string; query: string; plan?: Plan; explain?: boolean; fuller?: boolean }[]
   /** Shown with a progress indicator until updated (e.g. while a dashboard is built). */
   pending?: boolean
   /** UI-only message (dashboards, refusals, clarifications): never sent to the model. */

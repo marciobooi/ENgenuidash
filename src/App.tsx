@@ -20,7 +20,6 @@ import { StarsMark } from './Icons'
 import { notify, Toaster } from './components/toast'
 import { Tooltip } from './components/tooltip'
 import { DownloadNotice } from './components/download-notice'
-import { isMobileDevice } from './llm/device'
 import {
   EurostatUnavailableError,
   loadEnergyCodelists,
@@ -33,12 +32,13 @@ import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
 import { planQuestion } from './genui/planner'
 import { routeMessage } from './genui/route'
+import { answerFromHits, smallTalkReply } from './llm/answers'
 import { questionLanguage, searchQuery } from './llm/crossLingual'
 import type { DashboardSpec, Plan, Suggestion } from './genui/types'
 import { GENERATION, SYSTEM_PROMPT } from './llm/config'
 import { createScopeChecker } from './llm/energyScope'
 import { directDefinition, loadGlossary } from './llm/glossary'
-import { bestSentences, CONFIDENT_SCORE, datasetDescription, knowledgeDocFreq, loadKnowledge, MODEL_MIN_SCORE, searchKnowledge } from './llm/knowledge'
+import { datasetDescription, knowledgeDocFreq, loadKnowledge, searchKnowledge } from './llm/knowledge'
 import { buildVocabulary } from './llm/vocabulary'
 import { groundQuestion } from './llm/grounding'
 import { useLocalLLM, type UIMessage } from './llm/useLocalLLM'
@@ -138,11 +138,22 @@ export default function App() {
 
   // Screen-reader announcements. The thread itself is not a live region,
   // so streamed tokens aren't read out one by one; the full reply is announced at the end.
-  // Phones and tablets on their first visit: ask before downloading the model.
-  const [askBeforeDownload] = useState(() => isMobileDevice() && !hasDownloadConsent())
-  const [downloadNotice, setDownloadNotice] = useState(askBeforeDownload)
+  // The language model is optional: it is downloaded only when someone asks for a written
+  // answer and agrees (DownloadNotice), on every device. After that it loads on each visit.
+  const [askBeforeDownload] = useState(() => !hasDownloadConsent())
+  const [downloadNotice, setDownloadNotice] = useState(false)
+  // The question that asked for a fuller answer, answered as soon as the model is ready.
+  const pendingQuestionRef = useRef<string | null>(null)
+  const askModelRef = useRef<(text: string) => void>(() => {})
   const llm = useLocalLLM((e) => {
     switch (e.type) {
+      case 'ready':
+        if (pendingQuestionRef.current) {
+          const q = pendingQuestionRef.current
+          pendingQuestionRef.current = null
+          askModelRef.current(q)
+        }
+        break
       // Loading is silent: the model downloads in the background and data questions work meanwhile.
       case 'error':
         if (!e.duringLoad) notify.error(t.generationFailed, { description: e.message })
@@ -164,6 +175,25 @@ export default function App() {
     saveDownloadConsent()
     setDownloadNotice(false)
     llm.load()
+    if (pendingQuestionRef.current) {
+      llm.append({ role: 'assistant', content: t.dlPreparing })
+      setAnnouncement(t.dlPreparing)
+    }
+  }
+
+  // The model-ready event answers the pending question with the current askModel.
+  useEffect(() => {
+    askModelRef.current = (q: string) => askModel(q, 'energy', [], false, true)
+  })
+
+  /** "Write a fuller answer": the model answers now, or once it is downloaded. */
+  function requestFullerAnswer(question: string) {
+    if (ready) return void askModel(question, 'energy', [], false, true)
+    pendingQuestionRef.current = question
+    if (llm.status === 'loading') {
+      llm.append({ role: 'assistant', content: t.dlPreparing })
+      setAnnouncement(t.dlPreparing)
+    } else setDownloadNotice(true)
   }
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -286,8 +316,8 @@ export default function App() {
     }
   }
 
-  function askModel(text: string, verdict: string, previous: string[], conceptual = false) {
-    if (!ready) {
+  function askModel(text: string, verdict: string, previous: string[], conceptual = false, fuller = false) {
+    if (!ready && !fuller) {
       // Not downloaded yet on this phone ("Not now"): say so and offer the download again.
       const message = llm.status === 'idle' ? t.dlNeeded : t.modelNotReady
       llm.reply(text, message, 'refusal')
@@ -388,9 +418,11 @@ export default function App() {
       return
     }
 
-    // 4. Small talk → the language model (the system prompt keeps it on energy).
+    // 4. Small talk → a fixed reply (no model needed).
     if (verdict === 'small-talk') {
-      askModel(text, verdict, previous, conceptual)
+      const reply = smallTalkReply(text, { hello: t.smallTalkHello, thanks: t.smallTalkThanks })
+      llm.append({ role: 'user', content: text }, { role: 'assistant', content: reply, choices: ideas.map((i) => ({ label: i.text, query: i.text })) })
+      setAnnouncement(reply)
       if (hasDashboard) openChat()
       return
     }
@@ -416,19 +448,26 @@ export default function App() {
    * Decides how a conceptual question is answered, based on how well our Eurostat documents
    * cover it: 'quoted' (answered here), 'model' (well supported) or 'unclear' (not supported).
    */
-  async function answerFromDocuments(text: string, query: string): Promise<'quoted' | 'model' | 'unclear'> {
+  async function answerFromDocuments(text: string, query: string): Promise<'quoted' | 'model' | 'unclear' | 'offered'> {
     const hits = await searchKnowledge(query, { limit: 2 }).catch(() => [])
-    const best = hits[0]
-    if (!best || best.score < MODEL_MIN_SCORE) return 'unclear'
-    if (best.score < CONFIDENT_SCORE) return 'model'
-    const quote = bestSentences(best, query)
-    if (!quote) return 'model'
-    const sources = hits
-      .filter((h) => h.url && (h === best || h.score >= CONFIDENT_SCORE / 2))
-      .map((h) => ({ code: 'Eurostat', title: h.section ? `${h.title} › ${h.section}` : h.title, url: h.url! }))
-    llm.reply(text, quote, 'quote', sources)
-    setAnnouncement(`${t.fromEurostat}: ${quote}`)
-    return 'quoted'
+    const answer = answerFromHits(hits, query)
+    if (answer.kind === 'unclear') return 'unclear'
+    if (answer.kind === 'quote') {
+      llm.reply(text, answer.text, 'quote', answer.sources)
+      setAnnouncement(`${t.fromEurostat}: ${answer.text}`)
+      return 'quoted'
+    }
+    if (ready) return 'model'
+    // No model: the closest Eurostat passage, and the offer of a fuller, written answer.
+    const fuller = [{ label: t.fullerAnswer, query: text, fuller: true }]
+    if (answer.quote) {
+      llm.append({ role: 'user', content: text }, { role: 'assistant', content: answer.quote.text, kind: 'quote', sources: answer.quote.sources, choices: fuller })
+      setAnnouncement(`${t.fromEurostat}: ${answer.quote.text}`)
+    } else {
+      llm.append({ role: 'user', content: text }, { role: 'assistant', content: t.dlOffer, choices: fuller })
+      setAnnouncement(t.dlOffer)
+    }
+    return 'offered'
   }
 
   const onSuggestion = (s: Suggestion) => {
@@ -605,7 +644,7 @@ export default function App() {
                 type="button"
                 className="suggestion-chip"
                 disabled={busy}
-                onClick={() => (c.plan || c.explain ? runAction(c, c.label) : send(c.query))}
+                onClick={() => (c.fuller ? requestFullerAnswer(c.query) : c.plan || c.explain ? runAction(c, c.label) : send(c.query))}
               >
                 {c.label}
               </button>

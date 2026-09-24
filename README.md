@@ -7,7 +7,7 @@ backend. Built with React + Vite, styled with the
 
 - **Phones and tablets** run [Qwen3-0.6B](https://huggingface.co/onnx-community/Qwen3-0.6B-ONNX).
   **Computers with WebGPU** run the stronger [Qwen3.5-0.8B](https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX)
-  (text part only), which reasons before free-form answers (hidden from the user). Both are
+  (text part only). Both are
   multilingual (EN/DE/FR and more) and Apache 2.0.
   Each browser downloads only its model, once, and chooses it automatically (`src/llm/device.ts`).
 - The ONNX Runtime wasm files are served from this app (`public/ort`, copied by `scripts/copy-ort.mjs`), not a CDN.
@@ -95,11 +95,11 @@ If a model fails to load (for example an operator a browser's WebGPU lacks), the
 - Qwen3-0.6B reuses the KV cache across turns when the new prompt extends the previous one, so
   follow-up questions only process the new tokens. History is capped (3 exchanges; 2,048 tokens for
   Qwen3-0.6B, 3,072 for Qwen3.5).
-- **Thinking** (Qwen3.5 on computers, free-form answers only): the model reasons first; the
-  `<think>` block is hidden (`src/llm/thinking.ts`) and the user sees the typing indicator. After
-  `thinkingBudget` tokens (512) the worker closes the reasoning itself and the model answers, so a
-  long reasoning run cannot use up the answer. Option picking never uses thinking: it reads the
-  very next token.
+- **Thinking** is supported but off (`"thinking": false` in `src/llm/models.json`): at the ~6
+  tokens/s a browser gets, 512 reasoning tokens delayed every answer by over a minute, and grounded
+  answers gain little from it. When on, the `<think>` block is hidden (`src/llm/thinking.ts`, also
+  when the chat template opens it in the prompt, as Qwen3.5's does) and the worker closes the
+  reasoning after `thinkingBudget` tokens. Option picking never uses thinking.
 - All settings live in `src/llm/models.json` and travel with the files in
   `public/models/manifest.json`.
 - Per-reply stats (time to first token, tokens/s, reused tokens) are logged in development.
@@ -132,7 +132,7 @@ dataset (from the knowledge base) followed by the computed summary and key insig
 is misunderstood.
 
 ```bash
-npm test                  # unit tests (thinking filter)
+npm test                  # unit tests: routing and guards, 69 labelled follow-ups, insights, thinking filter
 npm run eval:actions      # rules + fallback, in Node
 npm run dev               # then open http://localhost:5173/#/eval for the model's accuracy and speed
 ```

@@ -61,12 +61,29 @@ export function loadWebtools(timeoutMs = 15000): Promise<Webtools> {
   return loading
 }
 
+/**
+ * Destroys a Webtools chart safely. Webtools keeps using the chart right after calling `ready`
+ * (Highcharts' destroy() deletes chart.options, so Webtools then fails with "Cannot read
+ * properties of undefined (reading 'chart')"). Destroy only after the current task has finished.
+ */
+export function destroyChart(chart: Highcharts.Chart) {
+  window.setTimeout(() => {
+    try {
+      if (chart.options) chart.destroy()
+    } catch {
+      // already destroyed
+    }
+  }, 0)
+}
+
 const pluginLoads = new Map<string, Promise<void>>()
 
 /**
  * Makes sure a Webtools-served Highcharts module (e.g. "map") is loaded, by rendering a tiny
  * hidden chart that requests it. Webtools always builds charts with Highcharts.chart(); maps need
  * Highcharts.mapChart(), which becomes available (under the same EC licence) once the module is in.
+ * The probe chart is kept (hidden, 10 px): Webtools may still use it after `ready`, and
+ * destroying it there breaks Webtools.
  */
 export function ensurePlugin(plugin: string): Promise<void> {
   let pending = pluginLoads.get(plugin)
@@ -90,11 +107,9 @@ export function ensurePlugin(plugin: string): Promise<void> {
             menu: [],
             plugins: [plugin],
             options: { logo: { visible: false } },
-            data: { series: [] },
-            ready: (chart) => {
+            data: { chart: { type: 'line' }, title: { text: '' }, series: [] },
+            ready: () => {
               window.clearTimeout(timer)
-              chart.destroy()
-              host.remove()
               resolve()
             },
           })

@@ -1,6 +1,6 @@
 import type Highcharts from 'highcharts'
 import { useEffect, useRef, type RefObject } from 'react'
-import { ensurePlugin, loadWebtools, webtoolsHighcharts } from './webtools'
+import { destroyChart, ensurePlugin, loadWebtools, webtoolsHighcharts } from './webtools'
 
 export type ChartStatus = 'loading' | 'ready' | 'error'
 
@@ -51,7 +51,8 @@ export function WebtoolsChart({
 
     const done = (chart: Highcharts.Chart) => {
       if (cancelled) {
-        chart.destroy()
+        // Called from inside Webtools' render: destroying now would break Webtools.
+        destroyChart(chart)
         return
       }
       instanceRef.current = chart
@@ -73,7 +74,7 @@ export function WebtoolsChart({
         })
       return () => {
         cancelled = true
-        instanceRef.current?.destroy()
+        if (instanceRef.current) destroyChart(instanceRef.current)
         instanceRef.current = null
         if (chartRef) chartRef.current = null
         container.innerHTML = ''
@@ -101,7 +102,7 @@ export function WebtoolsChart({
 
     return () => {
       cancelled = true
-      instanceRef.current?.destroy()
+      if (instanceRef.current) destroyChart(instanceRef.current)
       instanceRef.current = null
       if (chartRef) chartRef.current = null
       container.innerHTML = ''

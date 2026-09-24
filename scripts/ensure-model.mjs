@@ -12,7 +12,9 @@ import { join } from 'node:path'
 const models = JSON.parse(readFileSync(join(process.cwd(), 'src/llm/models.json'), 'utf8'))
 const manifestPath = join(process.cwd(), 'public/models/manifest.json')
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : {}
-const missing = Object.entries(models).filter(([key, m]) => !key.startsWith('$') && manifest[key]?.id !== m.id)
+// Re-run when a model or its settings changed in models.json (the download skips valid files).
+const same = (m, e) => e?.id === m.id && ['maxInputTokens', 'reuseCache', 'chatTemplate', 'thinking', 'thinkingBudget', 'generation'].every((k) => JSON.stringify(m[k]) === JSON.stringify(e[k]))
+const missing = Object.entries(models).filter(([key, m]) => !key.startsWith('$') && !same(m, manifest[key]))
 
 if (!missing.length) {
   console.log('Language models ready in public/models')

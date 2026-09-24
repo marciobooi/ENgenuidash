@@ -16,7 +16,8 @@
     "eurostat:knowledge": "node scripts/build-eurostat-knowledge.mjs",
     "eurostat:all": "npm run eurostat:dictionary && npm run eurostat:glossary && npm run eurostat:knowledge && npm run eurostat:geo",
     "eurostat:geo": "node scripts/build-eurostat-geo.mjs",
-    "eval:actions": "tsx scripts/eval-actions.ts"
+    "eval:actions": "tsx scripts/eval-actions.ts",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@ecl/preset-eu": "^5.3.1",

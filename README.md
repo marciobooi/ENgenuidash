@@ -5,9 +5,10 @@ backend. Built with React + Vite, styled with the
 [Europa Component Library](https://ec.europa.eu/component-library/) (`@ecl/preset-eu`), and powered by
 [Transformers.js](https://huggingface.co/docs/transformers.js) running ONNX Runtime in a Web Worker.
 
-- **Phones and tablets** run [SmolLM2-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct)
-  (~275 MB on WebGPU, ~390 MB on CPU). **Computers with WebGPU** run the stronger, multilingual
-  [Qwen3.5-0.8B](https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX) (text part only, Apache 2.0).
+- **Phones and tablets** run [Qwen3-0.6B](https://huggingface.co/onnx-community/Qwen3-0.6B-ONNX).
+  **Computers with WebGPU** run the stronger [Qwen3.5-0.8B](https://huggingface.co/onnx-community/Qwen3.5-0.8B-ONNX)
+  (text part only), which reasons before free-form answers (hidden from the user). Both are
+  multilingual (EN/DE/FR and more) and Apache 2.0.
   Each browser downloads only its model, once, and chooses it automatically (`src/llm/device.ts`).
 - The ONNX Runtime wasm files are served from this app (`public/ort`, copied by `scripts/copy-ort.mjs`), not a CDN.
 - The model is served by the app itself from `public/models` — the browser never contacts the Hugging Face Hub.
@@ -84,16 +85,23 @@ content is authorised with acknowledgement: https://ec.europa.eu/eurostat/about-
 
 `src/llm/worker.ts` runs the model in a Web Worker and picks it per device, best first:
 
-1. Computer with WebGPU and fp16 shaders → Qwen3.5-0.8B (`q4f16`, thinking mode off).
-2. Otherwise SmolLM2-360M: `q4f16` on WebGPU with fp16 shaders, `q4` on other WebGPU devices,
-   `q8` on CPU (WASM).
+1. Computer with WebGPU and fp16 shaders → Qwen3.5-0.8B (`q4f16`).
+2. Otherwise Qwen3-0.6B: `q4f16` on WebGPU with fp16 shaders, `q4` on other WebGPU devices; on
+   CPU (WASM) `q8` on computers (faster) and `q4` on phones (half the download).
 
 If a model fails to load (for example an operator a browser's WebGPU lacks), the next one is tried.
 
 - Tokenizer and weights load in parallel; model and ONNX Runtime files are kept in the Cache API.
-- SmolLM2 reuses the KV cache across turns when the new prompt extends the previous one, so
-  follow-up questions only process the new tokens. History is capped (3 exchanges; 1,536 tokens for
-  SmolLM2, 3,072 for Qwen3.5).
+- Qwen3-0.6B reuses the KV cache across turns when the new prompt extends the previous one, so
+  follow-up questions only process the new tokens. History is capped (3 exchanges; 2,048 tokens for
+  Qwen3-0.6B, 3,072 for Qwen3.5).
+- **Thinking** (Qwen3.5 on computers, free-form answers only): the model reasons first; the
+  `<think>` block is hidden (`src/llm/thinking.ts`) and the user sees the typing indicator. After
+  `thinkingBudget` tokens (512) the worker closes the reasoning itself and the model answers, so a
+  long reasoning run cannot use up the answer. Option picking never uses thinking: it reads the
+  very next token.
+- All settings live in `src/llm/models.json` and travel with the files in
+  `public/models/manifest.json`.
 - Per-reply stats (time to first token, tokens/s, reused tokens) are logged in development.
 
 The model is loaded only from `public/models` (atomic writes, SHA-256 verified against the Hub at
@@ -124,6 +132,7 @@ dataset (from the knowledge base) followed by the computed summary and key insig
 is misunderstood.
 
 ```bash
+npm test                  # unit tests (thinking filter)
 npm run eval:actions      # rules + fallback, in Node
 npm run dev               # then open http://localhost:5173/#/eval for the model's accuracy and speed
 ```

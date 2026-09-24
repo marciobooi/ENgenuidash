@@ -1,11 +1,13 @@
 {
-  "$comment": "Language models the app can run in the browser. Read by scripts/download-model.mjs (what to download into public/models) and src/llm/worker.ts (what to load). 'small' is for phones and tablets and as a fallback; 'large' is for computers with WebGPU.",
+  "$comment": "Language models the app can run in the browser. scripts/download-model.mjs downloads them into public/models and copies these settings into public/models/manifest.json, which src/llm/worker.ts reads. 'small' is for phones and tablets and is the fallback everywhere; 'large' is for computers with WebGPU. chatTemplate: variables for the chat template (thinking stays off for option picking). thinking: reason before free-form answers, hidden from the user, at most thinkingBudget tokens. generation: overrides of src/llm/config.ts GENERATION for free-form answers.",
   "small": {
-    "id": "HuggingFaceTB/SmolLM2-360M-Instruct",
+    "id": "onnx-community/Qwen3-0.6B-ONNX",
     "sessions": ["model"],
     "dtypes": ["q4f16", "q4", "q8"],
-    "maxInputTokens": 1536,
-    "reuseCache": true
+    "maxInputTokens": 2048,
+    "reuseCache": true,
+    "chatTemplate": { "enable_thinking": false },
+    "thinking": false
   },
   "large": {
     "id": "onnx-community/Qwen3.5-0.8B-ONNX",
@@ -13,6 +15,9 @@
     "dtypes": ["q4f16"],
     "maxInputTokens": 3072,
     "reuseCache": false,
-    "chatTemplate": { "enable_thinking": false }
+    "chatTemplate": { "enable_thinking": false },
+    "thinking": true,
+    "thinkingBudget": 512,
+    "generation": { "temperature": 0.6, "top_p": 0.95, "repetition_penalty": 1.05 }
   }
 }

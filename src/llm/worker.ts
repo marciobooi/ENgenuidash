@@ -3,13 +3,14 @@ import {
   AutoModelForCausalLM,
   AutoTokenizer,
   InterruptableStoppingCriteria,
+  StoppingCriteria,
+  Tensor,
   TextStreamer,
   env,
   type DynamicCache,
-  type Tensor,
 } from '@huggingface/transformers'
-import MODELS from './models.json'
-import type { ChatMessage, GenerationStats, WorkerRequest, WorkerResponse } from './protocol'
+import type { ChatMessage, GenerationOptions, GenerationStats, WorkerRequest, WorkerResponse } from './protocol'
+import { ThinkingFilter } from './thinking'
 
 type Tokenizer = Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>>
 type Model = Awaited<ReturnType<typeof AutoModelForCausalLM.from_pretrained>>
@@ -65,24 +66,34 @@ async function resetCache() {
 // the Hugging Face Hub.
 
 type ModelKey = 'small' | 'large'
-/** What was downloaded: per model, the available formats and each part's dtype. */
-type Manifest = Partial<Record<ModelKey, { id: string; dtypes: Record<string, Record<string, string>> }>>
+
+/** A downloaded model: its settings (from src/llm/models.json) and each format's part dtypes. */
+interface ModelEntry {
+  id: string
+  dtypes: Record<string, Record<string, string>>
+  /** Prompt budget; older turns are dropped beyond it (small models follow long prompts worse). */
+  maxInputTokens?: number
+  /** Reuse the KV cache across turns (off for hybrid-attention models such as Qwen3.5). */
+  reuseCache?: boolean
+  /** Chat-template variables, e.g. { enable_thinking: false }. */
+  chatTemplate?: Record<string, unknown>
+  /** Reason (hidden) before free-form answers, for at most thinkingBudget tokens. */
+  thinking?: boolean
+  thinkingBudget?: number
+  /** Overrides of the app's generation options for free-form answers. */
+  generation?: Partial<GenerationOptions>
+}
+
+/** public/models/manifest.json, written by scripts/download-model.mjs. */
+type Manifest = Partial<Record<ModelKey, ModelEntry>>
 interface Candidate {
   key: ModelKey
   device: Device
   dtype: 'q4f16' | 'q4' | 'q8'
 }
 
-/** Settings of the loaded model (models.json). */
-let active: {
-  id: string
-  /** Prompt budget; older turns are dropped beyond it (small models follow long prompts worse). */
-  maxInputTokens: number
-  /** Reuse the KV cache across turns (off for hybrid-attention models such as Qwen3.5). */
-  reuseCache: boolean
-  /** Extra chat-template variables, e.g. { enable_thinking: false } for Qwen. */
-  chatTemplate: Record<string, unknown>
-} | null = null
+/** The loaded model and its settings. */
+let active: ModelEntry | null = null
 
 async function readManifest(): Promise<Manifest | null> {
   try {
@@ -113,21 +124,23 @@ async function gpuSupport(): Promise<{ webgpu: boolean; f16: boolean }> {
 /**
  * Models to try, best first. Computers with WebGPU (fp16 shaders) get the large model; phones,
  * tablets and everything else get the small one: q4f16 on WebGPU with fp16 shaders, q4 on other
- * WebGPU devices (q4f16 fails without fp16), q8 on CPU/WASM (faster than 4-bit there).
- * The small model is also the fallback if the large one fails to load.
+ * WebGPU devices (q4f16 fails without fp16). On CPU (WASM), computers use q8 (faster there) and
+ * phones q4 (half the download). The small model is also the fallback if the large one fails.
  */
 function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, manifest: Manifest): Candidate[] {
-  const has = (key: ModelKey, dtype: string) => !!manifest[key]?.dtypes[dtype] && manifest[key]?.id === MODELS[key].id
+  const has = (key: ModelKey, dtype: string) => !!manifest[key]?.dtypes[dtype]
   const out: Candidate[] = []
   if (!mobile && gpu.webgpu && gpu.f16 && has('large', 'q4f16')) out.push({ key: 'large', device: 'webgpu', dtype: 'q4f16' })
   if (gpu.webgpu && gpu.f16 && has('small', 'q4f16')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4f16' })
   else if (gpu.webgpu && has('small', 'q4')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4' })
-  if (has('small', 'q8')) out.push({ key: 'small', device: 'wasm', dtype: 'q8' })
+  const cpu: Candidate['dtype'][] = mobile ? ['q4', 'q8'] : ['q8', 'q4']
+  const onCpu = cpu.find((d) => has('small', d))
+  if (onCpu) out.push({ key: 'small', device: 'wasm', dtype: onCpu })
   return out
 }
 
 async function loadCandidate(c: Candidate, manifest: Manifest) {
-  const spec = MODELS[c.key]
+  const spec = manifest[c.key]!
   const progress_callback = (p: { status: string; file?: string; loaded?: number; total?: number }) => {
     if (p.status === 'progress' && p.file) {
       post({ type: 'progress', file: p.file, loaded: p.loaded ?? 0, total: p.total ?? 0 })
@@ -139,18 +152,13 @@ async function loadCandidate(c: Candidate, manifest: Manifest) {
     AutoTokenizer.from_pretrained(spec.id, { progress_callback }),
     AutoModelForCausalLM.from_pretrained(spec.id, {
       device: c.device,
-      dtype: manifest[c.key]!.dtypes[c.dtype] as Record<string, 'q4f16' | 'q4' | 'q8' | 'fp16' | 'fp32'>,
+      dtype: spec.dtypes[c.dtype] as Record<string, 'q4f16' | 'q4' | 'q8' | 'fp16' | 'fp32'>,
       progress_callback,
     }),
   ])
   tokenizer = tok
   model = mdl
-  active = {
-    id: spec.id,
-    maxInputTokens: spec.maxInputTokens,
-    reuseCache: spec.reuseCache,
-    chatTemplate: ('chatTemplate' in spec ? spec.chatTemplate : {}) as Record<string, unknown>,
-  }
+  active = spec
   // Warm-up: compiles WebGPU shaders / initialises kernels so the first reply is not slow.
   const warm = tokenizer('Energy')
   await model.generate({ ...warm, max_new_tokens: 1 })
@@ -162,7 +170,9 @@ async function load(mobile: boolean) {
   if (!manifest) throw new Error('No language model in public/models (run npm run model:download).')
   env.allowLocalModels = true
   env.allowRemoteModels = false
-  env.localModelPath = `${base}models/`
+  // A path, not a full URL: Transformers.js skips its existence check for local files given as
+  // URLs, and with remote models off it then treats tokenizer_config.json as missing.
+  env.localModelPath = new URL(`${base}models/`).pathname
 
   const list = candidates(mobile, gpu, manifest)
   if (!list.length) throw new Error('No downloaded model runs on this device.')
@@ -176,7 +186,7 @@ async function load(mobile: boolean) {
       return
     } catch (err) {
       // e.g. an operator the browser's WebGPU does not support: try the next (smaller) option.
-      log(`could not load ${MODELS[c.key].id} ${c.device}/${c.dtype}:`, err)
+      log(`could not load ${manifest[c.key]!.id} ${c.device}/${c.dtype}:`, err)
       lastError = err
       await model?.dispose()
       model = null
@@ -189,15 +199,17 @@ async function load(mobile: boolean) {
 
 // ---------- prompt building ----------
 
-function tokenize(messages: ChatMessage[]) {
-  return tokenizer!.apply_chat_template(messages, { add_generation_prompt: true, return_dict: true, ...active?.chatTemplate }) as {
+/** Chat template → token ids. `thinking` switches the model's reasoning on (free-form answers). */
+function tokenize(messages: ChatMessage[], thinking = false) {
+  const vars = { ...active?.chatTemplate, ...(thinking ? { enable_thinking: true } : {}) }
+  return tokenizer!.apply_chat_template(messages, { add_generation_prompt: true, return_dict: true, ...vars }) as {
     input_ids: { dims: number[]; data: BigInt64Array; tolist(): bigint[][] }
     attention_mask: unknown
   }
 }
 
 /** Drops the oldest user/assistant turns until the prompt fits the model's input budget. */
-function fitToBudget(messages: ChatMessage[]) {
+function fitToBudget(messages: ChatMessage[], thinking = false) {
   const system = messages[0]?.role === 'system' ? [messages[0]] : []
   let turns = messages.slice(system.length)
   let dropped = 0
@@ -207,13 +219,13 @@ function fitToBudget(messages: ChatMessage[]) {
     turns = turns.slice(cut)
     dropped += cut
   }
-  let inputs = tokenize([...system, ...turns])
+  let inputs = tokenize([...system, ...turns], thinking)
   while (inputs.input_ids.dims[1] > (active?.maxInputTokens ?? 1536) && turns.length > 1) {
     // Remove the oldest turn (and its answer) but always keep the latest question.
     const cut = turns[1]?.role === 'assistant' ? 2 : 1
     turns = turns.slice(cut)
     dropped += cut
-    inputs = tokenize([...system, ...turns])
+    inputs = tokenize([...system, ...turns], thinking)
   }
   return { inputs, dropped }
 }
@@ -228,6 +240,20 @@ function sharedPrefix(ids: BigInt64Array): number {
 
 // ---------- generation ----------
 
+/** Stops generation when `limitReached()` says so (e.g. reasoning ran past its budget). */
+class StopWhen extends StoppingCriteria {
+  private limitReached: () => boolean
+  constructor(limitReached: () => boolean) {
+    super()
+    this.limitReached = limitReached
+  }
+  _call(input_ids: number[][]) {
+    return input_ids.map(() => this.limitReached())
+  }
+}
+
+type GenerateOutput = { sequences: { tolist(): bigint[][] }; past_key_values: DynamicCache }
+
 async function generate({ messages, options }: Extract<WorkerRequest, { type: 'generate' }>) {
   if (!tokenizer || !model) throw new Error('Model is not loaded yet.')
   if (busy) throw new Error('A reply is already being generated.')
@@ -235,7 +261,13 @@ async function generate({ messages, options }: Extract<WorkerRequest, { type: 'g
   const started = performance.now()
 
   try {
-    const { inputs, dropped } = fitToBudget(messages)
+    // Models with thinking reason first (hidden), for at most `budget` tokens, then answer.
+    const thinking = !!active?.thinking
+    const budget = active?.thinkingBudget ?? 512
+    const gen = { ...options, ...active?.generation }
+    const filter = new ThinkingFilter()
+
+    const { inputs, dropped } = fitToBudget(messages, thinking)
     const ids = inputs.input_ids.data
 
     // The cache covers every token except the last one sampled. Reuse it only if the new
@@ -247,36 +279,58 @@ async function generate({ messages, options }: Extract<WorkerRequest, { type: 'g
 
     let firstTokenAt = 0
     let generatedTokens = 0
-    const streamer = new TextStreamer(tokenizer, {
-      skip_prompt: true,
-      skip_special_tokens: true,
-      token_callback_function: () => {
-        firstTokenAt ||= performance.now()
-        generatedTokens++
-      },
-      callback_function: (raw: string) => {
-        // Qwen's thinking is switched off in the chat template; drop stray tags if any appear.
-        const text = raw.replace(/<\/?think>/g, '')
-        const elapsed = performance.now() - firstTokenAt
-        const tps = generatedTokens > 1 && elapsed > 0 ? ((generatedTokens - 1) / elapsed) * 1000 : 0
-        post({ type: 'token', text, tps, numTokens: generatedTokens })
-      },
-    })
+    const makeStreamer = () =>
+      new TextStreamer(tokenizer!, {
+        skip_prompt: true,
+        skip_special_tokens: true,
+        token_callback_function: () => {
+          firstTokenAt ||= performance.now()
+          generatedTokens++
+        },
+        callback_function: (raw: string) => {
+          // Only the answer is shown: the reasoning block (if any) is filtered out.
+          const text = filter.push(raw)
+          if (!text) return
+          const elapsed = performance.now() - firstTokenAt
+          const tps = generatedTokens > 1 && elapsed > 0 ? ((generatedTokens - 1) / elapsed) * 1000 : 0
+          post({ type: 'token', text, tps, numTokens: generatedTokens })
+        },
+      })
+    const sampling = {
+      do_sample: gen.temperature > 0,
+      temperature: gen.temperature,
+      top_p: gen.top_p,
+      repetition_penalty: gen.repetition_penalty,
+      return_dict_in_generate: true,
+    }
 
     stopping.reset()
     post({ type: 'start' })
-    const output = (await model.generate({
+    let output = (await model.generate({
       ...inputs,
       ...(reusable ? { past_key_values: cache } : {}),
-      max_new_tokens: options.max_new_tokens,
-      do_sample: options.temperature > 0,
-      temperature: options.temperature,
-      top_p: options.top_p,
-      repetition_penalty: options.repetition_penalty,
-      streamer,
-      stopping_criteria: stopping,
-      return_dict_in_generate: true,
-    })) as unknown as { sequences: { tolist(): bigint[][] }; past_key_values: DynamicCache }
+      ...sampling,
+      max_new_tokens: thinking ? budget + gen.max_new_tokens : gen.max_new_tokens,
+      streamer: makeStreamer(),
+      stopping_criteria: [stopping, new StopWhen(() => thinking && filter.thinking && generatedTokens >= budget)],
+    })) as unknown as GenerateOutput
+
+    // Reasoning hit its budget: close it ourselves and let the model answer from what it has.
+    if (thinking && !filter.answering && !stopping.interrupted) {
+      const closing = tokenizer.encode('\n</think>\n\n', { add_special_tokens: false })
+      const next = [...output.sequences.tolist()[0], ...closing.map(BigInt)]
+      filter.forceAnswer()
+      await output.past_key_values?.dispose()
+      log(`thinking budget (${budget} tokens) reached: answering`)
+      output = (await model.generate({
+        input_ids: new Tensor('int64', BigInt64Array.from(next), [1, next.length]),
+        attention_mask: new Tensor('int64', new BigInt64Array(next.length).fill(1n), [1, next.length]),
+        ...sampling,
+        max_new_tokens: gen.max_new_tokens,
+        streamer: makeStreamer(),
+        stopping_criteria: stopping,
+      })) as unknown as GenerateOutput
+    }
 
     // Keep this turn's cache for the next one (the previous cache object was updated in place
     // or replaced; dispose it only if it is a different object).

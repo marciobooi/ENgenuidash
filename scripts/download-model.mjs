@@ -5,7 +5,7 @@
 //   npm run model:download
 //
 // Each browser downloads only one of these: phones get the small model, computers with WebGPU
-// the large one (see src/llm/worker.ts).
+// the large one (see src/llm/worker.ts). Settings from models.json are copied into the manifest.
 //
 // The file list comes from the Hub API, so repositories that name or split their ONNX files
 // differently (external .onnx_data files, per-part models) are handled. What was downloaded is
@@ -137,7 +137,9 @@ for (const [key, model] of Object.entries(MODELS)) {
         }
       }),
     )
-    manifest[key] = { id: model.id, dtypes }
+    // Settings travel with the files: the app reads everything it needs from the manifest.
+    const { sessions: _sessions, dtypes: _requested, ...settings } = model
+    manifest[key] = { ...settings, id: model.id, dtypes }
   } catch (err) {
     failed = true
     console.error(`✗ ${model.id}: ${err.message}`)

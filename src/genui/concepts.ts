@@ -84,7 +84,7 @@ export const MONTHLY_WORDS = ['monthly', 'per month', 'each month', 'by month', 
 export const ALL_TIME_WORDS = ['all time', 'all-time', 'ever', 'history', 'historic', 'until today', 'up to today', 'to date', 'full', 'since the beginning', 'alle zeit', 'bis heute', 'gesamte', 'seit beginn', 'jusqu a aujourd hui', 'depuis toujours', 'historique', 'toute']
 export const ALL_COUNTRIES_WORDS = ['all countries', 'every country', 'each country', 'by country', 'per country', 'member states', 'all member', 'eu countries', 'european countries', 'compare countries', 'ranking', 'alle lander', 'jedes land', 'mitgliedstaaten', 'nach land', 'tous les pays', 'chaque pays', 'etats membres', 'par pays', 'classement']
 export const EXPLAIN_WORDS = ['what is', 'what are', 'what does', 'explain', 'why', 'how does', 'how do', 'how is', 'define', 'definition', 'meaning', 'was ist', 'was sind', 'erklar', 'warum', 'wieso', 'wie funktioniert', 'qu est-ce', 'qu est ce', 'explique', 'pourquoi', 'comment fonctionne', 'c est quoi']
-export const EU_ALIASES = ['eu', 'eu27', 'eu-27', 'european union', 'europaische union', 'union europeenne', 'europe', 'europa']
+export const EU_ALIASES = ['eu', 'eu27', 'eu-27', 'ue', 'ue27', 'ue-27', 'european union', 'europaische union', 'union europeenne', 'uniao europeia', 'union europea', 'unione europea', 'europe', 'europa']
 
 export const EU27 = ['BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'HR', 'IT', 'CY', 'LV', 'LT', 'LU', 'HU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'FI', 'SE']
 

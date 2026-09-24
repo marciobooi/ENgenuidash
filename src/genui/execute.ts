@@ -51,6 +51,8 @@ export interface DashStrings {
   heatmapTitle: string
   yearsShort: string
   allYears: string
+  noteTop: string
+  noteBottom: string
   insights: InsightStrings
 }
 
@@ -136,6 +138,18 @@ export async function buildDashboard(
   const focusIndex = plan.focusPeriod
     ? Math.max(periods.findIndex((p) => p.code === plan.focusPeriod), 0)
     : Math.max(...series.map((x) => latestIndex(x.data)))
+
+  // "Top 5" / "bottom 3": keep the n highest (lowest) countries in the period shown.
+  let topNote: string | undefined
+  if (plan.top && seriesDim === 'geo' && series.length > plan.top.n) {
+    const { n, lowest } = plan.top
+    const total = series.filter((x) => x.data[focusIndex] != null).length
+    series = series
+      .filter((x) => x.data[focusIndex] != null)
+      .sort((a, b) => ((lowest ? 1 : -1) * ((a.data[focusIndex] as number) - (b.data[focusIndex] as number))))
+      .slice(0, n)
+    topNote = fill(lowest ? s.noteBottom : s.noteTop, { n: String(series.length), total: String(total), period: periods[focusIndex]?.label ?? '' })
+  }
 
   // ---------- titles ----------
   const selectionLabels = result.dimensionIds
@@ -556,6 +570,7 @@ export async function buildDashboard(
     summary,
     insights,
     notes: [
+      ...(topNote ? [topNote] : []),
       ...(result.cachedAt
         ? [fill(s.noteCached, { date: new Date(result.cachedAt).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' }) })]
         : []),

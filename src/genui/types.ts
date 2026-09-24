@@ -11,6 +11,8 @@ export interface Plan {
   focusPeriod?: string
   /** Set when the user asked for every EU country. */
   allCountries?: boolean
+  /** "Top 5" / "bottom 3": keep only the n highest (or lowest) countries in the focus period. */
+  top?: { n: number; lowest?: boolean }
   /** Monthly variant of the dataset, if one exists (for the "Show monthly" suggestion). */
   monthlyDataset?: string
   /** Planner notes shown under the summary, e.g. "Monthly data is not available for this topic". */

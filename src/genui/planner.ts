@@ -82,6 +82,21 @@ function detectGeos(p: Parsed, codelists: EnergyCodelists): { codes: string[]; e
   return { codes, eu }
 }
 
+/** "top 5", "5 highest", "bottom 3", "les 5 premiers", "die 5 höchsten" → { n, lowest }. */
+const TOP_BEFORE = '(?:top|best|highest|largest|biggest|premiers?|meilleurs?|hochsten|grossten)'
+const BOTTOM_BEFORE = '(?:bottom|worst|lowest|smallest|derniers?|niedrigsten|kleinsten)'
+const TOP_AFTER = '(?:highest|largest|biggest|most|premiers?|plus eleves?|plus grands?|hochsten|grossten|meisten)'
+const BOTTOM_AFTER = '(?:lowest|smallest|least|derniers?|plus faibles?|plus bas|niedrigsten|kleinsten|wenigsten)'
+
+function detectTop(p: Parsed): Plan['top'] {
+  const n = (m: RegExpMatchArray | null) => (m ? Number(m[1]) : 0)
+  const top = n(p.text.match(new RegExp(`\\b${TOP_BEFORE}\\s+(\\d{1,2})\\b`))) || n(p.text.match(new RegExp(`\\b(\\d{1,2})\\s+${TOP_AFTER}\\b`)))
+  if (top >= 1 && top <= 27) return { n: top }
+  const bottom = n(p.text.match(new RegExp(`\\b${BOTTOM_BEFORE}\\s+(\\d{1,2})\\b`))) || n(p.text.match(new RegExp(`\\b(\\d{1,2})\\s+${BOTTOM_AFTER}\\b`)))
+  if (bottom >= 1 && bottom <= 27) return { n: bottom, lowest: true }
+  return undefined
+}
+
 // ---------- time ----------
 
 interface TimeIntent {
@@ -169,7 +184,8 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
   const flows = find(p, FLOWS)
   const time = detectTime(p)
   const geo = detectGeos(p, codelists)
-  const allCountries = any(p, ALL_COUNTRIES_WORDS)
+  const top = detectTop(p)
+  const allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
   const mix = any(p, MIX_WORDS)
   const notes: NoteKey[] = []
 
@@ -347,7 +363,7 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
 
   return {
     kind: 'plan',
-    plan: { dataset, filters: finalFilters, time: range, intent, focusPeriod, allCountries, monthlyDataset, notes },
+    plan: { dataset, filters: finalFilters, time: range, intent, focusPeriod, allCountries, top, monthlyDataset, notes },
   }
 }
 
@@ -377,7 +393,8 @@ export function refinePlan(
   const time = detectTime(p)
   const geo = detectGeos(p, codelists)
   const chart = detectChart(p)
-  const allCountries = any(p, ALL_COUNTRIES_WORDS)
+  const top = detectTop(p)
+  const allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
   const mix = any(p, MIX_WORDS)
 
   const next: Plan = { ...current, filters: { ...current.filters }, notes: [] }
@@ -397,6 +414,7 @@ export function refinePlan(
     if (allCountries) {
       geos = EU27.filter((c) => geoDim.codes.includes(c))
       next.allCountries = true
+      next.top = top
       next.intent = 'compare'
       if (next.time.kind !== 'range' || !next.focusPeriod) next.time = { kind: 'last', n: freq === 'A' || freq === 'S' ? 2 : 13 }
     } else if (any(p, REMOVE_WORDS)) {
@@ -410,6 +428,7 @@ export function refinePlan(
       next.filters.geo = geos.length === 1 ? geos[0] : geos
       if (!allCountries) {
         next.allCountries = false
+        next.top = undefined
         if (next.intent === 'compare' && geos.length <= 6) next.intent = 'trend'
       }
       changed = true

@@ -21,7 +21,6 @@ import { StarsMark } from './Icons'
 import { notify, Toaster } from './components/toast'
 import { Tooltip } from './components/tooltip'
 import {
-  describeDataset,
   EurostatUnavailableError,
   loadEnergyCodelists,
   loadEnergyDictionary,
@@ -33,9 +32,9 @@ import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
 import { planQuestion, refinePlan } from './genui/planner'
 import type { DashboardSpec, Plan, Suggestion } from './genui/types'
 import { GENERATION, SYSTEM_PROMPT } from './llm/config'
-import { createScopeChecker } from './llm/energyScope'
+import { createScopeChecker, normalize } from './llm/energyScope'
 import { directDefinition, loadGlossary } from './llm/glossary'
-import { bestSentences, CONFIDENT_SCORE, knowledgeDocFreq, loadKnowledge, MODEL_MIN_SCORE, searchKnowledge } from './llm/knowledge'
+import { bestSentences, CONFIDENT_SCORE, datasetDescription, knowledgeDocFreq, loadKnowledge, MODEL_MIN_SCORE, searchKnowledge } from './llm/knowledge'
 import { buildVocabulary } from './llm/vocabulary'
 import { groundQuestion } from './llm/grounding'
 import { useLocalLLM, type UIMessage } from './llm/useLocalLLM'
@@ -87,6 +86,8 @@ function dashStrings(t: Strings): DashStrings {
     heatmapTitle: t.dHeatmapTitle,
     yearsShort: t.dYearsShort,
     allYears: t.dAllYears,
+    noteTop: t.dNoteTop,
+    noteBottom: t.dNoteBottom,
     insights: t.dInsights,
   }
 }
@@ -269,6 +270,9 @@ export default function App() {
     if (!text || busy) return
     setInput('')
 
+    // "Explain these figures" (typed or clicked) explains the dashboard on screen.
+    if (current && isExplainRequest(text)) return void explainDashboard(text)
+
     const previous = llm.messages.filter((m) => m.role === 'user').map((m) => m.content)
     const verdict = scope.classify(text, previous)
     let conceptual = false
@@ -281,8 +285,12 @@ export default function App() {
     const refinesDashboard =
       !!current && !!dict && !!codelists && unknown.length === 0 && !!refinePlan(current.plan, text, dict, codelists)
     if (verdict === 'off-topic' && !refinesDashboard) {
-      llm.reply(text, t.offTopic, 'refusal')
-      setAnnouncement(t.offTopic)
+      // With a dashboard on screen, a message made of known words is most likely a change we
+      // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
+      const message = current && unknown.length === 0 ? t.notApplied : t.offTopic
+      llm.reply(text, message, 'refusal')
+      setAnnouncement(message)
+      if (hasDashboard) openChat()
       return
     }
 
@@ -379,25 +387,36 @@ export default function App() {
   const onSuggestion = (s: Suggestion) => {
     if (busy || !current) return
     if (s.plan) return void runPlan(s.plan, s.label)
-    if (s.explain) {
-      openChat()
-      if (!ready) {
-        llm.reply(s.label, t.modelNotReady, 'refusal')
-        return
-      }
-      llm.ask(s.label, {
-        systemPrompt: SYSTEM_PROMPT,
-        options: GENERATION,
-        prepare: async () => ({
-          prompt: [
-            t.explainQuestion,
-            `Dataset information:\n${dict ? describeDataset(dict, codelists, current.plan.dataset, 'en', { examples: false }) : ''}`,
-            `Eurostat data:\n${current.context}`,
-          ].join('\n\n'),
-          sources: [current.source],
-        }),
-      })
-    }
+    if (s.explain) void explainDashboard(s.label)
+  }
+
+  /** Typed variants of the "Explain these figures" suggestion. */
+  function isExplainRequest(text: string) {
+    const q = normalize(text).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+    if (q === normalize(t.dSugExplain) || q === normalize(t.explainQuestion).replace(/[^a-z0-9 ]/g, '').trim()) return true
+    return (
+      /\b(explain|describe|interpret|what do|what does|erklar|beschreib|expliqu|decri|interpret)/.test(q) &&
+      /\b(these|this|the|those) (figures|numbers|data|values|results|chart|charts|dashboard)\b|\bdiese[nrs]? (zahlen|daten|werte|grafik)\b|\b(ces|ce|les) (chiffres|donnees|valeurs|resultats|graphique)\b/.test(q)
+    )
+  }
+
+  /**
+   * Explains the dashboard on screen from facts only: Eurostat's own description of the indicator,
+   * then the computed summary and key insights. No free-form model text, so nothing is invented.
+   */
+  async function explainDashboard(question: string) {
+    const spec = current
+    if (!spec) return
+    openChat()
+    const described = await datasetDescription(spec.plan.dataset).catch(() => null)
+    const insights = spec.insights.map((i) => `• ${i.parts.map((p) => (typeof p === 'string' ? p : p.strong)).join('')}`)
+    const answer = [described?.text, spec.summary.join(' '), insights.join('\n')].filter(Boolean).join('\n\n')
+    const sources = [
+      spec.source,
+      ...(described?.url ? [{ code: spec.plan.dataset, title: `${described.title} › ${described.section}`, url: described.url }] : []),
+    ]
+    llm.reply(question, answer || t.dNoData, undefined, sources)
+    setAnnouncement(answer)
   }
 
   const submit = (e: FormEvent) => {

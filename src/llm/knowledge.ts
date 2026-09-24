@@ -169,3 +169,16 @@ export const CONFIDENT_SCORE = 18
  * user is asked to rephrase instead of getting a generated guess.
  */
 export const MODEL_MIN_SCORE = 8
+
+/**
+ * Eurostat's own description of a dataset (first sentences of its "Data description" metadata),
+ * used to explain a dashboard without letting the model guess what the indicator means.
+ */
+export async function datasetDescription(code: string, maxSentences = 2): Promise<Passage | null> {
+  const { passages } = await loadKnowledge()
+  const p = passages.find((x) => x.kind === 'metadata' && x.datasets?.includes(code) && x.section === 'Data description')
+  if (!p) return null
+  const text = p.text.replace(/\s+/g, ' ').trim()
+  const sentences = text.match(/[^.!?]+[.!?]+(?=\s|$)/g) ?? [text]
+  return { ...p, text: sentences.slice(0, maxSentences).join(' ').replace(/\s+/g, ' ').trim() }
+}

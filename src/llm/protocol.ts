@@ -1,4 +1,3 @@
-export const MODEL_ID = 'HuggingFaceTB/SmolLM2-360M-Instruct'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -15,7 +14,8 @@ export interface GenerationOptions {
 }
 
 export type WorkerRequest =
-  | { type: 'load' }
+  /** `mobile`: phones and tablets load the small model (see device.ts and models.json). */
+  | { type: 'load'; mobile: boolean }
   | { type: 'generate'; messages: ChatMessage[]; options: GenerationOptions }
   | { type: 'interrupt' }
   /** Clears the conversation KV cache (new chat). */
@@ -50,7 +50,7 @@ export interface FileProgress {
 
 export type WorkerResponse =
   | { type: 'progress'; file: string; loaded: number; total: number }
-  | { type: 'ready'; device: 'webgpu' | 'wasm'; dtype: string; source: 'local'; loadMs: number }
+  | { type: 'ready'; model: string; device: 'webgpu' | 'wasm'; dtype: string; source: 'local'; loadMs: number }
   | { type: 'start' }
   | { type: 'token'; text: string; tps: number; numTokens: number }
   | { type: 'done'; stats?: GenerationStats }

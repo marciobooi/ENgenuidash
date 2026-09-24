@@ -7,6 +7,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from './protocol'
+import { isMobileDevice } from './device'
 import type { Source } from './grounding'
 import type { Plan } from '../genui/types'
 
@@ -62,7 +63,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
   const [status, setStatus] = useState<ModelStatus>('loading')
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<Record<string, FileProgress>>({})
-  const [runtime, setRuntime] = useState<{ device: string; dtype: string; source: string; loadMs: number } | null>(null)
+  const [runtime, setRuntime] = useState<{ model: string; device: string; dtype: string; source: string; loadMs: number } | null>(null)
   const [stats, setStats] = useState<GenerationStats | null>(null)
   // Streamed text is buffered and flushed once per animation frame (not one render per token).
   const pendingTextRef = useRef('')
@@ -107,7 +108,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
           })
           break
         case 'ready':
-          setRuntime({ device: msg.device, dtype: msg.dtype, source: msg.source, loadMs: msg.loadMs })
+          setRuntime({ model: msg.model, device: msg.device, dtype: msg.dtype, source: msg.source, loadMs: msg.loadMs })
           setStatus('ready')
           loadingRef.current = false
           emit({ type: 'ready' })
@@ -158,7 +159,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
     }
 
     // Start downloading the model as soon as the page opens.
-    worker.postMessage({ type: 'load' } satisfies WorkerRequest)
+    worker.postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)
@@ -172,7 +173,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
     setError(null)
     setStatus('loading')
     loadingRef.current = true
-    send({ type: 'load' })
+    send({ type: 'load', mobile: isMobileDevice() })
   }, [send])
 
   const ask = useCallback(

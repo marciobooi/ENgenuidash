@@ -1,0 +1,18 @@
+{
+  "$comment": "Language models the app can run in the browser. Read by scripts/download-model.mjs (what to download into public/models) and src/llm/worker.ts (what to load). 'small' is for phones and tablets and as a fallback; 'large' is for computers with WebGPU.",
+  "small": {
+    "id": "HuggingFaceTB/SmolLM2-360M-Instruct",
+    "sessions": ["model"],
+    "dtypes": ["q4f16", "q4", "q8"],
+    "maxInputTokens": 1536,
+    "reuseCache": true
+  },
+  "large": {
+    "id": "onnx-community/Qwen3.5-0.8B-ONNX",
+    "sessions": ["embed_tokens", "decoder_model_merged"],
+    "dtypes": ["q4f16"],
+    "maxInputTokens": 3072,
+    "reuseCache": false,
+    "chatTemplate": { "enable_thinking": false }
+  }
+}

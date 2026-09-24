@@ -629,7 +629,7 @@ export default function App() {
   } else if (EvalPage && route === '#/eval') {
     page = (
       <Suspense>
-        <EvalPage dict={dict} codelists={codelists} choose={llm.choose} ready={ready} />
+        <EvalPage dict={dict} codelists={codelists} choose={llm.choose} ready={ready} model={llm.runtime?.model} />
       </Suspense>
     )
   } else if (current) {

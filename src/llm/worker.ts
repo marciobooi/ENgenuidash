@@ -8,17 +8,13 @@ import {
   type DynamicCache,
   type Tensor,
 } from '@huggingface/transformers'
-import { MODEL_ID, type ChatMessage, type GenerationStats, type WorkerRequest, type WorkerResponse } from './protocol'
+import MODELS from './models.json'
+import type { ChatMessage, GenerationStats, WorkerRequest, WorkerResponse } from './protocol'
 
 type Tokenizer = Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>>
 type Model = Awaited<ReturnType<typeof AutoModelForCausalLM.from_pretrained>>
 type Device = 'webgpu' | 'wasm'
 
-/**
- * Prompt budget in tokens. SmolLM2 supports 8k, but prefill cost grows with length and a 360M
- * model follows instructions noticeably worse on long inputs; older turns are dropped beyond this.
- */
-const MAX_INPUT_TOKENS = 1536
 /** Earlier user/assistant messages kept (3 exchanges); each question carries its own context. */
 const MAX_HISTORY_MESSAGES = 6
 
@@ -64,15 +60,38 @@ async function resetCache() {
 
 // ---------- loading ----------
 
-// The model is served by this app from public/models (downloaded at dev/build time by
-// scripts/ensure-model.mjs). The browser never contacts the Hugging Face Hub.
-async function hasLocalModel(): Promise<boolean> {
+// Models are served by this app from public/models (downloaded at dev/build time by
+// scripts/ensure-model.mjs, listed in public/models/manifest.json). The browser never contacts
+// the Hugging Face Hub.
+
+type ModelKey = 'small' | 'large'
+/** What was downloaded: per model, the available formats and each part's dtype. */
+type Manifest = Partial<Record<ModelKey, { id: string; dtypes: Record<string, Record<string, string>> }>>
+interface Candidate {
+  key: ModelKey
+  device: Device
+  dtype: 'q4f16' | 'q4' | 'q8'
+}
+
+/** Settings of the loaded model (models.json). */
+let active: {
+  id: string
+  /** Prompt budget; older turns are dropped beyond it (small models follow long prompts worse). */
+  maxInputTokens: number
+  /** Reuse the KV cache across turns (off for hybrid-attention models such as Qwen3.5). */
+  reuseCache: boolean
+  /** Extra chat-template variables, e.g. { enable_thinking: false } for Qwen. */
+  chatTemplate: Record<string, unknown>
+} | null = null
+
+async function readManifest(): Promise<Manifest | null> {
   try {
-    const res = await fetch(`${base}models/${MODEL_ID}/config.json`, { method: 'HEAD' })
+    const res = await fetch(`${base}models/manifest.json`, { cache: 'no-cache' })
     // The Vite dev server answers unknown paths with index.html, so check the type.
-    return res.ok && (res.headers.get('content-type') ?? '').includes('json')
+    if (!res.ok || !(res.headers.get('content-type') ?? '').includes('json')) return null
+    return (await res.json()) as Manifest
   } catch {
-    return false
+    return null
   }
 }
 
@@ -80,61 +99,104 @@ interface GpuAdapter {
   features: Set<string>
 }
 
-/** Picks the fastest supported backend and the matching weight format. */
-async function selectRuntime(): Promise<{ device: Device; dtype: 'q4f16' | 'q4' | 'q8' }> {
+async function gpuSupport(): Promise<{ webgpu: boolean; f16: boolean }> {
   const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<GpuAdapter | null> } }).gpu
   try {
     const adapter = await gpu?.requestAdapter()
-    if (adapter) {
-      // fp16 shaders halve memory traffic; without them q4f16 fails, so use q4 (fp32 activations).
-      return { device: 'webgpu', dtype: adapter.features.has('shader-f16') ? 'q4f16' : 'q4' }
-    }
+    if (adapter) return { webgpu: true, f16: adapter.features.has('shader-f16') }
   } catch {
-    // fall through to CPU
+    // no usable GPU
   }
-  // On CPU (WASM), 8-bit weights run faster than 4-bit ones.
-  return { device: 'wasm', dtype: 'q8' }
+  return { webgpu: false, f16: false }
 }
 
-async function load() {
-  const started = performance.now()
-  const [local, runtime] = await Promise.all([hasLocalModel(), selectRuntime()])
-  if (!local) throw new Error(`Model files not found in public/models/${MODEL_ID} (run npm run model:download).`)
-  env.allowLocalModels = true
-  env.allowRemoteModels = false
-  env.localModelPath = `${base}models/`
+/**
+ * Models to try, best first. Computers with WebGPU (fp16 shaders) get the large model; phones,
+ * tablets and everything else get the small one: q4f16 on WebGPU with fp16 shaders, q4 on other
+ * WebGPU devices (q4f16 fails without fp16), q8 on CPU/WASM (faster than 4-bit there).
+ * The small model is also the fallback if the large one fails to load.
+ */
+function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, manifest: Manifest): Candidate[] {
+  const has = (key: ModelKey, dtype: string) => !!manifest[key]?.dtypes[dtype] && manifest[key]?.id === MODELS[key].id
+  const out: Candidate[] = []
+  if (!mobile && gpu.webgpu && gpu.f16 && has('large', 'q4f16')) out.push({ key: 'large', device: 'webgpu', dtype: 'q4f16' })
+  if (gpu.webgpu && gpu.f16 && has('small', 'q4f16')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4f16' })
+  else if (gpu.webgpu && has('small', 'q4')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4' })
+  if (has('small', 'q8')) out.push({ key: 'small', device: 'wasm', dtype: 'q8' })
+  return out
+}
 
+async function loadCandidate(c: Candidate, manifest: Manifest) {
+  const spec = MODELS[c.key]
   const progress_callback = (p: { status: string; file?: string; loaded?: number; total?: number }) => {
     if (p.status === 'progress' && p.file) {
       post({ type: 'progress', file: p.file, loaded: p.loaded ?? 0, total: p.total ?? 0 })
     }
   }
-
-  // Tokenizer and weights download in parallel.
-  ;[tokenizer, model] = await Promise.all([
-    AutoTokenizer.from_pretrained(MODEL_ID, { progress_callback }),
-    AutoModelForCausalLM.from_pretrained(MODEL_ID, { device: runtime.device, dtype: runtime.dtype, progress_callback }),
+  // Tokenizer and weights download in parallel. The dtype is given per part (e.g. embed_tokens,
+  // decoder_model_merged), as recorded by the download script.
+  const [tok, mdl] = await Promise.all([
+    AutoTokenizer.from_pretrained(spec.id, { progress_callback }),
+    AutoModelForCausalLM.from_pretrained(spec.id, {
+      device: c.device,
+      dtype: manifest[c.key]!.dtypes[c.dtype] as Record<string, 'q4f16' | 'q4' | 'q8' | 'fp16' | 'fp32'>,
+      progress_callback,
+    }),
   ])
-
+  tokenizer = tok
+  model = mdl
+  active = {
+    id: spec.id,
+    maxInputTokens: spec.maxInputTokens,
+    reuseCache: spec.reuseCache,
+    chatTemplate: ('chatTemplate' in spec ? spec.chatTemplate : {}) as Record<string, unknown>,
+  }
   // Warm-up: compiles WebGPU shaders / initialises kernels so the first reply is not slow.
   const warm = tokenizer('Energy')
   await model.generate({ ...warm, max_new_tokens: 1 })
+}
 
-  const loadMs = Math.round(performance.now() - started)
-  log(`ready: ${runtime.device}/${runtime.dtype} from local files in ${loadMs} ms`)
-  post({ type: 'ready', device: runtime.device, dtype: runtime.dtype, source: 'local', loadMs })
+async function load(mobile: boolean) {
+  const started = performance.now()
+  const [manifest, gpu] = await Promise.all([readManifest(), gpuSupport()])
+  if (!manifest) throw new Error('No language model in public/models (run npm run model:download).')
+  env.allowLocalModels = true
+  env.allowRemoteModels = false
+  env.localModelPath = `${base}models/`
+
+  const list = candidates(mobile, gpu, manifest)
+  if (!list.length) throw new Error('No downloaded model runs on this device.')
+  let lastError: unknown
+  for (const c of list) {
+    try {
+      await loadCandidate(c, manifest)
+      const loadMs = Math.round(performance.now() - started)
+      log(`ready: ${active!.id} ${c.device}/${c.dtype} (${mobile ? 'mobile' : 'computer'}) in ${loadMs} ms`)
+      post({ type: 'ready', model: active!.id, device: c.device, dtype: c.dtype, source: 'local', loadMs })
+      return
+    } catch (err) {
+      // e.g. an operator the browser's WebGPU does not support: try the next (smaller) option.
+      log(`could not load ${MODELS[c.key].id} ${c.device}/${c.dtype}:`, err)
+      lastError = err
+      await model?.dispose()
+      model = null
+      tokenizer = null
+      active = null
+    }
+  }
+  throw lastError
 }
 
 // ---------- prompt building ----------
 
 function tokenize(messages: ChatMessage[]) {
-  return tokenizer!.apply_chat_template(messages, { add_generation_prompt: true, return_dict: true }) as {
+  return tokenizer!.apply_chat_template(messages, { add_generation_prompt: true, return_dict: true, ...active?.chatTemplate }) as {
     input_ids: { dims: number[]; data: BigInt64Array; tolist(): bigint[][] }
     attention_mask: unknown
   }
 }
 
-/** Drops the oldest user/assistant turns until the prompt fits MAX_INPUT_TOKENS. */
+/** Drops the oldest user/assistant turns until the prompt fits the model's input budget. */
 function fitToBudget(messages: ChatMessage[]) {
   const system = messages[0]?.role === 'system' ? [messages[0]] : []
   let turns = messages.slice(system.length)
@@ -146,7 +208,7 @@ function fitToBudget(messages: ChatMessage[]) {
     dropped += cut
   }
   let inputs = tokenize([...system, ...turns])
-  while (inputs.input_ids.dims[1] > MAX_INPUT_TOKENS && turns.length > 1) {
+  while (inputs.input_ids.dims[1] > (active?.maxInputTokens ?? 1536) && turns.length > 1) {
     // Remove the oldest turn (and its answer) but always keep the latest question.
     const cut = turns[1]?.role === 'assistant' ? 2 : 1
     turns = turns.slice(cut)
@@ -179,7 +241,7 @@ async function generate({ messages, options }: Extract<WorkerRequest, { type: 'g
     // The cache covers every token except the last one sampled. Reuse it only if the new
     // prompt extends it exactly; otherwise (edited history, trimmed turns) start fresh.
     const pastLength = cache?.get_seq_length() ?? 0
-    const reusable = cache !== null && pastLength > 0 && sharedPrefix(ids) >= pastLength && ids.length > pastLength
+    const reusable = !!active?.reuseCache && cache !== null && pastLength > 0 && sharedPrefix(ids) >= pastLength && ids.length > pastLength
     if (!reusable) await resetCache()
     const reusedTokens = reusable ? pastLength : 0
 
@@ -192,7 +254,9 @@ async function generate({ messages, options }: Extract<WorkerRequest, { type: 'g
         firstTokenAt ||= performance.now()
         generatedTokens++
       },
-      callback_function: (text: string) => {
+      callback_function: (raw: string) => {
+        // Qwen's thinking is switched off in the chat template; drop stray tags if any appear.
+        const text = raw.replace(/<\/?think>/g, '')
         const elapsed = performance.now() - firstTokenAt
         const tps = generatedTokens > 1 && elapsed > 0 ? ((generatedTokens - 1) / elapsed) * 1000 : 0
         post({ type: 'token', text, tps, numTokens: generatedTokens })
@@ -284,7 +348,7 @@ self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
   try {
     switch (msg.type) {
       case 'load':
-        loading ??= load()
+        loading ??= load(msg.mobile)
         await loading
         break
       case 'generate':

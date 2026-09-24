@@ -4,7 +4,8 @@ import type { GenerationOptions } from './protocol'
 
 /**
  * Instruction sent at the start of every conversation. Kept short and in plain sentences on purpose:
- * a 360M model tends to repeat long, Markdown-structured prompts back instead of following them. The app also blocks off-topic questions
+ * small models (SmolLM2-360M on phones) tend to repeat long, Markdown-structured prompts back
+ * instead of following them. The app also blocks off-topic questions
  * before they reach the model (see energyScope.ts) and adds Eurostat data to energy questions
  * (see grounding.ts); this prompt is the model-side half of that.
  */
@@ -19,7 +20,7 @@ export const SYSTEM_PROMPT = [
 ].join(' ')
 
 export const GENERATION: GenerationOptions = {
-  /** Maximum length of each reply, in tokens. A 360M model drifts after ~100 tokens; keep replies short. */
+  /** Maximum length of each reply, in tokens. Small models drift after ~100 tokens; keep replies short. */
   max_new_tokens: 192,
   /** 0 = deterministic, higher = more varied. Low: answers must stick to the data given. */
   temperature: 0.2,

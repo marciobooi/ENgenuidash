@@ -12,11 +12,14 @@ export default function EvalPage({
   codelists,
   choose,
   ready,
+  model,
 }: {
   dict: EnergyDictionary | null
   codelists: EnergyCodelists | null
   choose: Choose
   ready: boolean
+  /** Model loaded on this device (the large one on computers with WebGPU, else the small one). */
+  model?: string
 }) {
   const [results, setResults] = useState<CaseResult[]>([])
   const [running, setRunning] = useState(false)
@@ -41,7 +44,7 @@ export default function EvalPage({
     <main className="ecl-container" id="main" style={{ paddingBlock: 24 }}>
       <h1 className="ecl-u-type-heading-2">Follow-up understanding: evaluation</h1>
       <p className="ecl-u-type-paragraph">
-        {EVAL_CASES.length} labelled messages (src/eval/cases.ts). Model: {ready ? 'loaded' : 'not loaded — rules and fallback only'}.
+        {EVAL_CASES.length} labelled messages (src/eval/cases.ts). Model: {ready ? `${model ?? 'loaded'}` : 'not loaded — rules and fallback only'}.
       </p>
       <button type="button" className="ecl-button ecl-button--primary" onClick={run} disabled={running || !dict || !codelists}>
         {running ? `Running… ${results.length}/${EVAL_CASES.length}` : 'Run evaluation'}

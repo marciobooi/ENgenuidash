@@ -99,3 +99,18 @@ test('German price compounds ("Strompreise") plan a price dashboard', () => {
   assert.match(planOf('Strompreise für Haushalte in Deutschland').dataset, /^nrg_pc_204/)
   assert.match(planOf('Gaspreise für die Industrie in Frankreich').dataset, /^nrg_pc_203/)
 })
+
+test('questions about any energy dataset pass the guards and build a dashboard', () => {
+  const blocked: string[] = []
+  for (const q of [
+    'gas storage in Germany', 'heat pumps in Sweden', 'solar capacity in Spain', 'imports of natural gas from Norway',
+    'wood pellets consumption in Austria', 'peat in Finland', 'LNG imports in Spain', 'batteries storage capacity',
+    'emergency oil stocks in days', 'hydrogen production capacity', 'data centres electricity consumption',
+    'energy self-reliance', 'rate of electrification', 'crude oil imports by country of origin', 'Gasimporte aus Russland',
+    'Holzpellets in Österreich', 'capacité solaire en France', 'stocks de pétrole en France',
+  ]) {
+    const r = route(q)
+    if (r.kind !== 'plan') blocked.push(`${q} → ${r.kind}${r.kind === 'rephrase' ? ` (${r.unknown})` : ''}`)
+  }
+  assert.deepEqual(blocked, [])
+})

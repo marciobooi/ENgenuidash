@@ -62,6 +62,23 @@ browser (`fetchEurostatData`, `toSeries` for charts). `describeDataset` produces
 (dimensions, allowed units, defaults) that is given to the language model, which is instructed to use only
 the units and codes listed there.
 
+## From a question to a dataset
+
+`src/genui/planner.ts` turns a question into a plan (dataset, codes, countries, period):
+
+1. **Curated routes** for the common indicators: prices, import dependency, renewable shares,
+   degree days, energy intensity, per-capita values, monthly supply.
+2. **Energy balances** for products and flows the concepts know (`src/genui/concepts.ts`).
+3. **The dictionary** (`src/genui/datasetSearch.ts`) for everything else: question words are
+   matched against the titles and code labels of all 141 datasets (EN/DE/FR, IDF-weighted, a light
+   stemmer, German compounds split), so "solar capacity in Spain", "gas storage in Germany", "wood
+   pellets", "LNG imports", "coal imports from Colombia" (partner country) or "crude oil imports by
+   country of origin" (partner breakdown) reach the right dataset and codes without hand-written
+   rules. A topic word found nowhere gives no dashboard instead of a guessed one; a dataset with no
+   values for the selection is replaced by the next one about the same product.
+
+`npm test` checks these routes (`src/genui/planner.test.ts`).
+
 ## Energy knowledge base (our own, built from Eurostat documents)
 
 Everything is downloaded once at build time and stored in our own files; the app never calls these

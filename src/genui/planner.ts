@@ -26,6 +26,7 @@ import {
   UNIT_WORDS,
   type Concept,
 } from './concepts'
+import { codesFor, key, matchTopic, topicIndex } from './datasetSearch'
 import type { ChartKind, Clarification, NoteKey, Plan, TimeRange } from './types'
 
 /**
@@ -193,9 +194,79 @@ function keep(ds: DatasetInfo, dim: string, codes: string[], fallback?: string):
   return fallback && has(ds, dim, fallback) ? fallback : ds.dimensions.find((d) => d.id === dim)?.codes[0]
 }
 
+// ---------- dictionary search ----------
+
+// Words the planner already uses for places, time, charts and rankings: never topic words.
+const NON_TOPIC = new Set(
+  [ALL_TIME_WORDS, MONTHLY_WORDS, TREND_WORDS, ALL_COUNTRIES_WORDS, EXPLAIN_WORDS, EU_ALIASES, ADD_WORDS, ONLY_WORDS, REMOVE_WORDS, Object.keys(MONTH_NAMES), ...Object.values(CHART_WORDS)]
+    .flat()
+    .flatMap((t) => normalize(t).split(/[^a-z0-9]+/))
+    .filter((w) => w.length >= 3),
+)
+
+/**
+ * The dictionary's view of a question: a dataset when its title names a topic the hand-written
+ * concepts do not cover, a product code otherwise, and `unknown` when a topic word is found
+ * nowhere (neither in the concepts nor in the dictionary).
+ */
+function topicFromDictionary(question: string, dict: EnergyDictionary, codelists: EnergyCodelists, monthly: boolean, exclude: string[] = []) {
+  const index = topicIndex(dict, codelists)
+  const p = parse(question)
+  const places = detectGeos(p, codelists)
+  const match = matchTopic(index, question, { ignore: NON_TOPIC, monthly, noPlace: !places.codes.length && !places.eu, exclude })
+  if (!match) return null
+  // Keys the hand-written concepts explain ("gas", "imports", "consumption"…).
+  const explained = new Set(
+    p.words.filter((w) => [...PRODUCTS, ...FLOWS, ...METRICS].some((c) => c.stems.some((st) => matches(parse(w), st)))).map(key),
+  )
+  const unknown = match.unmatched.some((w) => !explained.has(key(w)) && !NON_TOPIC.has(w))
+  const found = dict.datasets[match.dataset]
+  const hasPartner = found?.dimensions.some((d) => d.id === 'partner') ?? false
+  const newTopic = match.titleWords.some((k) => !explained.has(k)) || (!!match.partner && hasPartner)
+  const topic = { unknown, dataset: match.dataset, filters: match.filters, partner: hasPartner ? match.partner : undefined, siec: undefined as string | undefined }
+  if (newTopic) return topic
+
+  // No new topic in a title: the words the rules do not know name a product or a flow. Use the
+  // complete balances when they have it ("peat", "biodiesel"), else the dataset that covers
+  // more of those words ("LNG" → Liquefied natural gas in the gas imports, not LPG in the balance).
+  const rest = match.keys.filter((k) => !explained.has(k))
+  if (!rest.length) return { ...topic, dataset: undefined, filters: {} }
+  const inBalance = dict.datasets.nrg_bal_c ? codesFor(index, dict.datasets.nrg_bal_c, rest) : null
+  const inMatch = found ? codesFor(index, found, rest) : null
+  if (inBalance?.codes.siec && inBalance.used.size >= (inMatch?.used.size ?? 0)) return { ...topic, dataset: undefined, filters: {}, siec: inBalance.codes.siec }
+  if (inMatch?.used.size) return topic
+  return { ...topic, dataset: undefined, filters: {} }
+}
+
+const ORIGIN = / (by|per) (country of origin|origin|partner|partner country)| nach (herkunft\w*|partnerland\w*)| par (pays d origine|origine|partenaire|pays partenaire)/
+
+// Dimensions that are a breakdown (steam, gas turbine, combined cycle…) rather than a measure:
+// with no total, all their codes become the series.
+const BREAKDOWN_DIMS = ['gen_tech', 'hp_tech', 'plants', 'tra_mode', 'customer', 'network']
+
+/** The code to use for a dimension the question says nothing about. */
+function defaultCode(ds: DatasetInfo, dimId: string, codelists: EnergyCodelists): string | undefined {
+  const dim = ds.dimensions.find((d) => d.id === dimId)
+  if (!dim) return undefined
+  if (dim.codes.includes('TOTAL')) return 'TOTAL'
+  const label = (c: string) => (dim.codelist ? codelists.codelists[dim.codelist]?.codes[c]?.en ?? '' : '')
+  // A total by another name; for stocks, the closing stock on the national territory.
+  return (
+    dim.codes.find((c) => /^(total|all )/i.test(label(c))) ??
+    dim.codes.find((c) => ['STKCL_NAT', 'STK_CL', 'WORLD', 'EXT_EU27_2020'].includes(c)) ??
+    dim.codes[0]
+  )
+}
+
 // ---------- main ----------
 
-export function planQuestion(question: string, dict: EnergyDictionary, codelists: EnergyCodelists): PlanResult {
+export function planQuestion(
+  question: string,
+  dict: EnergyDictionary,
+  codelists: EnergyCodelists,
+  /** Datasets that had no values for this question (see Plan.retry). */
+  { exclude = [] }: { exclude?: string[] } = {},
+): PlanResult {
   const p = parse(question)
   const metrics = new Set(find(p, METRICS).map((m) => m.id))
   const products = find(p, PRODUCTS)
@@ -203,7 +274,7 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
   const time = detectTime(p)
   const geo = detectGeos(p, codelists)
   const top = detectTop(p)
-  const allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
+  let allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
   const mix = any(p, MIX_WORDS)
   const notes: NoteKey[] = []
 
@@ -269,6 +340,10 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
     }
   }
 
+  // Datasets chosen above are curated routes (indicators, monthly supply); the ones below are the
+  // general energy balances, which the dictionary search can replace with a better fit.
+  const curated = !!dataset
+
   // 3. Electricity generation (by fuel).
   if (!dataset && isElectricity && (wantsProduction || mix)) {
     dataset = 'nrg_bal_peh'
@@ -287,6 +362,40 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
     seriesProducts = mix && siecs.length <= 1 ? ENERGY_MIX : siecs.length ? siecs : ['TOTAL']
     // Electricity on its own reads better in GWh than in the balance default (ktoe).
     if (isElectricity && siecs.length === 1) filters.unit = 'GWH'
+  }
+
+  // 5. The dictionary: the topic words the rules do not know ("capacity", "stocks", "pellets",
+  // "from Norway") pick the dataset and codes from Eurostat's own titles and labels.
+  let partner: string | undefined
+  let fromDictionary = false
+  if (!curated) {
+    const topic = topicFromDictionary(question, dict, codelists, time.monthly, exclude)
+    if (topic?.unknown) return { kind: 'none' } // a topic word nothing knows: no guessed dashboard
+    if (topic?.dataset && topic.dataset !== dataset) {
+      dataset = topic.dataset
+      fromDictionary = true
+      const found = dict.datasets[dataset]
+      const codesOf = (dim: string) => found.dimensions.find((d) => d.id === dim)?.codes ?? []
+      for (const k of Object.keys(filters)) delete filters[k]
+      Object.assign(filters, topic.filters)
+      // The question's own flow and products, when this dataset has them ("wood pellets
+      // consumption" → final consumption, not the dataset's first flow).
+      const flow = flows.map((f) => f.nrgBal).find((c) => codesOf('nrg_bal').includes(c))
+      if (flow && !topic.filters.nrg_bal) filters.nrg_bal = flow
+      const own = products.map((x) => x.siec).filter((c) => codesOf('siec').includes(c))
+      seriesProducts = !topic.filters.siec && own.length ? own : null
+      // "… by fuel" on a dataset with a product breakdown: every product is a series.
+      const siecs = codesOf('siec').filter((c) => c !== 'TOTAL')
+      if (mix && !topic.filters.siec && siecs.length > 1 && siecs.length <= 12) seriesProducts = siecs
+      partner = topic.partner
+    } else if (topic?.siec && (!dataset || !seriesProducts || seriesProducts.join() === 'TOTAL')) {
+      // The balance, with a product the rules do not know ("biodiesel", "peat").
+      if (!dataset) {
+        dataset = 'nrg_bal_c'
+        filters.nrg_bal = flows.find((f) => f.id !== 'consumption')?.nrgBal ?? flows[0]?.nrgBal ?? 'GIC'
+      }
+      seriesProducts = [topic.siec]
+    }
   }
 
   if (!dataset) return { kind: 'none' }
@@ -310,22 +419,44 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
       continue
     }
     const wanted = filters[dim.id]
-    const v = keep(ds, dim.id, wanted ? ([] as string[]).concat(wanted) : [], dim.codes.includes('TOTAL') ? 'TOTAL' : dim.codes[0])
+    // A breakdown with no total (types of generation…): all codes, when nothing else is a series.
+    if (!wanted && BREAKDOWN_DIMS.includes(dim.id) && !dim.codes.includes('TOTAL') && dim.codes.length > 1 && dim.codes.length <= 8 && !seriesProducts && !allCountries) {
+      finalFilters[dim.id] = dim.codes
+      continue
+    }
+    const v = keep(ds, dim.id, wanted ? ([] as string[]).concat(wanted) : [], defaultCode(ds, dim.id, codelists))
     if (v) finalFilters[dim.id] = Array.isArray(v) ? v[0] : v
   }
 
-  // Geography.
+  // Geography. ("by country of origin" is a partner breakdown, not every EU country.)
+  const byOrigin = ORIGIN.test(p.text) && ds.dimensions.some((d) => d.id === 'partner')
+  if (byOrigin) allCountries = false
   const geoDim = ds.dimensions.find((d) => d.id === 'geo')
   if (geoDim) {
     let geos: string[]
     if (allCountries) geos = EU27.filter((c) => geoDim.codes.includes(c))
     else {
-      geos = geo.codes.filter((c) => geoDim.codes.includes(c))
+      // "Imports from Norway": Norway is the partner, not the reporting country.
+      geos = geo.codes.filter((c) => geoDim.codes.includes(c) && c !== partner)
       const eu = geoDim.codes.includes('EU27_2020') ? 'EU27_2020' : geoDim.codes.find((c) => c.startsWith('EU'))
       if ((geo.eu || !geos.length) && eu) geos.unshift(eu)
-      if (!geo.eu && !geo.codes.length) notes.push('assumedEu')
+      if (!geo.eu && !geo.codes.some((c) => c !== partner)) notes.push('assumedEu')
     }
     finalFilters.geo = geos.length === 1 ? geos[0] : geos
+  }
+
+  if (partner && ds.dimensions.some((d) => d.id === 'partner' && d.codes.includes(partner))) finalFilters.partner = partner
+  // "… by country of origin" / "by partner": the partner countries are the series (the largest
+  // ten, see execute.ts), for the EU unless a reporting country is named.
+  const partnerDim = ds.dimensions.find((d) => d.id === 'partner')
+  let topPartners: Plan['top']
+  if (partnerDim && !partner && ORIGIN.test(p.text)) {
+    const countries = partnerDim.codes.filter((c) => /^[A-Z]{2}$/.test(c) && !EU27.includes(c))
+    if (countries.length > 1) {
+      finalFilters.partner = countries
+      if (Array.isArray(finalFilters.geo)) finalFilters.geo = geoDim?.codes.includes('EU27_2020') ? 'EU27_2020' : finalFilters.geo[0]
+      if (countries.length > 10) topPartners = { n: 10 }
+    }
   }
 
   // Time and intent.
@@ -381,7 +512,18 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
 
   return {
     kind: 'plan',
-    plan: { dataset, filters: finalFilters, time: range, intent, focusPeriod, allCountries, top, monthlyDataset, notes },
+    plan: {
+      dataset,
+      filters: finalFilters,
+      time: range,
+      intent: topPartners || byOrigin ? 'compare' : intent,
+      focusPeriod,
+      allCountries,
+      top: top ?? topPartners,
+      monthlyDataset,
+      notes,
+      ...(fromDictionary ? { retry: { question, tried: exclude } } : {}),
+    },
   }
 }
 
@@ -406,6 +548,10 @@ export function refinePlan(
   // Naming the topic already on screen ("which countries are the most dependent?" on the import
   // dependency dashboard) is still a change of this dashboard, not a new question.
   if (hasTopic && !sameTopic(current, question, dict, codelists)) return null
+  // A topic the rules do not know but the dictionary does ("wood pellets", "heat pumps") is a
+  // new question when it points to another dataset or product than the one on screen.
+  const topic = topicFromDictionary(question, dict, codelists, false)
+  if (topic && ((topic.dataset && topic.dataset !== current.dataset) || (topic.siec && topic.siec !== current.filters.siec))) return null
 
   const ds = dict.datasets[current.dataset]
   const geoDim = ds.dimensions.find((d) => d.id === 'geo')
@@ -417,7 +563,7 @@ export function refinePlan(
   const allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
   const mix = any(p, MIX_WORDS)
 
-  const next: Plan = { ...current, filters: { ...current.filters }, notes: [] }
+  const next: Plan = { ...current, filters: { ...current.filters }, notes: [], retry: undefined }
   let changed = false
 
   if (chart) {

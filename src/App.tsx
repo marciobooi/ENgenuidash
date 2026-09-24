@@ -31,6 +31,7 @@ import {
 import { dashboardActions, rankByOverlap, type DashboardAction } from './genui/actions'
 import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
+import { planQuestion } from './genui/planner'
 import { routeMessage } from './genui/route'
 import { questionLanguage, searchQuery } from './llm/crossLingual'
 import type { DashboardSpec, Plan, Suggestion } from './genui/types'
@@ -241,7 +242,29 @@ export default function App() {
     llm.append({ role: 'user', content: question }, { role: 'assistant', content: t.buildingDashboard, pending: true })
     setAnnouncement(t.buildingDashboard)
     try {
-      const spec = await buildDashboard(plan, dict, lang, dashStrings(t))
+      let spec: DashboardSpec | undefined
+      // A dataset chosen by the dictionary search may have no values for this selection: plan
+      // the question again without it (at most twice) before saying there is no data.
+      for (let attempt = 0; !spec; attempt++) {
+        try {
+          spec = await buildDashboard(plan, dict, lang, dashStrings(t))
+        } catch (err) {
+          if (!(err instanceof NoDataError) || !plan.retry || attempt >= 2 || !codelists) throw err
+          // Next best datasets about the same product ("wood pellets" in the biomass supply, not
+          // electricity use in the wood industry); unrelated ones are skipped.
+          const tried = [...plan.retry.tried, plan.dataset]
+          let next: Plan | null = null
+          for (let skip = 0; skip < 4 && !next; skip++) {
+            const r = planQuestion(plan.retry.question, dict, codelists, { exclude: tried })
+            if (r.kind !== 'plan') break
+            const sameProduct = !plan.filters.siec || JSON.stringify(r.plan.filters.siec) === JSON.stringify(plan.filters.siec)
+            if (sameProduct && r.plan.dataset !== plan.dataset) next = r.plan
+            else tried.push(r.plan.dataset)
+          }
+          if (!next) throw err
+          plan = next
+        }
+      }
       const index = dashboards.length
       const message = fill(hasDashboard ? t.dashboardUpdated : t.dashboardReady, { title: spec.title })
       setDashboards((d) => [...d, spec])

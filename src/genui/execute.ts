@@ -89,13 +89,26 @@ export async function buildDashboard(
     filters.geo = [...(filters.geo as string[]), 'EU27_2020']
   }
 
-  const result = await fetchEurostatData(plan.dataset, {
-    filters,
-    ...(plan.time.kind === 'last' ? { lastTimePeriod: plan.time.n } : {}),
-    ...(plan.time.kind === 'range' ? { sinceTimePeriod: plan.time.since, untilTimePeriod: plan.time.until } : {}),
-    lang,
-    signal,
-  })
+  const fetchWith = (f: typeof filters) =>
+    fetchEurostatData(plan.dataset, {
+      filters: f,
+      ...(plan.time.kind === 'last' ? { lastTimePeriod: plan.time.n } : {}),
+      ...(plan.time.kind === 'range' ? { sinceTimePeriod: plan.time.since, untilTimePeriod: plan.time.until } : {}),
+      lang,
+      signal,
+    })
+  let result = await fetchWith(filters)
+  // No values in this unit (e.g. CHP fuels in tonnes for "all fuels"): try the dataset's other
+  // units before giving up, so the dashboard shows the data Eurostat has.
+  if (!result.observations.some((o) => o.value != null) && typeof filters.unit === 'string') {
+    for (const alt of ds.units.filter((u) => u !== filters.unit)) {
+      const next = await fetchWith({ ...filters, unit: alt })
+      if (next.observations.some((o) => o.value != null)) {
+        result = next
+        break
+      }
+    }
+  }
 
   const fmt = numberFormat(lang, plan, result)
   const unitCode = result.dimensions.unit?.codes[0]?.code
@@ -141,7 +154,7 @@ export async function buildDashboard(
 
   // "Top 5" / "bottom 3": keep the n highest (lowest) countries in the period shown.
   let topNote: string | undefined
-  if (plan.top && seriesDim === 'geo' && series.length > plan.top.n) {
+  if (plan.top && (seriesDim === 'geo' || seriesDim === 'partner') && series.length > plan.top.n) {
     const { n, lowest } = plan.top
     const total = series.filter((x) => x.data[focusIndex] != null).length
     series = series

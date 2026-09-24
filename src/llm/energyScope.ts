@@ -164,6 +164,13 @@ export function createScopeChecker(dict: EnergyDictionary | null, codelists: Ene
       if (typeof label === 'string') places.add(normalize(label.replace(/\(.*?\)/g, '')).replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim())
     }
   }
+  // Partner countries of imports and exports ("gas from Russland", "coal from Colombia").
+  for (const [code, labels] of Object.entries(codelists?.codelists.PARTNER?.codes ?? {})) {
+    if (!/^[A-Z]{2}$/.test(code)) continue
+    for (const label of Object.values(labels)) {
+      if (typeof label === 'string') places.add(normalize(label.replace(/\(.*?\)/g, '')).replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim())
+    }
+  }
   places.add('eu')
   return {
     lexicon,

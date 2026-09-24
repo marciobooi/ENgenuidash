@@ -19,6 +19,11 @@ export interface Plan {
   notes?: NoteKey[]
   /** Chart type the user asked for ("show as bar chart"); overrides the automatic choice. */
   chart?: ChartKind
+  /**
+   * Set when the dataset came from the dictionary search: if Eurostat has no values there for
+   * this selection, the question is planned again without the datasets already tried.
+   */
+  retry?: { question: string; tried: string[] }
 }
 
 export type ChartKind = 'line' | 'bar' | 'area' | 'pie' | 'table'

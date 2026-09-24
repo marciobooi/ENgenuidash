@@ -79,6 +79,11 @@ const STOPWORDS = new Set(
   ).split(' '),
 )
 
+/** Stop words and ordinary question/analysis words ("what", "show", "compare"…), normalised. */
+export function isFunctionWord(word: string): boolean {
+  return STOPWORDS.has(word) || QUESTION_WORDS.has(word)
+}
+
 const MIN_DOC_FREQ = 5
 
 export interface Vocabulary {

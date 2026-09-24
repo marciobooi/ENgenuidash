@@ -12,7 +12,7 @@ export interface Concept {
 /** Energy products → SIEC codes. */
 export const PRODUCTS: (Concept & { siec: string })[] = [
   { id: 'diesel', siec: 'O4671XR5220B', stems: ['diesel', 'gas oil', 'gazole'] },
-  { id: 'gasoline', siec: 'O4652XR5210B', stems: ['gasoline', 'petrol ', 'benzin', 'essence'] },
+  { id: 'gasoline', siec: 'O4652XR5210B', stems: ['gasoline', 'petrol$', 'benzin', 'essence'] },
   { id: 'jet', siec: 'O4661XR5230B', stems: ['jet fuel', 'kerosene', 'kerosin', 'kerosene'] },
   { id: 'crude', siec: 'O4100_TOT', stems: ['crude', 'rohol', 'brut'] },
   { id: 'lignite', siec: 'C0220', stems: ['lignite', 'braunkohle'] },

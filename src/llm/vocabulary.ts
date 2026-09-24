@@ -1,4 +1,5 @@
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
+import { plannerTerms } from '../genui/concepts'
 import { hasEnergySignal, normalize } from './energyScope'
 
 /**
@@ -60,6 +61,12 @@ const QUESTION_WORDS = new Set(
         'alle beide jetzt dann wieder ja okay eins zwei drei ' +
         'merci stp svp encore peux pouvez pourrais pourriez voudrais veux voir mets ajoute enleve tous toutes deux ' +
         'trois oui maintenant ensuite aussi bien',
+      ' ' +
+        // Words used to steer a dashboard ("I prefer columns", "Germany alone", "go back to 2015",
+        // "wie hat sich das entwickelt", "lieber als Balken", "s'il te plaît")
+        'ones prefer rather draw plot alone back raw instead instead ' +
+        'hat sich lieber zuruck allein ' +
+        'plait prefere plutot retour seul seule',
     )
     .split(/\s+/),
 )
@@ -113,6 +120,16 @@ export function buildVocabulary(
     }
   }
   extraTerms.forEach(addText)
+  // Everything the planner understands; single-word stems of 5+ letters also match longer forms.
+  const stems: string[] = []
+  for (const term of plannerTerms()) {
+    // Single words only: a phrase ("to date", "hors taxe") must not make its words known on
+    // their own ("what is the date of oil?").
+    const t = normalize(term).trim()
+    if (t.includes(' ')) continue
+    addText(t)
+    if (t.length >= 5) stems.push(t)
+  }
   const placeWords = new Set([...places].flatMap((p) => p.split(' ')))
 
   return {
@@ -125,6 +142,7 @@ export function buildVocabulary(
           (v) =>
             QUESTION_WORDS.has(v) ||
             vocab.has(v) ||
+            stems.some((st) => v.startsWith(st)) ||
             (knowledgeDocFreq?.get(v) ?? 0) >= MIN_DOC_FREQ,
         )
       })

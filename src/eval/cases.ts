@@ -4,7 +4,8 @@ import type { Lang } from '../i18n'
 /**
  * Follow-up messages with the action they should map to, on a fixed dashboard (EU energy import
  * dependency, 2018). Expected ids are those of dashboardActions: 'top', 'bottom', 'all', 'trend',
- * 'explain', 'bar', 'line', 'table', 'year-2015', 'add-DE', 'only-DE', or 'none'.
+ * 'explain', 'bar', 'line', 'table', 'year-2015', 'add-DE', 'only-DE', 'other' (a valid change that is
+ * not in the menu, e.g. "since 2015") or 'none' (nothing to change: off-topic, thanks, nonsense).
  * Add cases here whenever a real message is misunderstood.
  */
 export const EVAL_DASHBOARD = {
@@ -64,4 +65,40 @@ export const EVAL_CASES: { text: string; lang: Lang; expect: string }[] = [
   { lang: 'fr', text: 'sous forme de tableau', expect: 'table' },
   { lang: 'fr', text: 'seulement l’Allemagne', expect: 'only-DE' },
   { lang: 'fr', text: 'et en 2015 ?', expect: 'year-2015' },
+
+  // ---------- edge cases ----------
+  // Explicit numbers (the menu's top/bottom option uses the number in the message)
+  { lang: 'en', text: 'top 3', expect: 'top' },
+  { lang: 'en', text: 'show the 10 lowest', expect: 'bottom' },
+  { lang: 'de', text: 'die 5 höchsten Länder', expect: 'top' },
+  { lang: 'fr', text: 'les 3 derniers pays', expect: 'bottom' },
+  // Case, missing accents and umlauts, punctuation
+  { lang: 'en', text: 'WHICH COUNTRIES ARE THE MOST DEPENDENT?!', expect: 'top' },
+  { lang: 'de', text: 'welche lander sind am abhangigsten', expect: 'top' },
+  { lang: 'fr', text: 'quels pays sont les plus dependants', expect: 'top' },
+  { lang: 'en', text: '   bars   please   ', expect: 'bar' },
+  // A bare year or place
+  { lang: 'en', text: '2015', expect: 'year-2015' },
+  { lang: 'en', text: 'Germany', expect: 'only-DE' },
+  { lang: 'de', text: 'Deutschland?', expect: 'only-DE' },
+  // Mixed languages
+  { lang: 'en', text: 'show me Deutschland', expect: 'only-DE' },
+  { lang: 'en', text: 'add Allemagne', expect: 'add-DE' },
+  // Valid changes that are not menu options
+  { lang: 'en', text: 'since 2015', expect: 'other' },
+  { lang: 'en', text: 'last 5 years', expect: 'other' },
+  { lang: 'de', text: 'seit 2015', expect: 'other' },
+  { lang: 'fr', text: 'depuis 2015', expect: 'other' },
+  { lang: 'en', text: 'in 2015 as a table', expect: 'other' },
+  // Nothing to change: off-topic, small talk, nonsense (must never trigger an action)
+  { lang: 'en', text: 'write me a poem about oil', expect: 'none' },
+  { lang: 'en', text: 'what is the capital of France', expect: 'none' },
+  { lang: 'en', text: 'tell me a joke', expect: 'none' },
+  { lang: 'en', text: 'asdfgh qwerty', expect: 'none' },
+  { lang: 'en', text: 'ok', expect: 'none' },
+  { lang: 'en', text: 'which source is the largest', expect: 'none' },
+  { lang: 'de', text: 'danke schön', expect: 'none' },
+  { lang: 'de', text: 'erzähl mir einen Witz', expect: 'none' },
+  { lang: 'fr', text: 'merci beaucoup', expect: 'none' },
+  { lang: 'fr', text: 'quelle est la capitale de la France', expect: 'none' },
 ]

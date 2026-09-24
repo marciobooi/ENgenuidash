@@ -2,8 +2,16 @@
  * Separates a streamed reply into hidden reasoning and the visible answer. Qwen models with
  * thinking on start their reply with "<think> … </think>"; only what follows is shown. A reply
  * that does not start with "<think>" is shown as it arrives.
+ *
+ * Some chat templates (Qwen3.5 with enable_thinking) end the prompt with "<think>\n" themselves:
+ * the reply then starts inside the reasoning, without an opening tag. Pass `promptOpened: true`
+ * so everything up to "</think>" stays hidden.
  */
 export class ThinkingFilter {
+  constructor({ promptOpened = false }: { promptOpened?: boolean } = {}) {
+    if (promptOpened) this.raw = '<think>'
+  }
+
   private raw = ''
   /** Index in `raw` where the answer starts; -1 while undecided or still thinking. */
   private answerFrom = -1

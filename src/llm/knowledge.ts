@@ -59,23 +59,25 @@ let loadedIndex: Index | null = null
 /** Document frequency of each word in the knowledge base, once loaded (for the vocabulary check). */
 export const knowledgeDocFreq = (): Map<string, number> | undefined => loadedIndex?.docFreq
 
+/** BM25 index of the passages (also used in Node by the evaluation). */
+export function buildKnowledgeIndex(passages: Passage[]): Index {
+  const docFreq = new Map<string, number>()
+  const terms = passages.map((p) => {
+    // Title and section words count too ("Unit of measure", "Energy imports dependency").
+    const tf = new Map<string, number>()
+    for (const t of tokens(`${p.title} ${p.section ?? ''} ${p.text}`)) tf.set(t, (tf.get(t) ?? 0) + 1)
+    for (const t of tf.keys()) docFreq.set(t, (docFreq.get(t) ?? 0) + 1)
+    return tf
+  })
+  const lengths = terms.map((tf) => [...tf.values()].reduce((a, b) => a + b, 0))
+  return { passages, terms, lengths, avgLength: lengths.reduce((a, b) => a + b, 0) / lengths.length, docFreq }
+}
+
 /** Loads and indexes the knowledge base once (lazily, the first time the model needs it). */
 export function loadKnowledge(): Promise<Index> {
   indexPromise ??= fetch(`${import.meta.env.BASE_URL}data/eurostat/energy/knowledge.json`)
     .then((r) => (r.ok ? (r.json() as Promise<{ passages: Passage[] }>) : Promise.reject(new Error(`HTTP ${r.status}`))))
-    .then(({ passages }) => {
-      const docFreq = new Map<string, number>()
-      const terms = passages.map((p) => {
-        // Title and section words count too ("Unit of measure", "Energy imports dependency").
-        const tf = new Map<string, number>()
-        for (const t of tokens(`${p.title} ${p.section ?? ''} ${p.text}`)) tf.set(t, (tf.get(t) ?? 0) + 1)
-        for (const t of tf.keys()) docFreq.set(t, (docFreq.get(t) ?? 0) + 1)
-        return tf
-      })
-      const lengths = terms.map((tf) => [...tf.values()].reduce((a, b) => a + b, 0))
-      loadedIndex = { passages, terms, lengths, avgLength: lengths.reduce((a, b) => a + b, 0) / lengths.length, docFreq }
-      return loadedIndex
-    })
+    .then(({ passages }) => (loadedIndex = buildKnowledgeIndex(passages)))
     .catch((err) => {
       indexPromise = null
       throw err

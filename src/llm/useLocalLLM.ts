@@ -11,7 +11,8 @@ import { isMobileDevice } from './device'
 import type { Source } from './grounding'
 import type { Plan } from '../genui/types'
 
-export type ModelStatus = 'loading' | 'ready' | 'error'
+/** 'idle': not loading yet (a phone waits for the user to agree to the download). */
+export type ModelStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 /** A chat message as shown in the UI. */
 export interface UIMessage extends ChatMessage {
@@ -52,15 +53,20 @@ export type LLMEvent =
   | { type: 'start' }
   | { type: 'done'; text: string; stopped: boolean }
 
-export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
+/**
+ * `autoLoad: false` defers the model download until `load()` is called (phones ask first, see
+ * DownloadNotice); by default the download starts as soon as the page opens.
+ */
+export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }: { autoLoad?: boolean } = {}) {
   const workerRef = useRef<Worker | null>(null)
   const onEventRef = useRef(onEvent)
   const replyRef = useRef('')
   const stoppedRef = useRef(false)
-  const loadingRef = useRef(true)
+  const loadingRef = useRef(autoLoad)
+  const autoLoadRef = useRef(autoLoad)
   const sourcesRef = useRef<Source[] | undefined>(undefined)
   const abortRef = useRef<AbortController | null>(null)
-  const [status, setStatus] = useState<ModelStatus>('loading')
+  const [status, setStatus] = useState<ModelStatus>(autoLoad ? 'loading' : 'idle')
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<Record<string, FileProgress>>({})
   const [runtime, setRuntime] = useState<{ model: string; device: string; dtype: string; source: string; loadMs: number } | null>(null)
@@ -158,8 +164,8 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void) {
       }
     }
 
-    // Start downloading the model as soon as the page opens.
-    worker.postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
+    // Start downloading the model as soon as the page opens (unless the user is asked first).
+    if (autoLoadRef.current) worker.postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)

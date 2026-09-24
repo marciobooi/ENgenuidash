@@ -28,3 +28,15 @@ test('shows nothing while the model is still thinking', () => {
   assert.equal(f.thinking, true)
   assert.equal(f.answering, false)
 })
+test('a reasoning block opened by the prompt (Qwen3.5) stays hidden', () => {
+  const f = new ThinkingFilter({ promptOpened: true })
+  assert.equal(f.thinking, true)
+  const out = ['Thinking Process:\n1. Analyze', ' the request.\n</thi', 'nk>\n\nHello! Ask me', ' about energy.'].map((c) => f.push(c)).join('')
+  assert.equal(out, 'Hello! Ask me about energy.')
+})
+test('the thinking budget still forces an answer when the prompt opened the block', () => {
+  const f = new ThinkingFilter({ promptOpened: true })
+  f.push('Thinking Process: long reasoning')
+  f.forceAnswer()
+  assert.equal(f.push('The EU imports 58%.'), 'The EU imports 58%.')
+})

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
+import { loadKnowledge } from '../llm/knowledge'
 import { EVAL_CASES } from './cases'
 import { runEval, summarize, type CaseResult, type Choose } from './runEval'
 
@@ -31,7 +32,8 @@ export default function EvalPage({
     setError(null)
     setResults([])
     try {
-      await runEval(dict, codelists, ready ? choose : undefined, (r) => setResults((all) => [...all, r]))
+      const { docFreq } = await loadKnowledge()
+      await runEval(dict, codelists, ready ? choose : undefined, (r) => setResults((all) => [...all, r]), docFreq)
     } catch (err) {
       setError((err as Error).message)
     } finally {

@@ -19,6 +19,8 @@ import { Header } from './Header'
 import { StarsMark } from './Icons'
 import { notify, Toaster } from './components/toast'
 import { Tooltip } from './components/tooltip'
+import { DownloadNotice } from './components/download-notice'
+import { isMobileDevice } from './llm/device'
 import {
   EurostatUnavailableError,
   loadEnergyCodelists,
@@ -26,10 +28,10 @@ import {
   type EnergyCodelists,
   type EnergyDictionary,
 } from './data/eurostat'
-import { dashboardActions, scoreActions, isExplainRequest, rankByOverlap, type DashboardAction } from './genui/actions'
+import { dashboardActions, scoreActions, rankByOverlap, type DashboardAction } from './genui/actions'
 import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
-import { planQuestion, refinePlan } from './genui/planner'
+import { routeMessage } from './genui/route'
 import type { DashboardSpec, Plan, Suggestion } from './genui/types'
 import { CHOICE_MIN_PROB, GENERATION, SYSTEM_PROMPT } from './llm/config'
 import { createScopeChecker } from './llm/energyScope'
@@ -91,6 +93,24 @@ function dashStrings(t: Strings): DashStrings {
   }
 }
 
+// Phones and tablets ask before downloading the language model (hundreds of MB); computers
+// download it silently. The answer "Download now" is remembered on the device.
+const DOWNLOAD_CONSENT_KEY = 'engenuidash.modelDownload'
+function hasDownloadConsent(): boolean {
+  try {
+    return localStorage.getItem(DOWNLOAD_CONSENT_KEY) === 'accepted'
+  } catch {
+    return false
+  }
+}
+function saveDownloadConsent() {
+  try {
+    localStorage.setItem(DOWNLOAD_CONSENT_KEY, 'accepted')
+  } catch {
+    // Private mode or blocked storage: the notice shows again next time.
+  }
+}
+
 export default function App() {
   const [input, setInput] = useState('')
   const [lang, setLang] = useState<Lang>('en')
@@ -116,6 +136,9 @@ export default function App() {
 
   // Screen-reader announcements. The thread itself is not a live region,
   // so streamed tokens aren't read out one by one; the full reply is announced at the end.
+  // Phones and tablets on their first visit: ask before downloading the model.
+  const [askBeforeDownload] = useState(() => isMobileDevice() && !hasDownloadConsent())
+  const [downloadNotice, setDownloadNotice] = useState(askBeforeDownload)
   const llm = useLocalLLM((e) => {
     switch (e.type) {
       // Loading is silent: the model downloads in the background and data questions work meanwhile.
@@ -133,7 +156,13 @@ export default function App() {
         if (!chatOpenRef.current) setUnread(true)
         break
     }
-  })
+  }, { autoLoad: !askBeforeDownload })
+
+  const acceptDownload = () => {
+    saveDownloadConsent()
+    setDownloadNotice(false)
+    llm.load()
+  }
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -235,8 +264,11 @@ export default function App() {
 
   function askModel(text: string, verdict: string, previous: string[], conceptual = false) {
     if (!ready) {
-      llm.reply(text, t.modelNotReady, 'refusal')
-      setAnnouncement(t.modelNotReady)
+      // Not downloaded yet on this phone ("Not now"): say so and offer the download again.
+      const message = llm.status === 'idle' ? t.dlNeeded : t.modelNotReady
+      llm.reply(text, message, 'refusal')
+      setAnnouncement(message)
+      if (llm.status === 'idle') setDownloadNotice(true)
       return
     }
     llm.ask(text, {
@@ -262,52 +294,45 @@ export default function App() {
     if (!text || busy) return
     setInput('')
 
-    // "Explain these figures" (typed or clicked) explains the dashboard on screen.
-    if (current && isExplainRequest(text)) return void explainDashboard(text)
-
     const previous = llm.messages.filter((m) => m.role === 'user').map((m) => m.content)
     const verdict = scope.classify(text, previous)
-    let conceptual = false
+    const route = routeMessage(text, {
+      current: current?.plan ?? null,
+      dict,
+      codelists,
+      classify: () => verdict,
+      unknownWords: (x) => vocabulary.unknownWords(x, knowledgeDocFreq()),
+      previous,
+    })
 
-    // Content words ENgenuidash does not know ("date" in "what is the date of oil?").
-    const unknown = vocabulary.unknownWords(text, knowledgeDocFreq())
-
-    // Off-topic questions never reach the model or the planner. A dashboard change such as
-    // "show as bar chart" has no energy word but is fine when every word is understood.
-    const refinesDashboard =
-      !!current && !!dict && !!codelists && unknown.length === 0 && !!refinePlan(current.plan, text, dict, codelists)
-    if (verdict === 'off-topic' && !refinesDashboard) {
-      // With a dashboard on screen, a message made of known words is most likely a change we
-      // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
-      if (current && unknown.length === 0 && resolveWithActions(text)) return
-      const message = current && unknown.length === 0 ? t.notApplied : t.offTopic
-      llm.reply(text, message, 'refusal')
-      setAnnouncement(message)
-      if (hasDashboard) openChat()
-      return
-    }
-
-    // Energy words, but asking about something unknown ("colour of natural gas") → rephrase.
-    if (unknown.length && verdict !== 'small-talk') {
-      const message = `${fill(t.notUnderstoodWord, { word: unknown.slice(0, 2).join('”, “') })} ${t.notUnderstood}`
-      llm.append({ role: 'user', content: text }, { role: 'assistant', content: message, choices: ideas.map((i) => ({ label: i.text, query: i.text })) })
-      setAnnouncement(message)
-      if (hasDashboard) openChat()
-      return
-    }
-
-    if (dict && codelists && verdict !== 'small-talk') {
-      // 1. A change to the dashboard on screen ("add Germany", "since 2010", "as bar chart")?
-      const refined = current ? refinePlan(current.plan, text, dict, codelists) : null
-      if (refined) return void runPlan(refined, text)
-
-      // 2. A new data question → new dashboard, or a clarifying question.
-      const result = planQuestion(text, dict, codelists)
-      conceptual = result.kind === 'explain'
-      if (result.kind === 'plan') return void runPlan(result.plan, text)
-      // A follow-up the rules cannot map ("show the trend", "which ones are highest?") → the action menu.
-      if (current && verdict === 'follow-up' && result.kind === 'none' && resolveWithActions(text)) return
-      if (result.kind === 'clarify') {
+    switch (route.kind) {
+      // "Explain these figures" (typed or clicked) explains the dashboard on screen.
+      case 'explain':
+        return void explainDashboard(text)
+      case 'off-topic': {
+        // With a dashboard on screen, a message made of known words is most likely a change we
+        // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
+        if (route.tryActions && resolveWithActions(text)) return
+        const message = route.tryActions ? t.notApplied : t.offTopic
+        llm.reply(text, message, 'refusal')
+        setAnnouncement(message)
+        if (hasDashboard) openChat()
+        return
+      }
+      case 'rephrase': {
+        const message = `${fill(t.notUnderstoodWord, { word: route.unknown.slice(0, 2).join('”, “') })} ${t.notUnderstood}`
+        llm.append({ role: 'user', content: text }, { role: 'assistant', content: message, choices: ideas.map((i) => ({ label: i.text, query: i.text })) })
+        setAnnouncement(message)
+        if (hasDashboard) openChat()
+        return
+      }
+      case 'refine':
+      case 'plan':
+        return void runPlan(route.plan, text)
+      case 'actions':
+        if (resolveWithActions(text)) return
+        break
+      case 'clarify':
         llm.append(
           { role: 'user', content: text },
           {
@@ -324,8 +349,8 @@ export default function App() {
         setAnnouncement(t.whichPrices)
         if (hasDashboard) openChat()
         return
-      }
     }
+    const conceptual = route.kind === 'answer' && route.conceptual
 
     // 3. "What is X?" for a known concept → the verified glossary definition, word for word.
     const definition = verdict !== 'small-talk' ? directDefinition(text) : null
@@ -714,6 +739,13 @@ export default function App() {
           setAnnouncement(STRINGS[l].languageChanged)
         }}
       />
+      {downloadNotice && (
+        <DownloadNotice
+          labels={{ title: t.dlTitle, body: t.dlBody, wifi: t.dlWifi, accept: t.dlAccept, later: t.dlLater }}
+          onAccept={acceptDownload}
+          onLater={() => setDownloadNotice(false)}
+        />
+      )}
       <Toaster
         labels={{
           region: t.notifications,

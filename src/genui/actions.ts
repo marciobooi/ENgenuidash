@@ -143,6 +143,9 @@ const EXPLAIN_LABELS = new Set(Object.values(STRINGS).flatMap((t) => [plain(t.dS
 export function isExplainRequest(text: string): boolean {
   const q = plain(text)
   if (EXPLAIN_LABELS.has(q)) return true
+  // "can you interpret this?", "why is it so high?", "warum ist das so niedrig?", "pourquoi c'est si élevé ?"
+  if (/\binterpret\w* (this|it|that|these|them)\b|\binterpretier|\binterpret\w* (ca|cela|ces)\b/.test(q)) return true
+  if (/\b(why is (it|this|that)|why are (they|these)|warum ist (es|das|der wert)|pourquoi (est ce|c est|est il|est elle)) (so |si |aussi )?(high|low|higher|lower|hoch|niedrig|eleve|elevee|bas|basse|faible)\b/.test(q)) return true
   return (
     /\b(explain|describe|interpret|what do|what does|erklar|beschreib|was bedeut|expliqu|decri|interpret|que signifi)/.test(q) &&
     /\b(these|this|the|those) (figures|numbers|data|values|results|chart|charts|dashboard)\b|\bdiese[nrs]? (zahlen|daten|werte|grafik)\b|\b(ces|ce|les) (chiffres|donnees|valeurs|resultats|graphique)\b/.test(q)

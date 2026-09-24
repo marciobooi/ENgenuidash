@@ -1,9 +1,11 @@
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
-import { dashboardActions, scoreActions, isExplainRequest, rankByOverlap } from '../genui/actions'
-import { refinePlan } from '../genui/planner'
+import { dashboardActions, scoreActions, rankByOverlap } from '../genui/actions'
+import { routeMessage } from '../genui/route'
 import { STRINGS } from '../i18n'
 import { CHOICE_MIN_PROB } from '../llm/config'
+import { createScopeChecker } from '../llm/energyScope'
 import type { ChatMessage } from '../llm/protocol'
+import { buildVocabulary } from '../llm/vocabulary'
 import { EVAL_CASES, EVAL_DASHBOARD } from './cases'
 
 export type Choose = (messages: ChatMessage[], count: number) => Promise<number[]>
@@ -12,6 +14,8 @@ export interface CaseResult {
   text: string
   lang: string
   expect: string
+  /** How the app routed the message (see src/genui/route.ts). */
+  route: string
   /** What the rules did on their own: an action id, 'other' (a different change) or null. */
   rules: string | null
   /** Best option by word overlap (used while the model is loading). */
@@ -20,7 +24,7 @@ export interface CaseResult {
   model?: string
   prob?: number
   ms?: number
-  /** What the app does: an action id, or 'ask' (shows the options as buttons). */
+  /** What the app does: an action id, 'other', 'none' (no change) or 'ask' (buttons). */
   outcome: string
   verdict: 'correct' | 'asked' | 'wrong'
   /** The expected action was not among the options offered. */
@@ -28,27 +32,43 @@ export interface CaseResult {
 }
 
 /**
- * Runs every labelled follow-up through the same steps as the app (rules → menu → model pick).
- * Without `choose` only the rules and the word-overlap fallback are measured.
+ * Runs every labelled follow-up through the same steps as the app: routeMessage (topic guard,
+ * vocabulary check, rules) → action menu → model pick. Without `choose` only the rules and the
+ * word-overlap fallback are measured. `docFreq`: knowledge-base word frequencies (vocabulary check).
  */
 export async function runEval(
   dict: EnergyDictionary,
   codelists: EnergyCodelists,
   choose?: Choose,
   onResult?: (r: CaseResult, i: number) => void,
+  docFreq?: Map<string, number>,
 ): Promise<CaseResult[]> {
+  const scope = createScopeChecker(dict, codelists)
+  const vocabulary = buildVocabulary(dict, codelists, scope.places)
+  // The dashboard on screen came from this question (follow-ups are judged against it).
+  const previous = ['What is the energy import dependency of the EU?']
   const results: CaseResult[] = []
+
   for (const [i, c] of EVAL_CASES.entries()) {
     const actions = dashboardActions(EVAL_DASHBOARD, c.text, dict, codelists, STRINGS[c.lang].actions, STRINGS.en.actions, c.lang)
     const idOf = (plan: unknown) => actions.find((a) => JSON.stringify(a.plan) === JSON.stringify(plan))?.id ?? 'other'
-    const refined = refinePlan(EVAL_DASHBOARD.plan, c.text, dict, codelists)
-    const rules = isExplainRequest(c.text) ? 'explain' : refined ? idOf(refined) : null
+    const route = routeMessage(c.text, {
+      current: EVAL_DASHBOARD.plan,
+      dict,
+      codelists,
+      classify: scope.classify,
+      unknownWords: (x) => vocabulary.unknownWords(x, docFreq),
+      previous,
+    })
+    const menu = (route.kind === 'off-topic' && route.tryActions) || route.kind === 'actions'
+    const rules =
+      route.kind === 'explain' ? 'explain' : route.kind === 'refine' ? idOf(route.plan) : route.kind === 'plan' ? 'other' : null
     const fallback = rankByOverlap(actions, c.text)[0]?.id ?? 'none'
 
     let model: string | undefined
     let prob: number | undefined
     let ms: number | undefined
-    if (choose && actions.length) {
+    if (menu && choose && actions.length) {
       const started = performance.now()
       const { probs } = await scoreActions(choose, EVAL_DASHBOARD, c.text, actions, STRINGS.en.actions)
       ms = Math.round(performance.now() - started)
@@ -57,10 +77,11 @@ export async function runEval(
       prob = probs[best]
     }
 
-    const outcome = rules ?? (model && model !== 'none' && (prob ?? 0) >= CHOICE_MIN_PROB ? model : 'ask')
+    const outcome = rules ?? (!menu || !actions.length ? 'none' : model && model !== 'none' && (prob ?? 0) >= CHOICE_MIN_PROB ? model : 'ask')
     const verdict: CaseResult['verdict'] =
       outcome === c.expect || (c.expect === 'none' && outcome === 'ask') ? 'correct' : outcome === 'ask' ? 'asked' : 'wrong'
-    const r: CaseResult = { ...c, rules, fallback, model, prob, ms, outcome, verdict, missing: c.expect !== 'none' && !actions.some((a) => a.id === c.expect) }
+    const missing = !['none', 'other'].includes(c.expect) && !actions.some((a) => a.id === c.expect)
+    const r: CaseResult = { ...c, route: route.kind, rules, fallback, model, prob, ms, outcome, verdict, missing }
     results.push(r)
     onResult?.(r, i)
   }

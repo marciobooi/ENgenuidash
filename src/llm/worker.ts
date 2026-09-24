@@ -265,10 +265,11 @@ async function generate({ messages, options }: Extract<WorkerRequest, { type: 'g
     const thinking = !!active?.thinking
     const budget = active?.thinkingBudget ?? 512
     const gen = { ...options, ...active?.generation }
-    const filter = new ThinkingFilter()
-
     const { inputs, dropped } = fitToBudget(messages, thinking)
     const ids = inputs.input_ids.data
+    // Did the chat template already open the reasoning block ("…assistant\n<think>\n")?
+    const promptTail = thinking ? tokenizer.decode(Array.from(ids.slice(-4), Number), { skip_special_tokens: false }) : ''
+    const filter = new ThinkingFilter({ promptOpened: /<think>\s*$/.test(promptTail) })
 
     // The cache covers every token except the last one sampled. Reuse it only if the new
     // prompt extends it exactly; otherwise (edited history, trimmed turns) start fresh.

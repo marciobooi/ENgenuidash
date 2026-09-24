@@ -69,7 +69,7 @@ export const MONTHLY: Record<string, { dataset: string; flows: Record<string, st
 /** Indicator datasets that answer a question directly. */
 export const METRICS: (Concept & { id: string })[] = [
   { id: 'price', stems: ['price', 'preis', 'prix', 'tarif', 'cost', 'kosten', 'cout', 'bill', 'rechnung', 'facture'] },
-  { id: 'dependency', stems: ['dependen', 'abhangig', 'dependance'] },
+  { id: 'dependency', stems: ['depend', 'abhangig', 'dependance'] },
   { id: 'intensity', stems: ['intensity', 'intensitat', 'intensite'] },
   { id: 'perCapita', stems: ['per capita', 'per person', 'per head', 'pro kopf', 'par habitant'] },
   { id: 'degreeDays', stems: ['degree day', 'degree-day', 'gradtag', 'degre-jour', 'degres-jours', 'heating degree', 'cooling degree'] },
@@ -82,7 +82,7 @@ export const TAX_EXCLUDED_WORDS = ['without tax', 'excluding tax', 'before tax',
 export const MIX_WORDS = ['mix', 'breakdown', 'by source', 'by fuel', 'by product', 'sources', 'composition', 'split', 'nach quelle', 'nach energietrager', 'aufteilung', 'par source', 'repartition', 'which fuels']
 export const MONTHLY_WORDS = ['monthly', 'per month', 'each month', 'by month', 'month', 'monat', 'monatlich', 'mensuel', 'par mois', 'mois']
 export const ALL_TIME_WORDS = ['all time', 'all-time', 'ever', 'history', 'historic', 'until today', 'up to today', 'to date', 'full', 'since the beginning', 'alle zeit', 'bis heute', 'gesamte', 'seit beginn', 'jusqu a aujourd hui', 'depuis toujours', 'historique', 'toute']
-export const ALL_COUNTRIES_WORDS = ['all countries', 'every country', 'each country', 'by country', 'per country', 'member states', 'all member', 'eu countries', 'european countries', 'compare countries', 'ranking', 'alle lander', 'jedes land', 'mitgliedstaaten', 'nach land', 'tous les pays', 'chaque pays', 'etats membres', 'par pays', 'classement']
+export const ALL_COUNTRIES_WORDS = ['all countries', 'all the countries', 'every country', 'each country', 'by country', 'per country', 'member states', 'member state', 'every member', 'each member', 'all states', 'alle staaten', 'alle eu lander', 'tous les etats', 'all member', 'eu countries', 'european countries', 'compare countries', 'ranking', 'alle lander', 'jedes land', 'mitgliedstaaten', 'nach land', 'tous les pays', 'chaque pays', 'etats membres', 'par pays', 'classement']
 export const EXPLAIN_WORDS = ['what is', 'what are', 'what does', 'explain', 'why', 'how does', 'how do', 'how is', 'define', 'definition', 'meaning', 'was ist', 'was sind', 'erklar', 'warum', 'wieso', 'wie funktioniert', 'qu est-ce', 'qu est ce', 'explique', 'pourquoi', 'comment fonctionne', 'c est quoi']
 export const EU_ALIASES = ['eu', 'eu27', 'eu-27', 'ue', 'ue27', 'ue-27', 'european union', 'europaische union', 'union europeenne', 'uniao europeia', 'union europea', 'unione europea', 'europe', 'europa']
 
@@ -110,11 +110,19 @@ export const MONTH_NAMES: Record<string, number> = {
 /** "Show as …" chart type requests. */
 export const CHART_WORDS: Record<'line' | 'bar' | 'area' | 'pie' | 'table', string[]> = {
   line: ['line chart', 'line graph', 'as a line', 'as line', 'liniendiagramm', 'linie', 'courbe', 'graphique en ligne'],
-  bar: ['bar chart', 'bar graph', 'as bars', 'as a bar', 'as bar', 'column chart', 'balkendiagramm', 'saulendiagramm', 'balken', 'histogramme', 'barres', 'diagramme en barres', 'colonnes'],
+  bar: ['bar chart', 'bar graph', 'bars', 'columns', 'as bars', 'as a bar', 'as bar', 'column chart', 'balkendiagramm', 'saulendiagramm', 'balken', 'histogramme', 'barres', 'diagramme en barres', 'colonnes'],
   area: ['area chart', 'as area', 'flachendiagramm', 'aires', 'graphique en aires'],
   pie: ['pie', 'donut', 'doughnut', 'kreisdiagramm', 'tortendiagramm', 'camembert', 'secteurs'],
-  table: ['as a table', 'as table', 'table only', 'tabelle', 'tableau'],
+  table: ['as a table', 'as table', 'in a table', 'table only', 'grid', 'raw numbers', 'raw data', 'spreadsheet', 'tabelle', 'rohdaten', 'tableau', 'donnees brutes', 'chiffres bruts'],
 }
+
+/** "Show the trend": the current indicator over time (used when no period is named). */
+export const TREND_WORDS = [
+  'trend', 'over time', 'over the years', 'through the years', 'has it changed', 'did it change', 'changed over', 'evolve', 'evolved',
+  'evolution', 'look like before', 'in the past', 'history', 'historical',
+  'entwickelt', 'entwicklung', 'verlauf', 'im zeitverlauf', 'uber die jahre', 'fruher',
+  'evolue', 'tendance', 'au fil du temps', 'au fil des ans', 'historique', 'avant',
+]
 
 /** Words that signal "add to the current selection" rather than "replace it". */
 export const ADD_WORDS = ['add', 'also', 'plus', 'include', 'compare with', 'hinzu', 'hinzufugen', 'auch', 'vergleiche mit', 'ajoute', 'aussi', 'compare avec', 'comparer avec']
@@ -139,3 +147,21 @@ export const UNIT_WORDS: { stems: string[]; units: string[] }[] = [
   { stems: ['index'], units: ['I05', 'INX'] },
   { stems: ['percent', 'prozent', 'pourcent', 'pourcentage'], units: ['PC'] },
 ]
+
+/** Superlatives used for "top / bottom" rankings without a number (see detectTop in planner.ts). */
+export const RANKING_WORDS = ['most', 'least', 'highest', 'lowest', 'largest', 'smallest', 'biggest', 'fewest', 'meisten', 'wenigsten', 'hochsten', 'niedrigsten', 'grossten', 'kleinsten', 'premiers', 'derniers', 'moins']
+
+/**
+ * Every word the planner reacts to (concept stems, chart types, time and ranking words…), so the
+ * vocabulary check (src/llm/vocabulary.ts) accepts exactly what the rules can use — one list, not
+ * a second hardcoded copy. Stems are matched as word prefixes there ("abhangig" → "abhängigsten").
+ */
+export function plannerTerms(): string[] {
+  const concepts = [...PRODUCTS, ...FLOWS, ...METRICS].flatMap((c) => c.stems)
+  const lists = [
+    INDUSTRY_WORDS, TAX_EXCLUDED_WORDS, MIX_WORDS, MONTHLY_WORDS, ALL_TIME_WORDS, ALL_COUNTRIES_WORDS, EXPLAIN_WORDS,
+    EU_ALIASES, TREND_WORDS, ADD_WORDS, ADD_PREFIXES, ONLY_WORDS, REMOVE_WORDS, RANKING_WORDS, Object.keys(MONTH_NAMES),
+    ...Object.values(CHART_WORDS), ...UNIT_WORDS.map((u) => u.stems),
+  ]
+  return [...concepts, ...lists.flat()]
+}

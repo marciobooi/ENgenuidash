@@ -7,6 +7,7 @@ import {
   ALL_COUNTRIES_WORDS,
   CHART_WORDS,
   REMOVE_WORDS,
+  TREND_WORDS,
   ALL_TIME_WORDS,
   ELECTRICITY_MIX,
   ENERGY_MIX,
@@ -94,8 +95,18 @@ function detectTop(p: Parsed): Plan['top'] {
   if (top >= 1 && top <= 27) return { n: top }
   const bottom = n(p.text.match(new RegExp(`\\b${BOTTOM_BEFORE}\\s+(\\d{1,2})\\b`))) || n(p.text.match(new RegExp(`\\b(\\d{1,2})\\s+${BOTTOM_AFTER}\\b`)))
   if (bottom >= 1 && bottom <= 27) return { n: bottom, lowest: true }
+  // Without a number ("which countries depend the most?", "am abhängigsten", "les moins
+  // dépendants"): the 5 highest or lowest, but only when the message is about countries, so
+  // "which source is the largest?" on a mix is not turned into a country ranking.
+  if (!RANKED_SUBJECT.test(p.text)) return undefined
+  if (LOWEST_WORDS.test(p.text)) return { n: 5, lowest: true }
+  if (HIGHEST_WORDS.test(p.text)) return { n: 5 }
   return undefined
 }
+
+const RANKED_SUBJECT = /\b(countr(y|ies)|member states?|states|ones|who|lander|land|staaten|pays|etats)\b/
+const LOWEST_WORDS = /\b(least|lowest|smallest|fewest|am wenigsten|am niedrigsten|am kleinsten|les moins|le moins|la moins|les plus faibles|les plus bas)\b/
+const HIGHEST_WORDS = /\b(the most|most \w+|highest|largest|biggest|am meisten|am \w+sten|les plus|le plus|la plus)\b/
 
 /** Places named in free text (EU27 countries, neighbours, the EU itself). */
 export function placesInText(text: string, codelists: EnergyCodelists): { codes: string[]; eu: boolean } {
@@ -224,7 +235,7 @@ export function planQuestion(question: string, dict: EnergyDictionary, codelists
   } else if (metrics.has('degreeDays')) {
     dataset = time.monthly ? 'nrg_chdd_m' : 'nrg_chdd_a'
     filters.indic_nrg = matches(p, 'cooling') || matches(p, 'kuhl') || matches(p, 'refroid') ? 'CDD' : 'HDD'
-  } else if (metrics.has('dependency') || (flows.some((f) => f.id === 'imports') && matches(p, 'dependen'))) {
+  } else if (metrics.has('dependency') || (flows.some((f) => f.id === 'imports') && matches(p, 'depend'))) {
     dataset = 'nrg_ind_id'
     seriesProducts = products.map((x) => x.siec)
   } else if (metrics.has('share') && productIds.some((id) => ['renewables', 'solar', 'wind', 'hydro', 'bioenergy'].includes(id))) {
@@ -390,7 +401,9 @@ export function refinePlan(
 ): Plan | null {
   const p = parse(question)
   const hasTopic = find(p, PRODUCTS).length > 0 || find(p, METRICS).length > 0 || find(p, FLOWS).some((f) => f.id !== 'consumption')
-  if (hasTopic) return null
+  // Naming the topic already on screen ("which countries are the most dependent?" on the import
+  // dependency dashboard) is still a change of this dashboard, not a new question.
+  if (hasTopic && !sameTopic(current, question, dict, codelists)) return null
 
   const ds = dict.datasets[current.dataset]
   const geoDim = ds.dimensions.find((d) => d.id === 'geo')
@@ -438,6 +451,11 @@ export function refinePlan(
       }
       changed = true
     }
+  }
+
+  // "Show the trend", "how has it changed?", "wie hat sich das entwickelt?": the whole series.
+  if (!time.range && !time.years.length && !time.monthly && any(p, TREND_WORDS)) {
+    time.range = { kind: 'all' }
   }
 
   if (time.range || time.years.length) {
@@ -494,6 +512,14 @@ export function refinePlan(
   }
 
   return changed ? next : null
+}
+
+/** True when a question would plan the dataset and selection (except place/time) already shown. */
+function sameTopic(current: Plan, question: string, dict: EnergyDictionary, codelists: EnergyCodelists): boolean {
+  const result = planQuestion(question, dict, codelists)
+  if (result.kind !== 'plan' || result.plan.dataset !== current.dataset) return false
+  const topic = (f: Plan['filters']) => JSON.stringify(Object.entries(f).filter(([k]) => k !== 'geo' && k !== 'freq').sort(([a], [b]) => a.localeCompare(b)))
+  return topic(result.plan.filters) === topic(current.filters)
 }
 
 /** Filters for the monthly variant of an annual balance plan. */

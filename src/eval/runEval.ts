@@ -1,5 +1,5 @@
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
-import { choicePrompt, dashboardActions, isExplainRequest, rankByOverlap } from '../genui/actions'
+import { dashboardActions, scoreActions, isExplainRequest, rankByOverlap } from '../genui/actions'
 import { refinePlan } from '../genui/planner'
 import { STRINGS } from '../i18n'
 import { CHOICE_MIN_PROB } from '../llm/config'
@@ -50,7 +50,7 @@ export async function runEval(
     let ms: number | undefined
     if (choose && actions.length) {
       const started = performance.now()
-      const probs = await choose(choicePrompt(EVAL_DASHBOARD, c.text, actions, STRINGS.en.actions), actions.length + 1)
+      const { probs } = await scoreActions(choose, EVAL_DASHBOARD, c.text, actions, STRINGS.en.actions)
       ms = Math.round(performance.now() - started)
       const best = probs.indexOf(Math.max(...probs))
       model = best < actions.length ? actions[best].id : 'none'

@@ -26,7 +26,7 @@ import {
   type EnergyCodelists,
   type EnergyDictionary,
 } from './data/eurostat'
-import { choicePrompt, dashboardActions, isExplainRequest, rankByOverlap, type DashboardAction } from './genui/actions'
+import { dashboardActions, scoreActions, isExplainRequest, rankByOverlap, type DashboardAction } from './genui/actions'
 import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
 import { planQuestion, refinePlan } from './genui/planner'
@@ -418,14 +418,14 @@ export default function App() {
 
     setBuilding(true)
     setAnnouncement(t.choosing)
-    void llm
-      .choose(choicePrompt(current, text, actions, STRINGS.en.actions), actions.length + 1)
-      .then((probs) => {
+    void scoreActions(llm.choose, current, text, actions, STRINGS.en.actions)
+      .then(({ probs }) => {
         setBuilding(false)
         const best = probs.indexOf(Math.max(...probs))
         if (best < actions.length && probs[best] >= CHOICE_MIN_PROB) return runAction(actions[best], text)
-        // Not confident (or "none of these"): the options the model rated highest, as buttons.
-        offer(actions.map((a, i) => ({ a, p: probs[i] })).sort((x, y) => y.p - x.p).map((x) => x.a))
+        // Not confident (or "none of these"): offer the options as buttons, in word-overlap order,
+        // which ranks better than the model's low-confidence scores (see #/eval).
+        offer(rankByOverlap(actions, text))
       })
       .catch(() => {
         setBuilding(false)

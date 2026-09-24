@@ -148,3 +148,31 @@ export function isExplainRequest(text: string): boolean {
     /\b(these|this|the|those) (figures|numbers|data|values|results|chart|charts|dashboard)\b|\bdiese[nrs]? (zahlen|daten|werte|grafik)\b|\b(ces|ce|les) (chiffres|donnees|valeurs|resultats|graphique)\b/.test(q)
   )
 }
+
+export type ChooseFn = (messages: ReturnType<typeof choicePrompt>, count: number) => Promise<number[]>
+
+// Content-free baselines per menu: the model's answer when the request says nothing.
+const baselines = new Map<string, Promise<number[]>>()
+
+/**
+ * Scores the menu with the model, corrected for its position bias (contextual calibration,
+ * Zhao et al. 2021): a small model prefers option 1 whatever the request, so each probability is
+ * divided by the one it gets for an empty request ("N/A") with the same options, then
+ * renormalised. The baseline is computed once per distinct menu.
+ */
+export async function scoreActions(choose: ChooseFn, current: DashboardSpec, text: string, actions: DashboardAction[], en: ActionStrings) {
+  const count = actions.length + 1
+  const key = `${current.title}|${actions.map((a) => a.labelEn).join('|')}`
+  let base = baselines.get(key)
+  if (!base) {
+    base = choose(choicePrompt(current, 'N/A', actions, en), count)
+    baselines.set(key, base)
+    base.catch(() => baselines.delete(key))
+  }
+  // One request at a time: the worker runs a single model call.
+  const b = await base
+  const raw = await choose(choicePrompt(current, text, actions, en), count)
+  const scaled = raw.map((p, i) => p / Math.max(b[i] ?? 1, 1e-6))
+  const sum = scaled.reduce((a, x) => a + x, 0) || 1
+  return { raw, probs: scaled.map((x) => x / sum) }
+}

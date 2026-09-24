@@ -1,0 +1,310 @@
+.chart-card {
+  margin: 0;
+  padding: 14px 14px 10px;
+  background: #fff;
+  border: 1px solid var(--ecl-color-dark-10);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px var(--ecl-color-dark-alpha-50);
+  min-width: 0;
+}
+
+.chart-card__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.chart-card__actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex: none;
+}
+
+.chart-card__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ecl-color-dark-80);
+  cursor: pointer;
+}
+
+.chart-card__action:hover {
+  background: var(--ecl-color-dark-5);
+  border-color: var(--ecl-color-dark-10);
+  color: var(--ecl-color-dark-100);
+}
+
+.chart-card__action[aria-pressed='true'] {
+  background: var(--ecl-color-primary-5);
+  border-color: var(--ecl-color-primary-20);
+  color: var(--ecl-color-primary);
+}
+
+.chart-card__action:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 1px;
+}
+
+.chart-card__head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 4px 6px;
+}
+
+.chart-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ecl-color-dark-100);
+}
+
+.chart-card__subtitle {
+  font-size: 0.8125rem;
+  color: var(--ecl-color-dark-80);
+}
+
+.chart-card__source {
+  margin: 6px 4px 0;
+  font-size: 0.75rem;
+  color: var(--ecl-color-dark-60);
+}
+
+.chart-card {
+  position: relative;
+}
+
+
+/* Data table from "View data table" (export-data module). */
+.chart-card .highcharts-data-table table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.chart-card .highcharts-data-table caption {
+  display: none;
+}
+
+.chart-card .highcharts-data-table th,
+.chart-card .highcharts-data-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ecl-color-dark-10);
+  text-align: left;
+}
+
+.chart-card .highcharts-data-table thead th {
+  color: var(--ecl-color-dark-80);
+  font-weight: 700;
+}
+
+/* ---------- Plot area & states ---------- */
+.chart-card__body {
+  position: relative;
+}
+
+.chart-card__state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  font-size: 0.875rem;
+  color: var(--ecl-color-dark-80);
+  text-align: center;
+}
+
+.chart-card__state--error {
+  color: var(--ecl-color-dark-100);
+}
+
+.chart-card__state--error > svg {
+  color: var(--ecl-color-error);
+}
+
+.chart-card__error-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  color: var(--ecl-color-dark-80);
+}
+
+.chart-card__retry {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--ecl-color-primary);
+  border-radius: 8px;
+  background: #fff;
+  font: 700 0.8125rem arial, sans-serif;
+  color: var(--ecl-color-primary);
+  cursor: pointer;
+}
+
+.chart-card__retry:hover {
+  background: var(--ecl-color-primary-5);
+}
+
+.chart-card__retry:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+/* ---------- Skip link ---------- */
+.chart-card__skip {
+  /* Visually hidden until focused. */
+  position: absolute;
+  left: 14px;
+  top: 8px;
+  z-index: 5;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 2px solid var(--ecl-color-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ecl-color-primary);
+}
+
+.chart-card__skip:focus {
+  clip-path: none;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+/* ---------- Webtools overrides ---------- */
+/* Wrapper chrome: no border, padding or background of its own inside our card. */
+.chart-card .wtCharts,
+.chart-card .wt-charts {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+
+/* Webtools toolbar (English-only "Skip chart", filters, menu) and its skip target.
+   The card provides translated equivalents. */
+.chart-card .wt-charts--toolbar,
+.chart-card .wt-charts > a.wt-offscreen,
+.chart-card__plot > a.wt-offscreen {
+  display: none !important;
+}
+
+/* Webtools sets `.highcharts-root { font-size: 16px !important }`, inflating any text
+   without an explicit size. Restore our base size (higher specificity wins). */
+.chart-card .wtCharts .highcharts-root {
+  font-size: 12px !important;
+  font-family: arial, sans-serif;
+}
+
+/* Data table: Webtools renders it as an ECL table; align it with the card typography. */
+.chart-card .highcharts-data-table .ecl-table {
+  margin-top: 10px;
+  font-size: 0.8125rem;
+}
+
+/* ---------- Hero card headline ---------- */
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 8px;
+}
+
+.hero__figure {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hero__value {
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ecl-color-dark-100);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__change-label {
+  font-weight: 400;
+  color: var(--ecl-color-dark-80);
+}
+
+.hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--ecl-color-dark-10);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__chip-label {
+  margin-right: 2px;
+  font-weight: 400;
+  color: var(--ecl-color-dark-80);
+}
+
+/* Direction colours are neutral ECL blues/greys: a rise is not "good" for every indicator. */
+.hero__change--up,
+.hero__chip--up {
+  color: var(--ecl-color-primary);
+}
+
+.hero__change--down,
+.hero__chip--down {
+  color: #b3500f;
+}
+
+.hero__change--flat,
+.hero__chip--flat {
+  color: var(--ecl-color-dark-80);
+}
+
+.chart-card--placeholder {
+  background: linear-gradient(90deg, #fff, var(--ecl-color-dark-5), #fff);
+}

@@ -1,0 +1,128 @@
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--ecl-color-dark-10);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px var(--ecl-color-dark-alpha-50);
+  min-width: 0;
+}
+
+.kpi__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kpi__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--ecl-color-primary-5);
+  color: var(--ecl-color-primary);
+  box-shadow: inset 0 0 0 1px var(--ecl-color-primary-10);
+  flex: none;
+}
+
+.kpi__label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ecl-color-dark-80);
+}
+
+.kpi__value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ecl-color-dark-100);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi__unit {
+  margin-left: 4px;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--ecl-color-dark-80);
+}
+
+.kpi__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--ecl-color-dark-80);
+}
+
+.kpi__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi__delta--good {
+  background: var(--ecl-color-success-5);
+  color: #007a58; /* darker success for 4.5:1 text contrast */
+  box-shadow: inset 0 0 0 1px var(--ecl-color-success-midtone);
+}
+
+.kpi__delta--bad {
+  background: var(--ecl-color-error-5);
+  color: var(--ecl-color-error);
+  box-shadow: inset 0 0 0 1px var(--ecl-color-error-midtone);
+}
+
+.kpi__delta--neutral {
+  background: var(--ecl-color-dark-5);
+  color: var(--ecl-color-dark-80);
+  box-shadow: inset 0 0 0 1px var(--ecl-color-dark-10);
+}
+
+.kpi__caption {
+  margin-left: auto;
+  color: var(--ecl-color-dark-60);
+}
+
+.kpi__spark {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin: 2px 0;
+  overflow: visible;
+}
+
+.kpi__spark-line {
+  fill: none;
+  stroke: var(--ecl-color-primary);
+  stroke-width: 1.75;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.kpi__spark-area {
+  fill: var(--ecl-color-primary-5);
+}
+
+.kpi__spark-dot {
+  fill: var(--ecl-color-primary);
+}

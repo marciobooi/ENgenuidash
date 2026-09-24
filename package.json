@@ -1,0 +1,52 @@
+{
+  "name": "engenuidash",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/copy-ort.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-ort.mjs",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "model:download": "node scripts/download-model.mjs",
+    "eurostat:dictionary": "node scripts/build-eurostat-dictionary.mjs",
+    "eurostat:glossary": "node scripts/build-eurostat-glossary.mjs",
+    "eurostat:knowledge": "node scripts/build-eurostat-knowledge.mjs",
+    "eurostat:all": "npm run eurostat:dictionary && npm run eurostat:glossary && npm run eurostat:knowledge && npm run eurostat:geo",
+    "eurostat:geo": "node scripts/build-eurostat-geo.mjs"
+  },
+  "dependencies": {
+    "@ecl/preset-eu": "^5.3.1",
+    "@huggingface/transformers": "^4.3.0",
+    "lucide-react": "^1.48.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "sonner": "^2.0.8"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@eslint/js": "^10.0.1",
+    "@rolldown/plugin-babel": "^0.2.3",
+    "@types/babel__core": "^7.20.5",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.6",
+    "fast-xml-parser": "^5.11.1",
+    "globals": "^17.12.0",
+    "highcharts": "^13.1.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.69.0",
+    "vite": "^8.3.0"
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.6.0": true,
+    "fsevents@2.3.3": true
+  }
+}

@@ -1,0 +1,212 @@
+/* Eurostat application header (matches the es_app_top bar used by Eurostat visualisation tools). */
+.es-header {
+  background: linear-gradient(125deg, #082b7a 35%, #afdfe9 75%, #fff 100%);
+  padding: 0 1rem;
+  height: 7vh;
+  min-height: 75px;
+  max-height: 99px;
+}
+
+.es-header__inner {
+  display: grid;
+  grid-template-columns: auto 190px 220px 190px;
+  align-items: center;
+  height: 100%;
+}
+
+.es-header__title {
+  margin: 0;
+  color: #f3f6fc;
+  font: 700 2.4rem/1.1 arial, sans-serif;
+}
+
+.es-header__title-abbr,
+.es-header__title-abbr[title] {
+  display: none;
+  border: 0;
+  text-decoration: none;
+  cursor: inherit;
+}
+
+.es-header__lang {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.es-header__lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.es-header__globe {
+  width: 20px;
+  height: 20px;
+}
+
+.es-header__ribbon {
+  height: 100%;
+  overflow: hidden;
+}
+
+.es-header__ribbon img {
+  height: 100%;
+  max-height: 75px;
+}
+
+.es-header__logo img {
+  display: block;
+  max-height: 26px;
+}
+
+.es-header__lang-list {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  min-width: 260px;
+  padding: var(--ecl-spacing-l);
+  background: #fff;
+  border: 1px solid var(--ecl-color-dark-20);
+  box-shadow: var(--ecl-shadow-3);
+}
+
+.es-header__lang-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--ecl-spacing-m);
+}
+
+.es-header__lang-title {
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+
+.es-header__lang-close {
+  border: 0;
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ecl-color-primary);
+  cursor: pointer;
+}
+
+.es-header__lang-category {
+  color: var(--ecl-color-dark-80);
+  margin-bottom: var(--ecl-spacing-s);
+}
+
+.es-header__lang-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.es-header__lang-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ecl-spacing-s);
+  width: 100%;
+  padding: var(--ecl-spacing-xs) 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ecl-color-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.es-header__lang-item:hover {
+  text-decoration: underline;
+}
+
+.es-header__lang-item--active {
+  font-weight: 700;
+}
+
+.es-header__lang-code {
+  display: inline-flex;
+  justify-content: center;
+  width: 2rem;
+  padding: 2px 0;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-size: 0.875rem;
+}
+
+.es-header__lang-item--active .es-header__lang-code {
+  background: var(--ecl-color-primary);
+  border-color: var(--ecl-color-primary);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .es-header {
+    min-height: 70px;
+    max-height: 70px;
+    background: linear-gradient(280deg, #f6fafc 0%, #afdfe9 51%, #3e639d 73%, #122a75 90%, #082b7a 100%);
+  }
+
+  .es-header__inner {
+    grid-template-columns: auto 80px 0 143px;
+  }
+
+  .es-header__title {
+    font-size: 1.5rem;
+    text-shadow: #000 0 0 2px;
+  }
+
+  .es-header__ribbon {
+    display: none;
+  }
+
+  .es-header__title-full {
+    display: none;
+  }
+
+  .es-header__title-abbr[title] {
+    display: inline;
+  }
+
+  .es-header__lang-text {
+    display: none;
+  }
+
+  .es-header__lang-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .es-header__lang-list {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+
+  .es-header__logo img {
+    max-height: 18px;
+  }
+}
+
+.es-header__lang-item:focus-visible,
+.es-header__lang-close:focus-visible,
+.es-header__logo:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+.es-header__lang-close {
+  display: inline-flex;
+  padding: 4px;
+}
+
+.es-header__lang-item {
+  min-height: 44px;
+}

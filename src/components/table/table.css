@@ -1,0 +1,94 @@
+.data-table {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--ecl-color-dark-10);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.data-table:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+.data-table__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+  color: var(--ecl-color-dark-100);
+}
+
+.data-table__caption {
+  padding: 12px 14px 8px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.data-table__unit {
+  font-weight: 400;
+  color: var(--ecl-color-dark-80);
+}
+
+.data-table__table th,
+.data-table__table td {
+  padding: 8px 12px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--ecl-color-dark-10);
+}
+
+.data-table__table thead th {
+  border-bottom: 2px solid var(--ecl-color-primary);
+  font-weight: 700;
+  color: var(--ecl-color-dark-100);
+}
+
+.data-table__table tbody tr:nth-child(even) {
+  background: var(--ecl-color-dark-5);
+}
+
+.data-table__table tbody tr:last-child th,
+.data-table__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table__table tbody th {
+  font-weight: 400;
+}
+
+.data-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* First column stays visible while scrolling horizontally. */
+.data-table__sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  background: #fff;
+  box-shadow: 1px 0 0 var(--ecl-color-dark-10);
+}
+
+.data-table__table tbody tr:nth-child(even) .data-table__sticky {
+  background: var(--ecl-color-dark-5);
+}
+
+.data-table__flag {
+  margin-left: 2px;
+  font-size: 0.6875rem;
+  color: var(--ecl-color-dark-60);
+}
+
+.data-table__flag abbr {
+  text-decoration: none;
+  cursor: help;
+}
+
+@media (forced-colors: active) {
+  .data-table__table thead th {
+    border-bottom-color: CanvasText;
+  }
+}

@@ -1,0 +1,12 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, var(--ecl-color-primary-5), #f8f9fb 360px) #f8f9fb;
+  color: var(--ecl-color-dark);
+  font-family: arial, sans-serif;
+}

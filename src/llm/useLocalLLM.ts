@@ -54,6 +54,16 @@ export type LLMEvent =
   | { type: 'done'; text: string; stopped: boolean }
 
 /**
+ * Development only: `?model=small` or `?model=large` in the URL forces that model, to compare
+ * speed and answers on one machine (e.g. the phone model on a computer).
+ */
+function forcedModel(): 'small' | 'large' | undefined {
+  if (!import.meta.env.DEV) return undefined
+  const m = new URLSearchParams(location.search).get('model')
+  return m === 'small' || m === 'large' ? m : undefined
+}
+
+/**
  * `autoLoad: false` defers the model download until `load()` is called (phones ask first, see
  * DownloadNotice); by default the download starts as soon as the page opens.
  */
@@ -165,7 +175,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     }
 
     // Start downloading the model as soon as the page opens (unless the user is asked first).
-    if (autoLoadRef.current) worker.postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
+    if (autoLoadRef.current) worker.postMessage({ type: 'load', mobile: isMobileDevice(), model: forcedModel() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)
@@ -179,7 +189,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     setError(null)
     setStatus('loading')
     loadingRef.current = true
-    send({ type: 'load', mobile: isMobileDevice() })
+    send({ type: 'load', mobile: isMobileDevice(), model: forcedModel() })
   }, [send])
 
   const ask = useCallback(

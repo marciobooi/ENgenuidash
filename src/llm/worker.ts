@@ -164,7 +164,7 @@ async function loadCandidate(c: Candidate, manifest: Manifest) {
   await model.generate({ ...warm, max_new_tokens: 1 })
 }
 
-async function load(mobile: boolean) {
+async function load(mobile: boolean, force?: ModelKey) {
   const started = performance.now()
   const [manifest, gpu] = await Promise.all([readManifest(), gpuSupport()])
   if (!manifest) throw new Error('No language model in public/models (run npm run model:download).')
@@ -174,7 +174,7 @@ async function load(mobile: boolean) {
   // URLs, and with remote models off it then treats tokenizer_config.json as missing.
   env.localModelPath = new URL(`${base}models/`).pathname
 
-  const list = candidates(mobile, gpu, manifest)
+  const list = candidates(mobile, gpu, manifest).filter((c) => !force || c.key === force)
   if (!list.length) throw new Error('No downloaded model runs on this device.')
   let lastError: unknown
   for (const c of list) {
@@ -403,7 +403,7 @@ self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
   try {
     switch (msg.type) {
       case 'load':
-        loading ??= load(msg.mobile)
+        loading ??= load(msg.mobile, msg.model)
         await loading
         break
       case 'generate':

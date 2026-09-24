@@ -5,6 +5,7 @@ import {
   type EurostatResult,
 } from '../data/eurostat'
 import { ELECTRICITY_MIX, ENERGY_MIX, EU27 } from './concepts'
+import { computeInsights, type InsightStrings } from './insights'
 import { monthlyFilters } from './planner'
 import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
 
@@ -50,6 +51,7 @@ export interface DashStrings {
   heatmapTitle: string
   yearsShort: string
   allYears: string
+  insights: InsightStrings
 }
 
 const MAX_SERIES = 6
@@ -543,15 +545,21 @@ export async function buildDashboard(
     rows: tableSeries.map((x) => ({ label: x.name, values: cols.map((i) => x.data[i]), flags: cols.map((i) => x.flags[i]) })),
   })
 
+  const insights = computeInsights(
+    { intent: plan.intent, multi, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
+    s.insights,
+  )
+
   return {
     title,
     subtitle,
     summary,
+    insights,
     notes: [
       ...(result.cachedAt
         ? [fill(s.noteCached, { date: new Date(result.cachedAt).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' }) })]
         : []),
-      ...(plan.notes ?? []).map((n) => s[`note${n[0].toUpperCase()}${n.slice(1)}` as keyof DashStrings]),
+      ...(plan.notes ?? []).map((n) => s[`note${n[0].toUpperCase()}${n.slice(1)}` as keyof DashStrings] as string),
     ],
     widgets,
     unit,

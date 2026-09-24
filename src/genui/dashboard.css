@@ -47,6 +47,48 @@
   line-height: 1.55;
 }
 
+.dash__insights-title {
+  margin: 0 0 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ecl-color-dark-100);
+}
+
+.dash__insights ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dash__insight {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ecl-color-dark-100);
+}
+
+.dash__insight svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--ecl-color-dark-80);
+}
+
+.dash__insight--record svg {
+  color: var(--ecl-color-primary);
+}
+
+.dash__insight--up svg {
+  color: var(--ecl-color-success);
+}
+
+.dash__insight--down svg {
+  color: var(--ecl-color-error);
+}
+
 .dash__note {
   display: flex;
   gap: 6px;

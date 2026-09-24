@@ -87,6 +87,7 @@ function dashStrings(t: Strings): DashStrings {
     heatmapTitle: t.dHeatmapTitle,
     yearsShort: t.dYearsShort,
     allYears: t.dAllYears,
+    insights: t.dInsights,
   }
 }
 
@@ -609,6 +610,7 @@ export default function App() {
               year: t.ctlYear,
               unit: t.ctlUnit,
               overTime: t.ctlOverTime,
+              keyInsights: t.keyInsights,
               suggestions: t.suggestedNext,
               source: t.source,
               opensNewTab: t.opensNewTab,

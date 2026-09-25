@@ -152,12 +152,19 @@
     background: linear-gradient(280deg, #f6fafc 0%, #afdfe9 51%, #3e639d 73%, #122a75 90%, #082b7a 100%);
   }
 
+  /* Three columns: the ribbon is hidden here (display: none takes it out of the grid), so the
+     logo is the third item. It scales into its column on a 375 px phone. */
   .es-header__inner {
-    grid-template-columns: auto 80px 0 143px;
+    grid-template-columns: auto 56px minmax(0, 128px);
+  }
+
+  .es-header__logo {
+    display: block;
+    width: 100%;
   }
 
   .es-header__title {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     text-shadow: #000 0 0 2px;
   }
 
@@ -190,7 +197,10 @@
     transform: none;
   }
 
+  /* The SVG has no intrinsic width: it takes its column's width, at most 18 px high. */
   .es-header__logo img {
+    width: 100%;
+    height: auto;
     max-height: 18px;
   }
 }

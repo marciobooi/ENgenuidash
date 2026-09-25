@@ -79,7 +79,7 @@
 .data-table__flag {
   margin-left: 2px;
   font-size: 0.6875rem;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 .data-table__flag abbr {

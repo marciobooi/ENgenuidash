@@ -172,3 +172,31 @@ npm run dev               # then open http://localhost:5173/#/eval for the model
 ```
 
 The `#/eval` page exists only in development builds.
+
+## Testing checklist
+
+Automated (`npm test`, `npm run eval:actions`, `#/eval`) covers routing, planning, answers and
+insights. Checked in the browser (September 2026):
+
+- **Accessibility (axe-core 4.10)**: 0 violations on the welcome page, the compare, single-series,
+  mix and trend dashboards, the chat, the download notice, the components gallery and the German
+  interface. Fixed on the way: text contrast (grey captions 3.95:1 → 7.6:1), the hidden
+  map-module chart is `inert`, chart screen-reader headings are `<h4>` under the card's `<h3>`,
+  one landmark per chart.
+- **Phone width (375 px)**: no horizontal scrolling; the header's three-column layout fits the
+  Eurostat logo.
+- **Eurostat down**: a new selection shows "Eurostat is temporarily unavailable" and a warning
+  toast; a selection viewed before is shown from the stored copy with its date.
+- **First visit**: no language model, worker or ONNX runtime is downloaded (157 kB JS + 59 kB CSS
+  gzipped for the app). They load only after "Download now".
+
+Still to check by hand, on real devices:
+
+- An Android phone (Chrome) and an iPhone (Safari): dashboards, the chat, the download notice, and
+  the model on the phone (WebGPU or CPU, load time, answer time).
+- A screen reader: NVDA + Firefox or Chrome on Windows, VoiceOver + Safari on macOS and iOS.
+  Ask a question, move to the dashboard (focus goes to its title), read the key insights and a
+  chart (Highcharts' summary and data table), open the chat with the button, answer the download
+  notice with the keyboard.
+- Keyboard only: Tab through the toolbar, the chart menus and the chat; Escape closes the chat and
+  the notice.

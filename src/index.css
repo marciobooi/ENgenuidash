@@ -6,6 +6,9 @@ body,
 
 body {
   margin: 0;
+  /* Hidden things placed outside the viewport (tooltips, screen-reader regions) must never make
+     the page scroll sideways. clip, unlike hidden, keeps position: sticky working. */
+  overflow-x: clip;
   background: linear-gradient(180deg, var(--ecl-color-primary-5), #f8f9fb 360px) #f8f9fb;
   color: var(--ecl-color-dark);
   font-family: arial, sans-serif;

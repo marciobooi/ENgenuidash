@@ -93,6 +93,8 @@ export function ensurePlugin(plugin: string): Promise<void> {
         new Promise<void>((resolve, reject) => {
           const host = document.createElement('div')
           host.setAttribute('aria-hidden', 'true')
+          // inert: the hidden chart's buttons and points must not take keyboard focus.
+          host.setAttribute('inert', '')
           host.style.cssText = 'position:absolute;left:-9999px;top:0;width:10px;height:10px;overflow:hidden'
           document.body.appendChild(host)
           const timer = window.setTimeout(() => {

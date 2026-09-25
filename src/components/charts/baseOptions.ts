@@ -50,6 +50,15 @@ export const BASE_OPTIONS: Highcharts.Options = {
   accessibility: {
     enabled: true,
     keyboardNavigation: { enabled: true },
+    // One landmark per chart: series are not regions of their own (two charts of the same series
+    // would otherwise have identical landmarks).
+    landmarkVerbosity: 'one',
+    // The card title is an <h3>; the chart's screen-reader summary heading comes right under it
+    // (Highcharts otherwise guesses <h6>, which skips heading levels).
+    screenReaderSection: {
+      beforeChartFormat:
+        '<h4>{chartTitle}</h4><div>{typeDescription}</div><div>{chartSubtitle}</div><div>{chartLongdesc}</div><div>{viewTableButton}</div><div>{xAxisDescription}</div><div>{yAxisDescription}</div>',
+    },
   },
   // Webtools override: it replaces this with a <500px rule that bumps axis and data labels
   // to 14px and the title to 20px. Ours keeps the same scale, just slightly smaller.

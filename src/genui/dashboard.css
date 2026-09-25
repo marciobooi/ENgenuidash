@@ -168,7 +168,7 @@
   margin-left: auto;
   font-weight: 400;
   font-size: 0.8125rem;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 .dash__table .data-table {
@@ -181,7 +181,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
   text-decoration: none;
 }
 
@@ -319,7 +319,7 @@
   gap: 8px;
   margin-top: 4px;
   font-size: 0.75rem;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 /* ---------- Toolbar (period / year / unit) ---------- */

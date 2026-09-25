@@ -70,6 +70,7 @@ export function withoutSourceTag(text: string): string {
  */
 export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }: { autoLoad?: boolean } = {}) {
   const workerRef = useRef<Worker | null>(null)
+  const startRef = useRef<(() => Worker) | null>(null)
   const onEventRef = useRef(onEvent)
   const replyRef = useRef('')
   const stoppedRef = useRef(false)
@@ -111,10 +112,9 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
         return [...m.slice(0, -1), { ...last, content: last.content + text }]
       })
     }
-    const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
-    workerRef.current = worker
-
-    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+    // The worker (and Transformers.js inside it) is created only when the model is loaded, so a
+    // visit that never needs the model downloads none of it.
+    const onMessage = (e: MessageEvent<WorkerResponse>) => {
       const msg = e.data
       switch (msg.type) {
         case 'progress':
@@ -197,12 +197,21 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
       }
     }
 
-    // Start downloading the model as soon as the page opens (unless the user is asked first).
-    if (autoLoadRef.current) worker.postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
+    startRef.current = () => {
+      if (workerRef.current) return workerRef.current
+      const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = onMessage
+      workerRef.current = worker
+      return worker
+    }
+
+    // Start downloading the model as soon as the page opens (after consent, see App).
+    if (autoLoadRef.current) startRef.current().postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)
-      worker.terminate()
+      workerRef.current?.terminate()
+      workerRef.current = null
     }
   }, [])
 
@@ -212,8 +221,8 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     setError(null)
     setStatus('loading')
     loadingRef.current = true
-    send({ type: 'load', mobile: isMobileDevice() })
-  }, [send])
+    startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
+  }, [])
 
   const ask = useCallback(
     async (text: string, { systemPrompt, options, prepare }: AskOptions) => {

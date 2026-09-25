@@ -142,7 +142,7 @@ main:focus {
 }
 
 .composer__input::placeholder {
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 .composer__bar {
@@ -218,7 +218,7 @@ main:focus {
   margin: 0 0 6px 10px;
   font-size: 0.8125rem;
   font-weight: 400;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 .ideas ul {
@@ -363,7 +363,7 @@ main:focus {
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 .msg__icon {
@@ -399,7 +399,7 @@ main:focus {
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 .msg__sources ul {
@@ -452,7 +452,7 @@ main:focus {
   flex: none;
   font-family: ui-monospace, monospace;
   font-size: 0.75rem;
-  color: var(--ecl-color-dark-60);
+  color: var(--ecl-color-dark-80);
 }
 
 .msg__typing {

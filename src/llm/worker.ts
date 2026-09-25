@@ -95,6 +95,8 @@ interface Candidate {
 
 /** The loaded model and its settings. */
 let active: ModelEntry | null = null
+/** Whether the last load tried a model other than the small one (then the page falls back). */
+let tried: 'small' | 'other' = 'small'
 
 async function readManifest(): Promise<Manifest | null> {
   try {
@@ -138,8 +140,9 @@ function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, man
     if (onCpu) out.push({ key, device: 'wasm', dtype: onCpu })
     return out
   }
-  // A model (and format) asked for, to test it: only that one. If it fails, the page loads the
-  // app's model in a fresh worker (a model too large for memory leaves this one unusable).
+  // A model (and format) asked for, to test it, or the larger model on computers: only that one.
+  // If it fails, the page loads the app's small model in a fresh worker (a model too large for
+  // memory leaves this one unusable).
   const asked = preferred && preferred !== 'small' && manifest[preferred] ? preferred : undefined
   if (asked) {
     return dtype && has(asked, dtype)
@@ -187,7 +190,11 @@ async function load(mobile: boolean, preferred?: ModelKey, dtype?: string) {
   // URLs, and with remote models off it then treats tokenizer_config.json as missing.
   env.localModelPath = new URL(`${base}models/`).pathname
 
-  const list = candidates(mobile, gpu, manifest, preferred, dtype)
+  // Computers with WebGPU and fp16 shaders run the larger model ('large', Qwen3-1.7B: better
+  // answers, in German and French too); phones and other devices the small one.
+  const desktopLarge = !preferred && !mobile && gpu.webgpu && gpu.f16 && !!manifest.large?.dtypes.q4f16
+  const list = candidates(mobile, gpu, manifest, preferred ?? (desktopLarge ? 'large' : undefined), dtype)
+  tried = list.some((c) => c.key !== 'small') ? 'other' : 'small'
   if (!list.length) throw new Error('No downloaded model runs on this device.')
   let lastError: unknown
   for (const c of list) {
@@ -436,6 +443,6 @@ self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
     const message = err instanceof Error ? err.message : String(err)
     if (msg.type === 'choose') return post({ type: 'choice', id: msg.id, error: message })
     if (msg.type === 'load') loading = null
-    post({ type: 'error', message })
+    post({ type: 'error', message, ...(msg.type === 'load' && tried === 'other' ? { fallback: true } : {}) })
   }
 })

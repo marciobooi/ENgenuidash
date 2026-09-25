@@ -13,6 +13,7 @@
 // Best practices: parallel downloads with retries, atomic writes (.part → rename), size and
 // SHA-256 verification against the Hub's LFS metadata, and skipping files that are already valid.
 import { createHash } from 'node:crypto'
+import { splitOnnx } from './lib/split-onnx.mjs'
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { Readable, Transform } from 'node:stream'
@@ -81,8 +82,21 @@ async function isValid(file, expected) {
   return expected?.sha256 ? (await sha256(file)) === expected.sha256 : true
 }
 
+/**
+ * A file this script split into external data (see splitWeights): valid when the marker says it
+ * came from the published file with this SHA-256 and every part is there, with its size.
+ */
+function isSplit(dest, expected) {
+  const marker = `${dest}.split.json`
+  if (!existsSync(marker)) return false
+  const { sha256: from, parts } = JSON.parse(readFileSync(marker, 'utf8'))
+  if (expected?.sha256 && from !== expected.sha256) return false
+  return parts.every((p) => existsSync(join(dirname(dest), p.file)) && statSync(join(dirname(dest), p.file)).size === p.size)
+}
+
 async function download(id, path, expected) {
   const dest = join(ROOT, id, path)
+  if (isSplit(dest, expected)) return console.log(`✓ ${id}/${path} (already present, weights in external data)`)
   if (await isValid(dest, expected)) return console.log(`✓ ${id}/${path} (already present)`)
   mkdirSync(dirname(dest), { recursive: true })
   const part = `${dest}.part`
@@ -117,6 +131,40 @@ async function download(id, path, expected) {
   }
 }
 
+/**
+ * Models whose weights are inside one large .onnx file (no .onnx_data published) cannot be loaded
+ * in a browser: the file is copied whole into WebAssembly memory. `splitWeights` (MB) moves the
+ * weights into external data chunks of that size (scripts/lib/split-onnx.mjs; byte-for-byte the
+ * same weights) and tells Transformers.js in config.json. A marker records the source file's
+ * SHA-256, so later runs keep the split files instead of downloading the original again.
+ */
+function splitLargeFiles(model, files, paths) {
+  const dir = join(ROOT, model.id)
+  const counts = {}
+  for (const path of paths.filter((p) => p.endsWith('.onnx'))) {
+    const published = files.get(path)
+    if ([...files.keys()].some((p) => p.startsWith(`${path}_data`))) continue // already external
+    if (!published || published.size < model.splitWeights * 1024 * 1024) continue
+    const dest = join(dir, path)
+    const marker = `${dest}.split.json`
+    if (!isSplit(dest, published)) {
+      const name = path.split('/').pop()
+      const parts = splitOnnx(dirname(dest), name, model.splitWeights * 1024 * 1024)
+      const record = { sha256: published.sha256, parts: [name, ...parts].map((file) => ({ file, size: statSync(join(dirname(dest), file)).size })) }
+      writeFileSync(marker, JSON.stringify(record, null, 2) + '\n')
+      console.log(`  split ${path}: weights in ${parts.length} external data files`)
+    }
+    const { parts } = JSON.parse(readFileSync(marker, 'utf8'))
+    counts[path.split('/').pop()] = parts.length - 1
+  }
+  if (!Object.keys(counts).length) return
+  const configPath = join(dir, 'config.json')
+  const config = JSON.parse(readFileSync(configPath, 'utf8'))
+  const js = (config['transformers.js_config'] ??= {})
+  js.use_external_data_format = { ...(js.use_external_data_format ?? {}), ...counts }
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n')
+}
+
 const manifest = {}
 let failed = false
 for (const [key, model] of Object.entries(MODELS)) {
@@ -137,8 +185,9 @@ for (const [key, model] of Object.entries(MODELS)) {
         }
       }),
     )
+    if (model.splitWeights) splitLargeFiles(model, files, paths)
     // Settings travel with the files: the app reads everything it needs from the manifest.
-    const { sessions: _sessions, dtypes: _requested, ...settings } = model
+    const { sessions: _sessions, dtypes: _requested, splitWeights: _split, ...settings } = model
     manifest[key] = { ...settings, id: model.id, dtypes }
   } catch (err) {
     failed = true

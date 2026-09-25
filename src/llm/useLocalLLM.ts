@@ -214,14 +214,14 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
           break
         }
         case 'error':
-          // A model asked for in the URL (testing) could not load: the app's own model, in a
-          // fresh worker (the failed one may have run out of memory), once.
-          if (loadingRef.current && requestedModel() && !skipRequestedRef.current) {
+          // The larger model (computers) or one asked for in the URL (testing) could not load: the
+          // small model, in a fresh worker (the failed one may have run out of memory), once.
+          if (loadingRef.current && msg.fallback && !skipRequestedRef.current) {
             skipRequestedRef.current = true
-            console.info(`[llm] ${requestedModel()} could not load (${msg.message}); loading the app's model instead`)
+            console.info(`[llm] ${requestedModel() ?? 'the larger model'} could not load (${msg.message}); loading the small model instead`)
             workerRef.current?.terminate()
             workerRef.current = null
-            startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
+            startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice(), model: 'small' } satisfies WorkerRequest)
             break
           }
           setError(msg.message)
@@ -242,7 +242,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     }
 
     // Start downloading the model as soon as the page opens (after consent, see App).
-    if (autoLoadRef.current) startRef.current().postMessage({ type: 'load', mobile: isMobileDevice(), model: skipRequestedRef.current ? undefined : requestedModel(), dtype: requestedDtype() } satisfies WorkerRequest)
+    if (autoLoadRef.current) startRef.current().postMessage({ type: 'load', mobile: isMobileDevice(), model: skipRequestedRef.current ? 'small' : requestedModel(), dtype: requestedDtype() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)
@@ -257,7 +257,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     setError(null)
     setStatus('loading')
     loadingRef.current = true
-    startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice(), model: skipRequestedRef.current ? undefined : requestedModel(), dtype: requestedDtype() } satisfies WorkerRequest)
+    startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice(), model: skipRequestedRef.current ? 'small' : requestedModel(), dtype: requestedDtype() } satisfies WorkerRequest)
   }, [])
 
   const ask = useCallback(

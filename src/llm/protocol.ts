@@ -55,5 +55,6 @@ export type WorkerResponse =
   | { type: 'start' }
   | { type: 'token'; text: string; tps: number; numTokens: number }
   | { type: 'done'; stats?: GenerationStats }
-  | { type: 'error'; message: string }
+  /** `fallback`: a model other than the app's small one failed to load; load 'small' in a fresh worker. */
+  | { type: 'error'; message: string; fallback?: boolean }
   | { type: 'choice'; id: number; probs?: number[]; error?: string }

@@ -5,7 +5,7 @@ import { decodePlan, encodePlan } from '../app/shareLink'
 import { STRINGS } from '../i18n'
 import { installEurostatStub } from '../test/eurostatStub'
 import { buildDashboard } from './execute'
-import { filterControls } from './filters'
+import { applyFilter, filterControls } from './filters'
 import { arrange, describeVariants, topicSeed, variantPrompt } from './layout'
 import { planQuestion, refinePlan } from './planner'
 import { dashStrings } from './strings'
@@ -58,7 +58,7 @@ test('trends open with big numbers; comparisons with the map or the ranking', as
   assert.ok(trend.layout.flat().indexOf('kpis') < trend.layout.flat().indexOf('charts'))
   const compare = await dash('Compare energy import dependency of all EU countries in 2023')
   assert.ok(['map', 'ranking'].includes(charts(compare)[0].role ?? ''))
-  assert.equal(compare.presentation.controls[0], 'geo')
+  assert.deepEqual(compare.presentation.controls.slice(0, 2), ['rank', 'geo'])
 })
 
 test('prices lead with what the price is made of, including its evolution (stacked columns)', async () => {
@@ -172,4 +172,38 @@ test('toolbar: a comparison without a year shows the year it ranks as selected, 
   // A trend has no single year: "Over time" stays.
   const trend = await dash('Renewable energy share in Spain, France and Germany since 2010')
   assert.ok(!trend.controls?.years?.some((y) => y.active))
+})
+
+test('"Show" all / top / bottom: in comparisons, many-country trends and import origins; not in a mix', async () => {
+  const all = await dash('Compare renewable energy share of all EU countries')
+  assert.deepEqual(all.controls?.ranks?.map((r) => r.label), ['All', 'Top 5', 'Top 10', 'Bottom 5', 'Bottom 10'])
+  assert.equal(all.controls?.ranks?.find((r) => r.active)?.label, 'All')
+  assert.equal(all.presentation.controls[0], 'rank')
+
+  // Choosing "Bottom 5" ranks the five lowest; that option is then the selected one.
+  const bottom = await buildDashboard(all.controls!.ranks!.find((r) => r.label === 'Bottom 5')!.plan, dict, 'en', s)
+  assert.equal(bottom.shown?.geo.length, 5)
+  assert.match(bottom.notes.join(' '), /5 lowest of 27/)
+  assert.equal(bottom.controls?.ranks?.find((r) => r.active)?.label, 'Bottom 5')
+
+  // A "top 3" from the chat is listed and selected.
+  const top3 = await dash('top 3 countries for energy import dependency')
+  assert.equal(top3.controls?.ranks?.find((r) => r.active)?.label, 'Top 3')
+
+  // Import origins (partner countries): the ten largest by default.
+  const origins = await dash('crude oil imports by country of origin')
+  assert.equal(origins.controls?.ranks?.find((r) => r.active)?.label, 'Top 10')
+
+  // A trend of eight countries can be cut to the five highest.
+  const trend = await buildDashboard(
+    applyFilter(plan('Renewable energy share in Spain since 2010'), 'geo', ['ES', 'FR', 'DE', 'IT', 'PL', 'SE', 'NL'], dict),
+    dict,
+    'en',
+    s,
+  )
+  assert.ok(trend.controls?.ranks?.some((r) => r.label === 'Top 5'))
+
+  // No ranking for a mix (shares of the total) or one country.
+  assert.equal((await dash('Electricity mix in Germany')).controls?.ranks, undefined)
+  assert.equal((await dash('Oil consumption in Spain')).controls?.ranks, undefined)
 })

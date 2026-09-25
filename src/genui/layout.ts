@@ -61,10 +61,10 @@ const TEMPLATES: Record<Kind, [Template, Template]> = {
 
 /** Toolbar controls, most relevant first, per kind of question. */
 const CONTROLS: Record<Kind, string[]> = {
-  which: ['year', 'geo', 'siec', 'period'],
+  which: ['rank', 'year', 'geo', 'siec', 'period'],
   change: ['period', 'geo', 'siec', 'year'],
-  compare: ['geo', 'year', 'siec', 'period'],
-  trend: ['period', 'geo', 'siec', 'year'],
+  compare: ['rank', 'geo', 'year', 'siec', 'period'],
+  trend: ['period', 'rank', 'geo', 'siec', 'year'],
   single: ['period', 'year', 'geo', 'siec'],
   mix: ['siec', 'year', 'geo', 'period'],
   price: ['nrg_cons', 'tax', 'geo', 'period', 'currency', 'year'],

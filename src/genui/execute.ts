@@ -61,6 +61,9 @@ export interface DashStrings {
   allYears: string
   noteTop: string
   noteBottom: string
+  rankAll: string
+  rankTop: string
+  rankBottom: string
   insights: InsightStrings
   companions: CompanionStrings
   answer: AnswerStrings
@@ -861,6 +864,24 @@ export function controlsFor(
         active: plan.focusPeriod ? plan.focusPeriod === String(y) : plan.intent === 'compare' && shownYear === String(y),
       }
     })
+  }
+
+  // "Show": all the countries (reporting or partner) compared, or the top / bottom 5 or 10 in
+  // the year ranked: in comparisons, and in trends of many countries (27 lines read badly).
+  // Not in a mix: keeping only the largest sources would distort the shares of the total.
+  const compared = ['geo', 'partner'].map((dim) => plan.filters[dim]).find((v) => Array.isArray(v) && v.length > 5) as string[] | undefined
+  if (compared && (plan.intent === 'compare' || plan.intent === 'trend')) {
+    const options: { label: string; top?: Plan['top'] }[] = [
+      { label: s.rankAll },
+      ...[5, 10].filter((n) => n < compared.length).map((n) => ({ label: fill(s.rankTop, { n: String(n) }), top: { n } })),
+      ...[5, 10].filter((n) => n < compared.length).map((n) => ({ label: fill(s.rankBottom, { n: String(n) }), top: { n, lowest: true } })),
+    ]
+    const same = (a?: Plan['top'], b?: Plan['top']) => a?.n === b?.n && !!a?.lowest === !!b?.lowest
+    // A "top 3" asked in the chat has no button of its own: it is listed, selected.
+    if (plan.top && !options.some((o) => same(o.top, plan.top))) {
+      options.push({ label: fill(plan.top.lowest ? s.rankBottom : s.rankTop, { n: String(plan.top.n) }), top: plan.top })
+    }
+    controls.ranks = options.map((o) => ({ label: o.label, plan: { ...plan, top: o.top, notes: [] }, active: same(o.top, plan.top) }))
   }
 
   // Unit (only codes the dataset has).

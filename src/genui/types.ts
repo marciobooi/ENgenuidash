@@ -233,6 +233,8 @@ export interface DashboardControls {
   overTime?: Plan
   years?: { label: string; plan: Plan; active: boolean }[]
   units?: { label: string; plan: Plan; active: boolean }[]
+  /** Comparisons of many countries: all of them, or the top / bottom 5 or 10. */
+  ranks?: { label: string; plan: Plan; active: boolean }[]
 }
 
 export interface DashboardSpec {

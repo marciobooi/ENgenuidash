@@ -214,6 +214,7 @@ export default function App() {
               keyIndicators: t.keyIndicators,
               dataTable: t.dataTableShow,
               period: t.ctlPeriod,
+              show: t.ctlShow,
               periodTo: t.ctlPeriodTo,
               year: t.ctlYear,
               unit: t.ctlUnit,

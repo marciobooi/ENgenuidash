@@ -26,6 +26,8 @@ export interface DashboardLabels {
   source: string
   opensNewTab: string
   missing: string
+  /** "Show": all countries, or the top / bottom 5 or 10. */
+  show: string
   /** "More filters ({n})" / "Fewer filters": the toolbar controls folded away. */
   moreFilters: string
   fewerFilters: string
@@ -357,6 +359,30 @@ function Toolbar({
                 aria-pressed={o.active}
                 disabled={busy}
                 onClick={() => !o.active && onSelect({ label: `${labels.period}: ${o.label}`, plan: o.plan })}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ),
+    })
+  }
+  if (controls.ranks) {
+    entries.push({
+      key: 'rank',
+      label: labels.show,
+      node: (
+        <div className="dash__control">
+          <span id={`${periodId}-rank`}>{labels.show}</span>
+          <div className="segmented" role="group" aria-labelledby={`${periodId}-rank`}>
+            {controls.ranks.map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                aria-pressed={o.active}
+                disabled={busy}
+                onClick={() => !o.active && onSelect({ label: `${labels.show}: ${o.label}`, plan: o.plan })}
               >
                 {o.label}
               </button>

@@ -7,7 +7,7 @@ import {
 import { ELECTRICITY_MIX, ENERGY_MIX, EU27 } from './concepts'
 import { computeInsights, type InsightStrings } from './insights'
 import { monthlyFilters } from './planner'
-import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
+import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeRange, WidgetSpec } from './types'
 
 /**
  * Executes a Plan: fetches the data from Eurostat and composes a DashboardSpec (plain JSON)
@@ -50,6 +50,7 @@ export interface DashStrings {
   mixRanking: string
   heatmapTitle: string
   yearsShort: string
+  monthsShort: string
   allYears: string
   noteTop: string
   noteBottom: string
@@ -673,34 +674,52 @@ function toContext(title: string, subtitle: string, unit: string | undefined, pe
  * Period, year and unit controls for the dashboard toolbar. Each option carries the plan it
  * switches to, so the toolbar and the chat change the dashboard the same way.
  */
-function controlsFor(plan: Plan, dict: EnergyDictionary, s: DashStrings, lang: string): DashboardControls {
+export function controlsFor(plan: Plan, dict: EnergyDictionary, s: DashStrings, lang: string): DashboardControls {
   const ds = dict.datasets[plan.dataset]
   const freq = ds.defaults.freq ?? 'A'
   const controls: DashboardControls = {}
   const overTime = plan.intent === 'snapshot' || plan.intent === 'compare' ? 'trend' : plan.intent
+  const over = (time: TimeRange): Plan => ({ ...plan, time, focusPeriod: undefined, intent: overTime, notes: [] })
+  const first = Number(String(ds.dataStart ?? '').slice(0, 4))
+  const last = Number(String(ds.dataEnd ?? '').slice(0, 4))
+  const time = plan.time
 
-  // Period (a view over time).
+  // Period (a view over time). For annual data, a year or range end the user asked for anchors the
+  // buttons: with 2018 shown, "5 y" is 2014–2018, not the latest five years.
+  const anchor =
+    freq === 'A' ? (plan.focusPeriod ? Number(plan.focusPeriod) : time.kind === 'range' && time.until ? Number(time.until.slice(0, 4)) : undefined) : undefined
   const spans =
-    freq === 'M' ? [[1, 12], [2, 24], [5, 60]] : freq === 'S' ? [[2, 4], [5, 10], [10, 20]] : [[5, 5], [10, 10], [20, 20]]
-  controls.periods = [
-    ...spans.map(([years, n]) => ({
-      label: fill(s.yearsShort, { n: String(years) }),
-      plan: { ...plan, time: { kind: 'last' as const, n }, focusPeriod: undefined, intent: overTime, notes: [] },
-      active: !plan.focusPeriod && plan.time.kind === 'last' && plan.time.n === n,
-    })),
-    {
-      label: s.allYears,
-      plan: { ...plan, time: { kind: 'all' as const }, focusPeriod: undefined, intent: overTime, notes: [] },
-      active: !plan.focusPeriod && plan.time.kind === 'all',
-    },
-  ]
+    freq === 'M' ? [[1, 12], [2, 24], [5, 60]] : freq === 'S' ? [[2, 4], [5, 10], [10, 20]] : [[5, 5], [10, 10], [15, 15], [20, 20]]
+  const upTo = anchor ?? last
+  const presets = spans
+    // No span longer than the data (no "20 y" when the data start in 2010).
+    .filter(([years]) => !first || !upTo || years <= upTo - first + 1 || years === spans[0][0])
+    .map(([years, n]) => {
+      const t: TimeRange = anchor ? { kind: 'range', since: String(anchor - years + 1), until: String(anchor) } : { kind: 'last', n }
+      const active = !plan.focusPeriod && JSON.stringify(time) === JSON.stringify(t)
+      return { label: fill(s.yearsShort, { n: String(years) }), plan: over(t), active }
+    })
+  const all = { label: s.allYears, plan: over({ kind: 'all' }), active: !plan.focusPeriod && time.kind === 'all' }
+  controls.periods = [...presets, all]
+  // The period asked for, when no button matches it ("since 2010", "2015–2020", "last 7 years").
+  // (Not for a comparison of the latest year: it only fetches the previous year for the change.)
+  if (!plan.focusPeriod && plan.intent !== 'compare' && !controls.periods.some((p) => p.active)) {
+    const label = periodLabel(time, freq, s, ds.dataEnd)
+    if (label) controls.periods.unshift({ label, plan, active: true })
+  }
+  if (anchor && anchor !== last) controls.periodsTo = String(anchor)
+  controls.overTime = over({ kind: 'last', n: spans[1][1] })
 
   // Single year (annual data): the latest years available.
   const end = Number(ds.dataEnd)
   const start = Number(ds.dataStart)
   if (freq === 'A' && end && start) {
     const several = Object.values(plan.filters).some((v) => Array.isArray(v) && v.length > 1)
-    controls.years = Array.from({ length: Math.min(15, end - start + 1) }, (_, k) => end - k).map((y) => {
+    const years = Array.from({ length: Math.min(15, end - start + 1) }, (_, k) => end - k)
+    // A year asked for that is older than the list (e.g. 2005) is listed too, so it shows as selected.
+    const focus = Number(plan.focusPeriod)
+    if (focus && !years.includes(focus) && focus >= start && focus <= end) years.push(focus)
+    controls.years = years.map((y) => {
       const intent: Plan['intent'] = plan.intent === 'mix' ? 'mix' : several ? 'compare' : 'snapshot'
       return {
         label: String(y),
@@ -774,4 +793,23 @@ function suggest(plan: Plan, dict: EnergyDictionary, s: DashStrings): Suggestion
   }
   out.push({ label: s.sugExplain, explain: true })
   return out
+}
+
+/** Label of a period that no toolbar button matches: "2015–2020", "2022", "7 y", "18 m". */
+function periodLabel(time: TimeRange, freq: string, s: DashStrings, dataEnd?: string | null): string | null {
+  if (time.kind === 'last') {
+    const perYear = freq === 'M' ? 12 : freq === 'S' ? 2 : freq === 'Q' ? 4 : 1
+    return time.n % perYear === 0 ? fill(s.yearsShort, { n: String(time.n / perYear) }) : fill(s.monthsShort, { n: String(time.n * (12 / perYear)) })
+  }
+  if (time.kind === 'range') {
+    const since = time.since ?? ''
+    const until = time.until ?? String(dataEnd ?? '')
+    const y1 = since.slice(0, 4)
+    const y2 = until.slice(0, 4)
+    // A whole calendar year of monthly or half-yearly data reads as that year.
+    if (y1 && y1 === y2 && (since.length === 4 || /-(01|S1|Q1)$/.test(since)) && (until.length === 4 || /-(12|S2|Q4)$/.test(until))) return y1
+    if (!since) return y2 ? `–${y2}` : null
+    return `${since}–${until}`
+  }
+  return null
 }

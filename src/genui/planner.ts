@@ -503,7 +503,7 @@ export function planQuestion(
     range = { kind: 'last', n: freq === 'A' ? 2 : freq === 'S' ? 2 : 13 }
     intent = 'compare'
   } else {
-    range = { kind: 'last', n: freq === 'M' ? 24 : freq === 'S' ? 12 : 15 }
+    range = { kind: 'last', n: freq === 'M' ? 24 : freq === 'S' ? 10 : 15 } // = a period button (execute.ts)
     intent = mix ? 'mix' : 'trend'
   }
   if (allCountries && intent !== 'trend') intent = 'compare'

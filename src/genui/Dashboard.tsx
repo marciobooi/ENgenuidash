@@ -12,6 +12,8 @@ export interface DashboardLabels {
   keyInsights: string
   dataTable: string
   period: string
+  /** "Period to {year}": the period buttons count back from a year asked for. */
+  periodTo: string
   year: string
   unit: string
   overTime: string
@@ -226,7 +228,7 @@ function Toolbar({
     <div className="dash__toolbar" role="toolbar" aria-label={[labels.period, labels.year, labels.unit].join(', ')}>
       {controls.periods && (
         <div className="dash__control">
-          <span id="ctl-period">{labels.period}</span>
+          <span id="ctl-period">{controls.periodsTo ? labels.periodTo.replace('{year}', controls.periodsTo) : labels.period}</span>
           <div className="segmented" role="group" aria-labelledby="ctl-period">
             {controls.periods.map((o) => (
               <button
@@ -252,7 +254,8 @@ function Toolbar({
             onChange={(e) => {
               const option = controls.years?.find((y) => y.label === e.target.value)
               if (option) onSelect({ label: `${labels.year}: ${option.label}`, plan: option.plan })
-              else if (controls.periods?.[1]) onSelect({ label: `${labels.period}: ${controls.periods[1].label}`, plan: controls.periods[1].plan })
+              // "Over time": back to the latest years.
+              else if (controls.overTime) onSelect({ label: labels.overTime, plan: controls.overTime })
             }}
           >
             <option value="">{labels.overTime}</option>

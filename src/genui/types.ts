@@ -151,6 +151,10 @@ export interface Suggestion {
 /** Dashboard toolbar: each option carries the plan it switches to. */
 export interface DashboardControls {
   periods?: { label: string; plan: Plan; active: boolean }[]
+  /** Year the period buttons count back from (a year or range end was asked for). */
+  periodsTo?: string
+  /** "Over time" in the year list: the latest ten years. */
+  overTime?: Plan
   years?: { label: string; plan: Plan; active: boolean }[]
   units?: { label: string; plan: Plan; active: boolean }[]
 }

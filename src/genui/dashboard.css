@@ -505,8 +505,16 @@
 
 .dash__section {
   min-width: 0;
-  animation: dash-enter 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  /* 'backwards', not 'both': once in place a section keeps no transform, so it does not become
+     its own stacking layer that later sections (the charts) would cover. */
+  animation: dash-enter 360ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   animation-delay: calc(var(--step, 0) * 55ms);
+}
+
+/* The toolbar's dropdowns (ECL selects) open over the sections below it, also while they enter. */
+.dash__section--toolbar {
+  position: relative;
+  z-index: 20;
 }
 
 @keyframes dash-enter {

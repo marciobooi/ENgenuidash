@@ -41,6 +41,12 @@ const WORDS: Record<string, string> = {
   stromverbrauch: 'electricity consumption', energiemix: 'energy mix', strommix: 'electricity mix', abhangigkeit: 'dependency',
   dependance: 'dependency', waermepumpe: 'heat pump', warmepumpe: 'heat pump', pac: 'heat pump', energie: 'energy',
   kernenergie: 'nuclear energy', atomkraft: 'nuclear', nucleaire: 'nuclear', erneuerbare: 'renewable', renouvelables: 'renewable',
+  // What for, what of (purposes and parts), quantities, coal, heating
+  wofur: 'purpose use', verwendungszweck: 'purpose', usage: 'use purpose', usages: 'use purpose', utilisent: 'use',
+  houille: 'hard coal', steinkohle: 'hard coal', braunkohle: 'brown coal lignite', kohle: 'coal', charbon: 'coal',
+  produite: 'production', produit: 'production', produziert: 'production', erzeugt: 'production',
+  heizung: 'heating', raumwarme: 'space heating', chauffage: 'heating', haushalte: 'households', menages: 'households',
+  ziel: 'target', objectif: 'target', stocks: 'stocks', notvorrate: 'emergency stocks', urgence: 'emergency',
 }
 
 function matches(words: string[], text: string, stem: string): boolean {
@@ -77,8 +83,8 @@ export function searchQuery(question: string): string {
 
 const LANG_WORDS: Record<'en' | 'de' | 'fr', Set<string>> = {
   en: new Set('the is are and or not a an why how what which who does do for with of to in on by this that'.split(' ')),
-  de: new Set('der die das den dem des ist sind und oder nicht ein eine einer warum wie was welche wird werden fur mit von auf auch im zum zur'.split(' ')),
-  fr: new Set('le la les des du est sont et ou pas un une pourquoi comment que quel quelle quels quelles qui dans pour avec sur au aux ce cette'.split(' ')),
+  de: new Set('der die das den dem des ist sind und oder nicht ein eine einer warum wie was welche wird werden fur mit von auf auch im zum zur wann wieviel wofur hat haben'.split(' ')),
+  fr: new Set('le la les des du de est sont et ou pas un une pourquoi comment que quel quelle quels quelles qui dans pour avec sur au aux ce cette combien quand elle ils ont'.split(' ')),
 }
 
 /**

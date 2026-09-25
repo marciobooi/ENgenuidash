@@ -1,4 +1,4 @@
-import { bestSentences, CONFIDENT_SCORE, MODEL_MIN_SCORE, quoteCoverage, type Hit } from './knowledge'
+import { bestSentences, CONFIDENT_SCORE, MODEL_MIN_SCORE, quoteCoverage, searchExcerpts, searchKnowledge, type Hit } from './knowledge'
 
 /**
  * Written answers that need no language model. The model is optional (a one-time download):
@@ -29,16 +29,55 @@ export function answerFromHits(hits: Hit[], query: string): DocumentAnswer {
   if (!top || top.score < MODEL_MIN_SCORE) return { kind: 'unclear' }
   // The quote comes from the passage whose best sentences cover the question best (among those
   // close to the top score), not blindly from the first one.
+  // A question asking for a figure, a date or a country is only answered by a quote that has one:
+  // "how much hard coal did the EU produce in 2025?" is not answered by a sentence about coal.
+  const figure = asksForFigure(query)
   const candidates = hits
     .filter((h) => h.score >= top.score * 0.8)
-    .map((h) => ({ h, quote: bestSentences(h, query) }))
-    .map((c) => ({ ...c, coverage: quoteCoverage(c.quote, query) }))
-    .sort((a, b) => b.coverage - a.coverage || b.h.score - a.h.score)
-  const { h: best, quote, coverage } = candidates[0]
-  const sources = [best, ...hits.filter((h) => h !== best && h.score >= CONFIDENT_SCORE / 2)].map(sourceOf).filter((s): s is Source => !!s)
+    .map((h, order) => ({ h, order, quote: bestSentences(h, query) }))
+    .map((c) => ({ ...c, coverage: quoteCoverage(c.quote, query), answers: !figure || hasFigure(c.quote, query) }))
+    .sort((a, b) => Number(b.answers) - Number(a.answers) || b.coverage - a.coverage || b.h.score - a.h.score || a.order - b.order)
+  const { h: best, quote, coverage, answers: answersIt } = candidates[0]
+  const sources = [best, ...hits.filter((h) => h.url !== best.url && h.score >= CONFIDENT_SCORE / 2)].map(sourceOf).filter((s): s is Source => !!s)
   // A confident quote must also cover most of the question.
-  if (best.score >= CONFIDENT_SCORE && quote && coverage >= 0.5) return { kind: 'quote', text: quote, sources }
-  return { kind: 'model', ...(quote && coverage > 0 ? { quote: { text: quote, sources } } : {}) }
+  if (best.score >= CONFIDENT_SCORE && quote && coverage >= 0.5 && answersIt) return { kind: 'quote', text: quote, sources }
+  return { kind: 'model', ...(quote && coverage > 0 && answersIt ? { quote: { text: quote, sources } } : {}) }
+}
+
+/**
+ * The answer from our Eurostat documents for a question: quoted from the sentences of the best
+ * documents that match it best (see searchExcerpts), or left to the model, or unclear.
+ */
+export async function documentAnswer(query: string): Promise<DocumentAnswer> {
+  // Both kinds of candidate: the best sentences of the best documents, and the best passages as
+  // they are. answerFromHits quotes whichever covers the question best.
+  const [excerpts, passages] = await Promise.all([
+    searchExcerpts(query, { docs: 2, maxChars: 650 }).catch(() => []),
+    searchKnowledge(query, { limit: 2 }).catch(() => []),
+  ])
+  // (Stable sort: on a tie, the focused excerpt comes before the passage as it is.)
+  return answerFromHits([...excerpts, ...passages].sort((a, b) => b.score - a.score), query)
+}
+
+// "How much", "what share", "when", "which country"… (EN, DE, FR): the answer is a figure, a date or a place.
+const FIGURE_QUESTION =
+  /\b(how (much|many|high|large|dependent)|what (share|percentage|proportion|amount|level)|when|which (country|countries|year|member state)|target|wie (viel|hoch|gross)|wieviel|welche[rs]? (land|lander|jahr)|wann|ziel|combien|quand|quel(le)? (part|pourcentage|pays|annee|niveau)|objectif)\b/
+const EU_COUNTRIES =
+  /\b(Austria|Belgium|Bulgaria|Croatia|Cyprus|Czechia|Denmark|Estonia|Finland|France|Germany|Greece|Hungary|Ireland|Italy|Latvia|Lithuania|Luxembourg|Malta|Netherlands|Poland|Portugal|Romania|Slovakia|Slovenia|Spain|Sweden)\b/
+
+export function asksForFigure(question: string): boolean {
+  return FIGURE_QUESTION.test(
+    question
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, ''),
+  )
+}
+
+/** A figure the question did not give ("2030" in "the 2030 target" is not the answer), or a country. */
+function hasFigure(text: string, question: string): boolean {
+  const asked = new Set(question.match(/\d+(?:[.,]\d+)?/g) ?? [])
+  return (text.match(/\d+(?:[.,]\d+)?/g) ?? []).some((n) => !asked.has(n)) || EU_COUNTRIES.test(text)
 }
 
 export interface SmallTalkStrings {

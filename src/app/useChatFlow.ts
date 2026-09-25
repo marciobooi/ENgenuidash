@@ -6,12 +6,12 @@ import { prepareQuestion } from '../genui/prepare'
 import { routeMessage } from '../genui/route'
 import type { Plan, Suggestion } from '../genui/types'
 import { STRINGS, type Lang, type Strings } from '../i18n'
-import { answerFromHits, smallTalkReply } from '../llm/answers'
+import { documentAnswer, smallTalkReply } from '../llm/answers'
 import { EXPLAIN_GENERATION, GENERATION, SYSTEM_PROMPT } from '../llm/config'
 import { searchQuery } from '../llm/crossLingual'
 import type { createScopeChecker } from '../llm/energyScope'
 import { definitionText, directDefinition } from '../llm/glossary'
-import { datasetDescription, knowledgeDocFreq, searchKnowledge } from '../llm/knowledge'
+import { datasetDescription, knowledgeDocFreq } from '../llm/knowledge'
 import { dashboardContext, EXPLAIN_SYSTEM_PROMPT, explainPrompt, modelPrompt, relatesToDashboard } from '../llm/prompt'
 import type { Vocabulary } from '../llm/vocabulary'
 import type { Assistant } from './useAssistant'
@@ -226,8 +226,7 @@ export function useChatFlow({
    * and the offer of a fuller answer, when the model is not there) or 'unclear' (not supported).
    */
   async function answerFromDocuments(text: string, query: string): Promise<'quoted' | 'model' | 'unclear' | 'offered'> {
-    const hits = await searchKnowledge(query, { limit: 2 }).catch(() => [])
-    const answer = answerFromHits(hits, query)
+    const answer = await documentAnswer(query)
     if (answer.kind === 'unclear') return 'unclear'
     if (answer.kind === 'quote') {
       llm.reply(text, answer.text, 'quote', answer.sources)

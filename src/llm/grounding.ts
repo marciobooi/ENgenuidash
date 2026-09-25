@@ -13,7 +13,7 @@ import { unitFromText } from '../genui/planner'
 import { normalize } from './energyScope'
 import { findDefinitions } from './glossary'
 import { productsIn, searchQuery } from './crossLingual'
-import { searchKnowledge, type Passage } from './knowledge'
+import { searchExcerpts, type Passage } from './knowledge'
 
 /**
  * Retrieval step ("grounding"): finds the Eurostat datasets that match a question, fetches a
@@ -222,7 +222,8 @@ export async function groundQuestion(
 
   // Best passages from our own knowledge base (dataset metadata, articles, glossary).
   const searchDatasetsFirst = searchDatasets(dict, searchTerms(question).join(' '), { codelists, limit: 1 })
-  const passages = await searchKnowledge(english, { datasets: searchDatasetsFirst.map((d) => d.code) }).catch(() => [])
+  // The best documents, each as the sentences that answer the question best (see searchExcerpts).
+  const passages = await searchExcerpts(english, { datasets: searchDatasetsFirst.map((d) => d.code) }).catch(() => [])
   const docs = background(passages)
 
   const query = searchTerms(question).join(' ')

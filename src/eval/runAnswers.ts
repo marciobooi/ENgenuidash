@@ -1,10 +1,9 @@
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { routeMessage } from '../genui/route'
-import { answerFromHits } from '../llm/answers'
+import { documentAnswer } from '../llm/answers'
 import { searchQuery } from '../llm/crossLingual'
 import { createScopeChecker, normalize } from '../llm/energyScope'
 import { definitionText, directDefinition } from '../llm/glossary'
-import { searchKnowledge } from '../llm/knowledge'
 import { buildVocabulary } from '../llm/vocabulary'
 import { ANSWER_CASES, type AnswerCase, type AnswerRoute } from './answerCases'
 
@@ -47,7 +46,7 @@ export async function runAnswerEval(dict: EnergyDictionary, codelists: EnergyCod
         text = definitionText(definition)
       } else {
         const query = searchQuery(c.q)
-        const a = answerFromHits(await searchKnowledge(query, { limit: 2 }), query)
+        const a = await documentAnswer(query)
         kind = a.kind === 'quote' ? 'quote' : a.kind === 'model' ? (a.quote ? 'passage' : 'offer') : 'unclear'
         text = a.kind === 'quote' ? a.text : a.kind === 'model' ? (a.quote?.text ?? '') : ''
       }

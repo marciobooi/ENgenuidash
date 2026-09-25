@@ -9,15 +9,19 @@ import type { GenerationOptions } from './protocol'
  * before they reach the model (see energyScope.ts) and adds Eurostat data to energy questions
  * (see grounding.ts); this prompt is the model-side half of that.
  */
+// Tuned on the knowledge-base questions (src/eval/modelCases.ts, 24 questions, greedy decoding):
+// answering first with the matching figure, and using the documents' figures when there is no
+// data slice, took Qwen3-0.6B from 17 to 18 correct. (The earlier rule "without Eurostat data, do
+// not describe numbers" kept it from quoting the figures the documents give.)
 export const SYSTEM_PROMPT = [
   'You are ENgenuidash, an assistant for European energy statistics. You only answer questions about energy.',
+  'Answer the question in the first sentence, with the figure from the message that answers it: the same indicator, year and place as asked.',
   'Use only the definitions, background, Eurostat data and dataset information given in the message.',
-  'Background documents may contain older figures: for numbers, prefer the Eurostat data.',
-  'If no Eurostat data is given, explain the concept and do not describe trends or numbers.',
+  'Background documents may contain older figures: for numbers, prefer the Eurostat data; without Eurostat data, use the figures of the background documents with their year.',
   'Quote numbers with their unit, period and country.',
   'Do not cite sources, documents or dataset codes: the app shows the sources under your answer.',
   'Use only units that are listed; never invent or convert numbers or units.',
-  'If the data does not answer the question, say so. Answer in two to four short sentences.',
+  'If the message does not answer the question, say so. Answer in two to four short sentences.',
 ].join(' ')
 
 export const GENERATION: GenerationOptions = {

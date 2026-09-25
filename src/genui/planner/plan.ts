@@ -68,6 +68,10 @@ export function planQuestion(
   const concrete = geo.codes.length > 0 || geo.eu || time.years.length > 0 || time.range !== null || allCountries
   if (explain && !concrete && !metrics.has('price')) return { kind: 'explain' }
   if (any(p, CAUSAL_WORDS) && !time.years.length && !time.range && !allCountries) return { kind: 'explain' }
+  // "Why does the EU keep emergency oil stocks?": a why question asks for an explanation, even
+  // with a place (the EU is one); with a year or period ("why did prices rise in 2022?") it is
+  // about the data.
+  if (any(p, ['why', 'warum', 'wieso', 'weshalb', 'pourquoi']) && !time.years.length && !time.range && !allCountries) return { kind: 'explain' }
 
   const productIds = products.map((x) => x.id)
   const isElectricity = productIds.includes('electricity')

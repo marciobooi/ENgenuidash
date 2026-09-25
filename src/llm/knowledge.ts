@@ -20,9 +20,12 @@ export interface Passage {
 
 interface Index {
   passages: Passage[]
-  terms: Map<string, number>[] // term frequencies per passage
+  terms: Map<string, number>[] // term frequencies per passage (stems and stem pairs, see stem)
   lengths: number[]
   avgLength: number
+  /** Number of passages each term appears in (for ranking). */
+  termFreq: Map<string, number>
+  /** Number of passages each word appears in, as written (for the vocabulary check). */
   docFreq: Map<string, number>
 }
 
@@ -47,9 +50,41 @@ export function contentWords(text: string): string[] {
   return [...new Set(words(text))]
 }
 
-/** Words plus adjacent word pairs, so "heat pump" outranks pages that only mention "heat". */
+/**
+ * Words people use for what the documents call otherwise: "per person" is "per capita", what a
+ * price "consists of" are its "components", the "largest" share is the "highest".
+ */
+const SYNONYMS: Record<string, string> = {
+  person: 'capita', persons: 'capita', people: 'capita', inhabitant: 'capita', inhabitants: 'capita', head: 'capita',
+  consist: 'component', consists: 'component', composed: 'component', breakdown: 'component', made: 'component',
+  largest: 'highest', biggest: 'highest', greatest: 'highest', smallest: 'lowest',
+  dependent: 'dependency', depend: 'dependency', depends: 'dependency', reliant: 'dependency', reliance: 'dependency',
+  // How an indicator is calculated: the documents give its numerator and denominator.
+  calculated: 'numerator denominator divided ratio', calculate: 'numerator denominator divided ratio', computed: 'numerator denominator divided ratio',
+}
+
+/** The search terms of a question: its own, plus the documents' words for them (see SYNONYMS). */
+function queryTokens(question: string): string[] {
+  const extra = words(question)
+    .map((w) => SYNONYMS[w])
+    .filter(Boolean)
+    .join(' ')
+  return [...new Set([...tokens(question), ...tokens(extra)])]
+}
+
+/**
+ * Word families share a stem, so a question and a passage match whatever the word form:
+ * "produce", "produced", "production" → "produc"; "heating" → "heat"; "households" → "household".
+ */
+export function stem(w: string): string {
+  if (w.length <= 4 || /\d/.test(w)) return w
+  const s = w.replace(/(ations?|tions?|ings?|ers?|ed|es|e|s)$/, '')
+  return s.length >= 4 ? s : w
+}
+
+/** Stems plus adjacent stem pairs, so "heat pump" outranks pages that only mention "heat". */
 function tokens(text: string): string[] {
-  const w = words(text)
+  const w = words(text).map(stem)
   return [...w, ...w.slice(1).map((x, i) => `${w[i]}_${x}`)]
 }
 
@@ -61,16 +96,19 @@ export const knowledgeDocFreq = (): Map<string, number> | undefined => loadedInd
 
 /** BM25 index of the passages (also used in Node by the evaluation). */
 export function buildKnowledgeIndex(passages: Passage[]): Index {
+  const termFreq = new Map<string, number>()
   const docFreq = new Map<string, number>()
   const terms = passages.map((p) => {
     // Title and section words count too ("Unit of measure", "Energy imports dependency").
+    const text = `${p.title} ${p.section ?? ''} ${p.text}`
     const tf = new Map<string, number>()
-    for (const t of tokens(`${p.title} ${p.section ?? ''} ${p.text}`)) tf.set(t, (tf.get(t) ?? 0) + 1)
-    for (const t of tf.keys()) docFreq.set(t, (docFreq.get(t) ?? 0) + 1)
+    for (const t of tokens(text)) tf.set(t, (tf.get(t) ?? 0) + 1)
+    for (const t of tf.keys()) termFreq.set(t, (termFreq.get(t) ?? 0) + 1)
+    for (const w of new Set(words(text))) docFreq.set(w, (docFreq.get(w) ?? 0) + 1)
     return tf
   })
   const lengths = terms.map((tf) => [...tf.values()].reduce((a, b) => a + b, 0))
-  return { passages, terms, lengths, avgLength: lengths.reduce((a, b) => a + b, 0) / lengths.length, docFreq }
+  return { passages, terms, lengths, avgLength: lengths.reduce((a, b) => a + b, 0) / lengths.length, termFreq, docFreq }
 }
 
 /** Uses already loaded passages (Node tests and scripts, which cannot fetch). */
@@ -114,10 +152,10 @@ const LEGAL = /\b(article \d+|regulation \(|regulation \d|directive \(|directive
  */
 export async function searchKnowledge(
   question: string,
-  { limit = 2, datasets = [] as string[], minScore = 4 } = {},
+  { limit = 2, datasets = [] as string[], minScore = 4, perDocument = 1 } = {},
 ): Promise<Hit[]> {
   const index = await loadKnowledge()
-  const query = [...new Set(tokens(question))]
+  const query = queryTokens(question)
   if (!query.length) return []
   const n = index.passages.length
 
@@ -128,7 +166,7 @@ export async function searchKnowledge(
       const f = index.terms[i].get(q)
       if (!f) continue
       if (!q.includes('_')) matched++
-      const df = index.docFreq.get(q) ?? 0
+      const df = index.termFreq.get(q) ?? 0
       const idf = Math.log(1 + (n - df + 0.5) / (df + 0.5))
       score += idf * ((f * (K1 + 1)) / (f + K1 * (1 - B + (B * index.lengths[i]) / index.avgLength)))
     }
@@ -138,14 +176,17 @@ export async function searchKnowledge(
   // A passage must share at least two key words with the question (or all, for one-word questions).
   const minMatched = Math.min(2, query.filter((q) => !q.includes('_')).length)
 
-  const seen = new Set<string>()
+  // At most `perDocument` passages of one article or dataset (its key facts may be in another part
+  // than the best-scoring one), so the others still get a place.
+  const seen = new Map<string, number>()
   return scored
     .filter((s) => s.score >= minScore && s.matched >= minMatched && !BOILERPLATE.test(s.p.section ?? ''))
     .sort((a, b) => b.score - a.score)
     .filter((s) => {
       const doc = s.p.url ?? s.p.title
-      if (seen.has(doc)) return false
-      seen.add(doc)
+      const n = seen.get(doc) ?? 0
+      if (n >= perDocument) return false
+      seen.set(doc, n + 1)
       return true
     })
     .slice(0, limit)
@@ -156,14 +197,21 @@ export async function searchKnowledge(
  * Extractive answer: the sentences of a passage that best match the question, in their original
  * order. Quoting Eurostat's own wording avoids the paraphrasing errors of a small model.
  */
+/** The sentences of a text (list items count as sentences; headings, without a final stop, do not). */
+function sentencesOf(text: string): string[] {
+  return (
+    text
+      .replace(/\n+- /g, '\n• ')
+      .split(/(?<=[.!?])\s+(?=[A-Z•])|\n+/)
+      .map((s) => s.trim())
+      // Real sentences only: headings ("Largest increase in prices in Romania") have no final stop.
+      .filter((s) => s.length > 30 && (/[.!?:;]$/.test(s) || s.startsWith('•')))
+  )
+}
+
 export function bestSentences(passage: Passage, question: string, max = 3): string {
   const q = new Set(words(question))
-  const sentences = passage.text
-    .replace(/\n+- /g, '\n• ')
-    .split(/(?<=[.!?])\s+(?=[A-Z•])|\n+/)
-    .map((s) => s.trim())
-    // Real sentences only: headings ("Largest increase in prices in Romania") have no final stop.
-    .filter((s) => s.length > 30 && (/[.!?:;]$/.test(s) || s.startsWith('•')))
+  const sentences = sentencesOf(passage.text)
   const ranked = sentences
     // Legal references go last: they cite a text instead of explaining.
     .map((s, i) => ({ s, i, score: words(s).filter((w) => q.has(w)).length - (LEGAL.test(s) ? 10 : 0) }))
@@ -172,6 +220,56 @@ export function bestSentences(passage: Passage, question: string, max = 3): stri
     .filter((x, k) => (k === 0 && x.score > -5) || x.score > 0)
     .sort((a, b) => a.i - b.i)
   return ranked.map((x) => x.s).join(' ')
+}
+
+/**
+ * Background for the model: the best documents for a question (articles, dataset descriptions,
+ * glossary entries), each reduced to the sentences, from any of its passages, that match the
+ * question best. The key fact of an article is often in another part than the one that scores
+ * best as a whole ("In 2025, the EU production of hard coal was 44 million tonnes" sits in the
+ * lead, while "Deliveries of coal to power plants" mentions coal more often), and short excerpts
+ * leave room for more documents in a small model's prompt.
+ */
+export async function searchExcerpts(
+  question: string,
+  { docs = 4, sentences = 3, maxChars = 420, datasets = [] as string[] } = {},
+): Promise<Hit[]> {
+  const index = await loadKnowledge()
+  const top = await searchKnowledge(question, { limit: docs, datasets })
+  const query = queryTokens(question)
+  const n = index.passages.length
+  const idf = (t: string) => {
+    const df = index.termFreq.get(t) ?? 0
+    return Math.log(1 + (n - df + 0.5) / (df + 0.5))
+  }
+  const years = question.match(/\b(19|20)\d{2}\b/g) ?? []
+  return top.map((hit) => {
+    const doc = hit.url ?? hit.title
+    const parts = index.passages.filter((p) => (p.url ?? p.title) === doc && !BOILERPLATE.test(p.section ?? ''))
+    const scored = parts
+      .flatMap((p, pi) => sentencesOf(p.text).map((s, si) => ({ s, order: pi * 1000 + si })))
+      .map((x) => {
+        const terms = new Set(tokens(x.s))
+        let score = 0
+        for (const t of query) if (terms.has(t)) score += idf(t)
+        // The year asked about ("in 2025") marks the sentence with the figure.
+        if (years.some((y) => x.s.includes(y))) score += 2
+        if (LEGAL.test(x.s)) score -= 10
+        return { ...x, score }
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+    const picked: typeof scored = []
+    let length = 0
+    for (const x of scored) {
+      if (picked.length >= sentences || picked.some((p) => p.s === x.s)) continue
+      if (picked.length && length + x.s.length > maxChars) continue
+      picked.push(x)
+      length += x.s.length + 1
+    }
+    const text = picked.sort((a, b) => a.order - b.order).map((x) => x.s).join(' ')
+    return { ...hit, text: text || hit.text.slice(0, maxChars) }
+  })
 }
 
 /**

@@ -17,7 +17,10 @@ export async function modelPrompt(
     signal,
     searchWith,
     dashboard,
+    questionLast = false,
   }: {
+    /** Where the question goes: before the background (default) or after it (evaluation). */
+    questionLast?: boolean
     conceptual?: boolean
     signal?: AbortSignal
     searchWith?: string
@@ -37,7 +40,10 @@ export async function modelPrompt(
     return { prompt: [question, `${rules}\n${dashboard.context}`, answerIn].join('\n\n'), sources: [dashboard.source] }
   }
   const g = await groundQuestion(searchWith ?? question, dict, codelists, lang, signal, { includeData: !conceptual })
-  return { prompt: [question, g.context, answerIn].filter(Boolean).join('\n\n'), sources: g.sources }
+  // Question first (tested: Qwen3-0.6B answered 17 of 24 knowledge-base questions right this way,
+  // 14 with the question after the background; src/eval/KnowledgeEval.tsx).
+  const parts = questionLast ? [g.context, `Question: ${question}`, answerIn] : [question, g.context, answerIn]
+  return { prompt: parts.filter(Boolean).join('\n\n'), sources: g.sources }
 }
 
 interface DashboardFacts {

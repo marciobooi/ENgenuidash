@@ -85,6 +85,34 @@ export function detectTop(p: Parsed): Plan['top'] {
   return undefined
 }
 
+/**
+ * What the question asks about, beyond what to show: "which country is the most dependent?",
+ * "welche Quelle ist am größten?", "quel pays consomme le plus ?" → which (the highest or the
+ * lowest); "how has it changed since 2010?", "wie hat sich … entwickelt?", "comment a évolué…" →
+ * change. Plain requests ("oil consumption in Spain") have no focus.
+ */
+export function detectFocus(p: Parsed): Plan['focus'] {
+  const superlative = LOWEST_WORDS.test(p.text) || HIGHEST_WORDS.test(p.text)
+  if ((WHICH_WORDS.test(p.text) && superlative) || /\b(top|bottom)\s+\d/.test(p.text)) {
+    // "The most" wins over a "least" later in the sentence only when it comes first.
+    const low = p.text.search(LOWEST_WORDS)
+    const high = p.text.search(HIGHEST_WORDS)
+    const bottom = /\bbottom\s+\d/.test(p.text)
+    return {
+      kind: 'which',
+      ...(bottom || (low >= 0 && (high < 0 || low < high)) ? { lowest: true } : {}),
+      ...(PERIOD_WORDS.test(p.text) ? { period: true } : {}),
+    }
+  }
+  if (CHANGE_WORDS.test(p.text)) return { kind: 'change' }
+  return undefined
+}
+
+const PERIOD_WORDS = /\b((which|what) (year|month|period)|when|welche[nms]? (jahr|monat)|in welchem (jahr|monat)|wann|quel(le)? (annee|mois|periode)|quand)\b/
+const WHICH_WORDS = /\b(which|who|what|when|wann|quand|welche[nrms]?|wer|quel(le)?s?|lequel|laquelle|lesquel(le)?s|qui)\b/
+const CHANGE_WORDS =
+  /\b(chang(e|ed|es|ing)|evolv(e|ed|ing)|evolution|develop(ed|ment)|grow(n|th)?|grew|increas(e|ed|es)|decreas(e|ed|es)|ris(e|en)|rose|f[ae]ll(en)?|drop(ped)?|trend|verander(ung|t)|entwick(lung|elt)|gestiegen|gesunken|zugenommen|abgenommen|evolue|augment(e|ation)|diminu(e|tion)|baisse|hausse)\b/
+
 const RANKED_SUBJECT = /\b(countr(y|ies)|member states?|states|ones|who|lander|land|staaten|pays|etats)\b/
 const LOWEST_WORDS = /\b(least|lowest|smallest|fewest|am wenigsten|am niedrigsten|am kleinsten|les moins|le moins|la moins|les plus faibles|les plus bas)\b/
 const HIGHEST_WORDS = /\b(the most|most \w+|highest|largest|biggest|am meisten|am \w+sten|les plus|le plus|la plus)\b/

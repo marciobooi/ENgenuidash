@@ -7,6 +7,11 @@ export interface Plan {
   filters: Record<string, string | string[]>
   time: TimeRange
   intent: 'trend' | 'compare' | 'mix' | 'snapshot'
+  /**
+   * What the question asks about, beyond the view ("which country is highest?", "how has it
+   * changed?"): the dashboard then opens with a direct answer and the charts that support it.
+   */
+  focus?: QuestionFocus
   /** Year shown in snapshot views (annual data). */
   focusPeriod?: string
   /** Set when the user asked for every EU country. */
@@ -25,6 +30,11 @@ export interface Plan {
    */
   retry?: { question: string; tried: string[] }
 }
+
+export type QuestionFocus =
+  /** The highest (or lowest) country, source… or, with `period`, year ("which year…?", "when…?"). */
+  | { kind: 'which'; lowest?: boolean; period?: boolean }
+  | { kind: 'change' }
 
 export type ChartKind = 'line' | 'bar' | 'area' | 'pie' | 'table'
 
@@ -47,8 +57,27 @@ export interface WidgetSource {
   url: string
 }
 
-export type WidgetSpec =
+/**
+ * What a chart is for; the layout orders charts by the question's focus (ranking first for
+ * "which…?", changes first for "how has it changed?").
+ */
+export type WidgetRole = 'headline' | 'ranking' | 'map' | 'change' | 'evolution' | 'composition' | 'detail' | 'related'
+
+/** The sections of a dashboard, in the order the spec lists them (see layout.ts). */
+export type SectionKey = 'answer' | 'summary' | 'insights' | 'notes' | 'toolbar' | 'suggestions' | 'kpis' | 'charts' | 'table'
+
+export type WidgetSpec = (
   | { type: 'kpis'; items: KpiSpec[] }
+  | {
+      /** The direct answer to the question, from the numbers ("Malta: 97.6% in 2023"). */
+      type: 'answer'
+      /** Full sentence, also read out and repeated in the chat. */
+      text: string
+      headline: string
+      value?: string
+      direction?: 'up' | 'down' | 'flat'
+      facts?: { label: string; value: string }[]
+    }
   | {
       type: 'line' | 'area'
       title: string
@@ -132,6 +161,7 @@ export type WidgetSpec =
       columns: string[]
       rows: { label: string; values: (number | null)[]; flags?: (string | undefined)[] }[]
     }
+) & { role?: WidgetRole }
 
 export interface KpiSpec {
   label: string
@@ -186,6 +216,8 @@ export interface DashboardSpec {
   insights: Insight[]
   notes: string[]
   widgets: WidgetSpec[]
+  /** Order of the sections on the page, chosen for the question (see layout.ts). */
+  layout: SectionKey[]
   source: Source
   unit?: string
   suggestions: Suggestion[]

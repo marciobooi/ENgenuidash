@@ -5,10 +5,13 @@ import {
   type EurostatResult,
 } from '../data/eurostat'
 import { ELECTRICITY_MIX, ENERGY_MIX, EU27 } from './concepts'
+import { answerFor, type AnswerStrings } from './answer'
 import { buildCompanions, type CompanionStrings } from './companions'
 import { computeInsights, type InsightStrings } from './insights'
+import { arrange } from './layout'
 import { monthlyFilters } from './planner'
 import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeRange, WidgetSpec } from './types'
+import { sanitizeSpec } from './validate'
 
 /**
  * Executes a Plan: fetches the data from Eurostat and composes a DashboardSpec (plain JSON)
@@ -59,6 +62,7 @@ export interface DashStrings {
   noteBottom: string
   insights: InsightStrings
   companions: CompanionStrings
+  answer: AnswerStrings
 }
 
 const MAX_SERIES = 6
@@ -270,7 +274,7 @@ export async function buildDashboard(
       .filter((x) => x.code.length === 2 && x.data[at] != null)
       .map((x) => ({ code: x.code, name: x.name, value: x.data[at] as number }))
     // A map needs enough countries to show a pattern (not 3 coloured countries on a grey Europe).
-    return data.length >= 8 ? { type: 'map', title: withPeriod(title), subtitle, data, size: 'half' } : null
+    return data.length >= 8 ? { type: 'map', title: withPeriod(title), subtitle, data, size: 'half', role: 'map' } : null
   }
 
   const heatmapOf = (list: typeof series): WidgetSpec | null => {
@@ -286,6 +290,7 @@ export async function buildDashboard(
       yCategories: rows.map((r) => r.name),
       values: rows.map((r) => cols.map((k) => r.data[k])),
       size: 'full',
+      role: 'evolution',
     }
   }
 
@@ -321,6 +326,7 @@ export async function buildDashboard(
       series: [{ name: period, data: ranked.map((r) => r.value) }],
       horizontal: true,
       size: 'half',
+      role: 'ranking',
       ...(euValue != null ? { reference: { value: euValue, label: 'EU-27' } } : {}),
     })
     // 2. Change vs previous period + share of total (summable) or breakdown list.
@@ -344,6 +350,7 @@ export async function buildDashboard(
           unit: changeUnit,
           decimals: 1,
           size: many ? 'full' : 'half',
+          role: 'change',
         })
       }
     }
@@ -358,6 +365,7 @@ export async function buildDashboard(
         slices: ranked.map((r) => ({ name: r.x.name, y: r.value })),
         centerLabel: fmt.compact(total),
         size: 'half',
+        role: 'composition',
       })
     } else if (prev >= 0 && (plan.focusPeriod || periods.length <= 2)) {
       // Not summable, and no evolution below: the two periods side by side per country.
@@ -369,15 +377,16 @@ export async function buildDashboard(
         series: [prev, focusIndex].map((i) => ({ name: periodLabels[i], data: ranked.map((r) => r.x.data[i] ?? null) })),
         horizontal: false,
         size: 'half',
+        role: 'change',
       })
     } else if (plan.focusPeriod || periods.length <= 2) {
-      widgets.push({ type: 'breakdown', title: withPeriod(title), subtitle, items: breakdownItems(ranked.map((r) => r.x), focusIndex), size: 'half' })
+      widgets.push({ type: 'breakdown', title: withPeriod(title), subtitle, items: breakdownItems(ranked.map((r) => r.x), focusIndex), size: 'half', role: 'detail' })
     }
     // 3. Evolution (only when no single year was asked for): heatmap for many series, else lines.
     if (!plan.focusPeriod && periods.length > 2) {
       const heat = series.length > 8 ? heatmapOf(series) : null
       if (heat) widgets.push(heat)
-      else widgets.push({ type: 'line', title: s.evolution, subtitle, categories: periodLabels, series: series.map(({ name, data }) => ({ name, data })), size: 'full' })
+      else widgets.push({ type: 'line', title: s.evolution, subtitle, categories: periodLabels, series: series.map(({ name, data }) => ({ name, data })), size: 'full', role: 'evolution' })
     }
     if (ranked.length >= 2) {
       summary.push(
@@ -422,6 +431,7 @@ export async function buildDashboard(
       slices: slices.map((r) => ({ name: r.x.name, y: r.y })),
       centerLabel: fmt.compact(totalShown),
       size: 'half',
+      role: 'composition',
     })
     widgets.push({
       type: 'breakdown',
@@ -431,12 +441,13 @@ export async function buildDashboard(
       items: breakdownItems(slices.map((r) => r.x), focusIndex),
       ...(periods.length > 2 ? { trend: { label: s.total, categories: periodLabels, data: totalSeries } } : {}),
       size: 'half',
+      role: 'composition',
     })
     // 2. Stacked evolution and shares over time (only for a view over time).
     if (!plan.focusPeriod && periods.length > 2) {
       const mixSeries = series.slice(0, MAX_SERIES).map(({ name, data }) => ({ name, data }))
-      widgets.push({ type: 'area', title: s.evolution, subtitle, categories: periodLabels, series: mixSeries, stacked: true, size: 'full' })
-      widgets.push({ type: 'area', title: s.sharesOverTime, subtitle: '%', categories: periodLabels, series: mixSeries, stacked: 'percent', size: 'full', unit: '%' })
+      widgets.push({ type: 'area', title: s.evolution, subtitle, categories: periodLabels, series: mixSeries, stacked: true, size: 'full', role: 'evolution' })
+      widgets.push({ type: 'area', title: s.sharesOverTime, subtitle: '%', categories: periodLabels, series: mixSeries, stacked: 'percent', size: 'full', unit: '%', role: 'evolution' })
     }
     if (slices[0]) {
       summary.push(fill(s.summaryMix, { period, top: slices[0].x.name, share: fmt.number((slices[0].y / totalShown) * 100, 1) }))
@@ -453,7 +464,7 @@ export async function buildDashboard(
     }
     widgets.push({ type: 'kpis', items: kpis })
     // 1. Evolution.
-    widgets.push({ type: 'line', title: s.evolution, subtitle, categories: periodLabels, series: shown.map(({ name, data }) => ({ name, data })), size: 'full' })
+    widgets.push({ type: 'line', title: s.evolution, subtitle, categories: periodLabels, series: shown.map(({ name, data }) => ({ name, data })), size: 'full', role: 'evolution' })
     // 2. Latest values (breakdown) + change since the start of the period.
     const latest = Math.max(...series.map((x) => latestIndex(x.data)))
     widgets.push({
@@ -463,6 +474,7 @@ export async function buildDashboard(
       items: breakdownItems(series, latest),
       trend: { label: shown[0].name, categories: periodLabels, data: shown[0].data },
       size: 'half',
+      role: 'ranking',
     })
     const start = Math.min(...series.map((x) => firstIndex(x.data)).filter((k) => k >= 0))
     const since = [...series]
@@ -480,6 +492,7 @@ export async function buildDashboard(
         unit: changeUnit,
         decimals: 1,
         size: 'half',
+        role: 'change',
       })
     }
     // 3. Map of the latest period and 4. country × period heatmap (patterns across many series).
@@ -548,6 +561,7 @@ export async function buildDashboard(
         chips,
         ...(avg != null && periods.length > 2 ? { reference: { value: avg, label: `${s.average} ${fmt.value(avg, unit)}` } } : {}),
         size: 'full',
+        role: 'headline',
       })
     }
     // 2. Change: from the previous year (annual data) or from the same month / half a year
@@ -566,6 +580,7 @@ export async function buildDashboard(
           unit: changeUnit,
           decimals: 1,
           size: 'full',
+          role: 'change',
         })
       }
       // Monthly data: the months of each of the last three years side by side (the seasons).
@@ -586,6 +601,7 @@ export async function buildDashboard(
               }),
             })),
             size: 'full',
+            role: 'detail',
           })
         }
       }
@@ -606,7 +622,7 @@ export async function buildDashboard(
   }
 
   if (plan.chart) applyChartOverride(widgets, plan.chart)
-  widgets.push(...(await companions))
+  widgets.push(...(await companions).map((w) => ({ ...w, role: 'related' as const })))
 
   // Data table: every series; for a single-year comparison or mix only that year's column,
   // otherwise every period.
@@ -620,12 +636,34 @@ export async function buildDashboard(
     rows: tableSeries.map((x) => ({ label: x.name, values: cols.map((i) => x.data[i]), flags: cols.map((i) => x.flags[i]) })),
   })
 
+  // A focused question ("which…?", "how has it changed?") gets its answer first, and the page
+  // is arranged around it (layout.ts).
+  const answer = plan.focus
+    ? answerFor(
+        {
+          focus: plan.focus,
+          mix: plan.intent === 'mix' || composition,
+          series,
+          euRef,
+          periodLabels,
+          focusIndex,
+          singleYear: !!plan.focusPeriod,
+          isPercent,
+          unit,
+          fmt,
+        },
+        s.answer,
+      )
+    : null
+  if (answer) widgets.unshift(answer)
+  const arranged = arrange(widgets, plan)
+
   const insights = computeInsights(
     { intent: composition ? 'mix' : plan.intent, multi, ranked: !!topNote, lag, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
     s.insights,
   )
 
-  return {
+  const { spec, problems } = sanitizeSpec({
     title,
     subtitle,
     summary,
@@ -637,7 +675,8 @@ export async function buildDashboard(
         : []),
       ...(plan.notes ?? []).map((n) => s[`note${n[0].toUpperCase()}${n.slice(1)}` as keyof DashStrings] as string),
     ],
-    widgets,
+    widgets: arranged.widgets,
+    layout: arranged.layout,
     unit,
     source: {
       code: ds.code,
@@ -648,7 +687,9 @@ export async function buildDashboard(
     controls: controlsFor(plan, dict, s, lang),
     context: toContext(title, subtitle, unit, periodLabels, tableSeries),
     plan,
-  }
+  })
+  if (problems.length) console.warn(`Dashboard ${ds.code}: left out`, problems)
+  return spec
 }
 
 // ---------- "show as …" overrides ----------
@@ -683,7 +724,7 @@ function applyChartOverride(widgets: WidgetSpec[], kind: NonNullable<Plan['chart
   } else {
     next = { type: kind, title: w.title, subtitle: w.subtitle, categories, series, ...(kind === 'area' && series.length > 1 ? { stacked: true } : {}) }
   }
-  widgets[index] = next
+  widgets[index] = { ...next, role: w.role }
 }
 
 // ---------- formatting ----------

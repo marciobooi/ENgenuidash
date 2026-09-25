@@ -47,5 +47,6 @@ export function dashStrings(t: Strings): DashStrings {
     noteBottom: t.dNoteBottom,
     insights: t.dInsights,
     companions: t.dCompanions,
+    answer: t.dAnswer,
   }
 }

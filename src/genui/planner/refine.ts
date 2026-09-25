@@ -20,6 +20,7 @@ import {
   any,
   find,
   detectGeos,
+  detectFocus,
   detectTop,
   detectTime,
   periodFor,
@@ -185,6 +186,16 @@ export function refinePlan(
   if (mix && (current.dataset === 'nrg_bal_c' || current.dataset === 'nrg_bal_peh')) {
     next.filters.siec = current.dataset === 'nrg_bal_peh' ? ELECTRICITY_MIX : ENERGY_MIX
     next.intent = 'mix'
+    changed = true
+  }
+
+  // A new focus ("which one is the highest?", "how has it changed?") replaces the previous one; a
+  // plain change ("add Italy") keeps it. "Which…?" needs something to rank: several series, or the
+  // periods of one ("which year…?"); "which source is the largest?" on one series is not a change.
+  const focus = detectFocus(p)
+  const rankable = focus?.kind !== 'which' || focus.period || Object.values(next.filters).some((v) => Array.isArray(v) && v.length > 1)
+  if (focus && rankable && JSON.stringify(focus) !== JSON.stringify(current.focus)) {
+    next.focus = focus
     changed = true
   }
 

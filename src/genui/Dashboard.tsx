@@ -1,14 +1,18 @@
 import { Database, ExternalLink, Info, Sparkles } from 'lucide-react'
+import { Fragment, type ReactNode } from 'react'
 import { AreaChart, BarChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
 import { Filters, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
 import { DataTable } from '../components/table'
+import { AnswerCard } from './AnswerCard'
 import { BreakdownCard } from './BreakdownCard'
-import type { DashboardControls, DashboardSpec, Suggestion, WidgetSpec } from './types'
+import type { DashboardControls, DashboardSpec, SectionKey, Suggestion, WidgetSpec } from './types'
 import './dashboard.css'
 
 export interface DashboardLabels {
+  /** Label of the direct answer to a focused question. */
+  answer: string
   keyIndicators: string
   keyInsights: string
   dataTable: string
@@ -50,7 +54,7 @@ export function Dashboard({
   multiSelectLabels?: EclMultiSelectLabels
   busy?: boolean
 }) {
-  const charts = spec.widgets.filter((w) => !['kpis', 'table'].includes(w.type))
+  const charts = spec.widgets.filter((w) => !['kpis', 'table', 'answer'].includes(w.type))
   const decimals = spec.widgets.find((w) => w.type === 'kpis')?.items[0]?.decimals ?? 1
 
   // Layout: 'full' charts span the width; 'half' charts pair up. A half chart without a partner
@@ -132,31 +136,31 @@ export function Dashboard({
     }
   }
 
-  return (
-    <article className="dash" aria-labelledby="dash-title" aria-busy={busy}>
-      <header className="dash__head">
-        <div className="dash__heading">
-          <h2 className="dash__title" id="dash-title" tabIndex={-1}>
-            {spec.title}
-          </h2>
-          {spec.subtitle && <p className="dash__subtitle">{spec.subtitle}</p>}
-        </div>
-        {spec.summary.length > 0 && (
-          <div className="dash__summary">
-            <Sparkles size={16} aria-hidden="true" />
-            <p>{spec.summary.join(' ')}</p>
-          </div>
-        )}
-        <InsightsPanel title={labels.keyInsights} items={spec.insights} />
-        {spec.notes.filter(Boolean).map((n) => (
-          <p key={n} className="dash__note">
-            <Info size={14} aria-hidden="true" />
-            {n}
-          </p>
-        ))}
-      </header>
+  const answer = spec.widgets.find((w) => w.type === 'answer')
+  const kpis = spec.widgets.find((w) => w.type === 'kpis')
+  const table = spec.widgets.find((w) => w.type === 'table')
 
-      {(spec.controls || filters.length > 0) && (
+  // The sections, in the order the spec gives (layout.ts): a focused question opens with its
+  // answer; an overview with the summary and insights.
+  const sections: Record<SectionKey, () => ReactNode> = {
+    answer: () => (answer ? <AnswerCard widget={answer} label={labels.answer} /> : null),
+    summary: () =>
+      spec.summary.length > 0 && (
+        <div className="dash__summary">
+          <Sparkles size={16} aria-hidden="true" />
+          <p>{spec.summary.join(' ')}</p>
+        </div>
+      ),
+    insights: () => <InsightsPanel title={labels.keyInsights} items={spec.insights} />,
+    notes: () =>
+      spec.notes.filter(Boolean).map((n) => (
+        <p key={n} className="dash__note">
+          <Info size={14} aria-hidden="true" />
+          {n}
+        </p>
+      )),
+    toolbar: () =>
+      (spec.controls || filters.length > 0) && (
         <Toolbar
           controls={spec.controls ?? {}}
           labels={labels}
@@ -166,9 +170,9 @@ export function Dashboard({
           onFilter={onFilter}
           multiSelectLabels={multiSelectLabels}
         />
-      )}
-
-      {spec.suggestions.length > 0 && (
+      ),
+    suggestions: () =>
+      spec.suggestions.length > 0 && (
         <nav className="dash__suggestions" aria-label={labels.suggestions}>
           <ul>
             {spec.suggestions.map((sug) => (
@@ -181,19 +185,18 @@ export function Dashboard({
             ))}
           </ul>
         </nav>
-      )}
-
-      {spec.widgets.map((w, i) =>
-        w.type === 'kpis' && w.items.length ? (
-          <KpiGrid key={`kpis-${i}`} label={labels.keyIndicators}>
-            {w.items.map((k) => (
-              <KpiCard key={`${k.label}-${k.caption}`} {...k} locale={lang} />
-            ))}
-          </KpiGrid>
-        ) : null,
-      )}
-
-      {charts.length > 0 && (
+      ),
+    kpis: () =>
+      kpis?.type === 'kpis' &&
+      kpis.items.length > 0 && (
+        <KpiGrid label={labels.keyIndicators}>
+          {kpis.items.map((k) => (
+            <KpiCard key={`${k.label}-${k.caption}`} {...k} locale={lang} />
+          ))}
+        </KpiGrid>
+      ),
+    charts: () =>
+      charts.length > 0 && (
         <div className="dash__charts">
           {charts.map((w, i) => (
             <div key={`${w.type}-${i}`} className={`dash__cell dash__cell--${sizes[i]}`}>
@@ -201,30 +204,43 @@ export function Dashboard({
             </div>
           ))}
         </div>
-      )}
+      ),
+    // The full data stays available, but collapsed: the charts are the main view.
+    table: () =>
+      table?.type === 'table' && (
+        <details className="dash__table">
+          <summary>
+            {labels.dataTable}
+            <span className="dash__table-meta">
+              {table.rows.length} × {table.columns.length}
+            </span>
+          </summary>
+          <DataTable
+            caption={`${table.title}: ${spec.title}`}
+            columns={table.columns}
+            rows={table.rows}
+            locale={lang}
+            decimals={decimals}
+            unit={spec.unit}
+            missingLabel={labels.missing}
+          />
+        </details>
+      ),
+  }
 
-      {/* The full data stays available, but collapsed: the charts are the main view. */}
-      {spec.widgets.map((w, i) =>
-        w.type === 'table' ? (
-          <details key={`table-${i}`} className="dash__table">
-            <summary>
-              {labels.dataTable}
-              <span className="dash__table-meta">
-                {w.rows.length} × {w.columns.length}
-              </span>
-            </summary>
-            <DataTable
-              caption={`${w.title}: ${spec.title}`}
-              columns={w.columns}
-              rows={w.rows}
-              locale={lang}
-              decimals={decimals}
-              unit={spec.unit}
-              missingLabel={labels.missing}
-            />
-          </details>
-        ) : null,
-      )}
+  return (
+    <article className="dash" aria-labelledby="dash-title" aria-busy={busy}>
+      <header className="dash__head">
+        <div className="dash__heading">
+          <h2 className="dash__title" id="dash-title" tabIndex={-1}>
+            {spec.title}
+          </h2>
+          {spec.subtitle && <p className="dash__subtitle">{spec.subtitle}</p>}
+        </div>
+      </header>
+      {spec.layout.map((key) => (
+        <Fragment key={key}>{sections[key]?.()}</Fragment>
+      ))}
     </article>
   )
 }

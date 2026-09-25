@@ -31,7 +31,7 @@ const plan = (q: string): Plan => {
 }
 const build = (p: Plan) => buildDashboard(p, dict, 'en', s)
 const dash = async (q: string) => build(plan(q))
-const charts = (d: DashboardSpec) => d.widgets.filter((w) => !['kpis', 'table'].includes(w.type))
+const charts = (d: DashboardSpec) => d.widgets.filter((w) => !['kpis', 'table', 'answer'].includes(w.type))
 const kinds = (d: DashboardSpec): string[] => charts(d).map((w) => w.type)
 const titled = (d: DashboardSpec, title: string) => charts(d).find((w) => 'title' in w && w.title.startsWith(title)) as WidgetSpec | undefined
 const has = (d: DashboardSpec, type: string) => kinds(d).includes(type)

@@ -1,6 +1,7 @@
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { dashboardActions, scoreActions, rankByOverlap } from '../genui/actions'
 import { routeMessage } from '../genui/route'
+import type { Plan } from '../genui/types'
 import { STRINGS } from '../i18n'
 import { createScopeChecker } from '../llm/energyScope'
 import type { ChatMessage } from '../llm/protocol'
@@ -50,7 +51,9 @@ export async function runEval(
 
   for (const [i, c] of EVAL_CASES.entries()) {
     const actions = dashboardActions(EVAL_DASHBOARD, c.text, dict, codelists, STRINGS[c.lang].actions, STRINGS.en.actions, c.lang)
-    const idOf = (plan: unknown) => actions.find((a) => JSON.stringify(a.plan) === JSON.stringify(plan))?.id ?? 'other'
+    // The focus of the question (which answer card to show) is not part of the action.
+    const key = (plan: Plan | undefined) => JSON.stringify(plan ? { ...plan, focus: undefined } : plan)
+    const idOf = (plan: Plan) => actions.find((a) => key(a.plan) === key(plan))?.id ?? 'other'
     const route = routeMessage(c.text, {
       current: EVAL_DASHBOARD.plan,
       dict,

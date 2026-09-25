@@ -182,6 +182,7 @@ export default function App() {
             lang={lang}
             busy={busy}
             labels={{
+              answer: t.dAnswer.title,
               keyIndicators: t.keyIndicators,
               dataTable: t.dataTableShow,
               period: t.ctlPeriod,

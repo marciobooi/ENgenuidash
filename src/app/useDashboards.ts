@@ -78,11 +78,13 @@ export function useDashboards({
         }
       }
       const index = dashboards.length
-      const message = fill(hasDashboard ? t.dashboardUpdated : t.dashboardReady, { title: spec.title })
+      // A focused question ("which country…?") also gets its answer in the chat.
+      const answer = spec.widgets.find((w) => w.type === 'answer')
+      const message = [fill(hasDashboard ? t.dashboardUpdated : t.dashboardReady, { title: spec.title }), answer?.text].filter(Boolean).join(' ')
       setDashboards((d) => [...d, spec])
       setActive(index)
       llm.updateLast((m) => !!m.pending, { content: message, pending: false, card: { index, title: spec.title } })
-      announce(`${message} ${spec.summary.join(' ')}`)
+      announce(answer ? message : `${message} ${spec.summary.join(' ')}`)
       onShown()
     } catch (err) {
       const message = err instanceof NoDataError ? err.message : err instanceof EurostatUnavailableError ? t.eurostatDown : t.dashboardError

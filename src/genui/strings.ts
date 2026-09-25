@@ -48,5 +48,6 @@ export function dashStrings(t: Strings): DashStrings {
     insights: t.dInsights,
     companions: t.dCompanions,
     answer: t.dAnswer,
+    aboutIndicator: t.dAboutIndicator,
   }
 }

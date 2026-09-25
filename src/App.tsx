@@ -1,10 +1,11 @@
-import { Database, PlugZap, Zap } from 'lucide-react'
+import { Database, Link2, PlugZap, Zap } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import ComponentsGallery from './ComponentsGallery'
 import { Header } from './Header'
 import { ChatModal } from './app/ChatModal'
 import { ChatThread } from './app/ChatThread'
 import { Composer } from './app/Composer'
+import { clearShareLink, decodePlan, readShareLink, shareUrl } from './app/shareLink'
 import { useAssistant } from './app/useAssistant'
 import { useChatFlow } from './app/useChatFlow'
 import { useDashboards } from './app/useDashboards'
@@ -98,6 +99,30 @@ export default function App() {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [llm.messages, chatOpen])
 
+  // The dashboard on screen is in the URL, so it can be shared or bookmarked.
+  useEffect(() => {
+    if (current?.question) window.history.replaceState(null, '', shareUrl(current.question, current.plan))
+  }, [current])
+
+  // Opened from a shared link: rebuild its dashboard (a plan that does not check out against the
+  // dictionary falls back to asking the question), once the dictionary is loaded.
+  const openedLink = useRef(false)
+  useEffect(() => {
+    if (openedLink.current || !data.dict || !data.codelists) return
+    openedLink.current = true
+    const link = readShareLink()
+    const plan = link.plan ? decodePlan(link.plan, data.dict) : null
+    if (plan) void dash.runPlan(plan, link.question ?? data.dict.datasets[plan.dataset]?.code ?? '')
+    else if (link.question) chat.send(link.question)
+  })
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(
+      () => notify.success(t.linkCopied),
+      () => notify.info(window.location.href),
+    )
+  }
+
   const send = (raw: string) => {
     const text = raw.trim()
     if (!text || busy) return
@@ -109,6 +134,7 @@ export default function App() {
     if (busy || !inConversation) return
     llm.clear()
     dash.clear()
+    clearShareLink()
     setChatOpen(false)
     setInput('')
     notify.info(t.chatCleared)
@@ -183,6 +209,8 @@ export default function App() {
             busy={busy}
             labels={{
               answer: t.dAnswer.title,
+              moreFilters: t.moreFilters,
+              fewerFilters: t.fewerFilters,
               keyIndicators: t.keyIndicators,
               dataTable: t.dataTableShow,
               period: t.ctlPeriod,
@@ -201,6 +229,12 @@ export default function App() {
             filters={dash.filters}
             onFilter={dash.onFilter}
             multiSelectLabels={t.multiSelect}
+            actions={
+              <button type="button" className="dash__share" onClick={copyLink}>
+                <Link2 size={16} aria-hidden="true" />
+                {t.shareLink}
+              </button>
+            }
           />
         </div>
       </main>

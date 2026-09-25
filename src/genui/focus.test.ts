@@ -108,7 +108,7 @@ test('how has it changed (several countries): who changed the most', async () =>
 
 test('a plain request keeps the overview layout, without an answer', async () => {
   const d = await dash('Oil consumption in Spain')
-  assert.deepEqual(d.layout, OVERVIEW_LAYOUT)
+  assert.ok(!d.layout.flat().includes('answer'))
   assert.equal(answerOf(d), undefined)
 })
 

@@ -8,7 +8,8 @@ import { ELECTRICITY_MIX, ENERGY_MIX, EU27 } from './concepts'
 import { answerFor, type AnswerStrings } from './answer'
 import { buildCompanions, type CompanionStrings } from './companions'
 import { computeInsights, type InsightStrings } from './insights'
-import { arrange } from './layout'
+import { arrange, type Kind } from './layout'
+import { datasetDescription } from '../llm/knowledge'
 import { monthlyFilters } from './planner'
 import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeRange, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -63,7 +64,15 @@ export interface DashStrings {
   insights: InsightStrings
   companions: CompanionStrings
   answer: AnswerStrings
+  aboutIndicator: string
 }
+
+/**
+ * Lets something else (the language model) pick one of the two page variants for this kind of
+ * question; undefined keeps the topic's variant. Any answer is only a choice between valid
+ * templates, and the spec is checked before it is shown.
+ */
+export type ChooseVariant = (kind: Kind) => Promise<0 | 1 | undefined>
 
 const MAX_SERIES = 6
 
@@ -87,6 +96,7 @@ export async function buildDashboard(
   lang: string,
   s: DashStrings,
   signal?: AbortSignal,
+  chooseVariant?: ChooseVariant,
 ): Promise<DashboardSpec> {
   const ds = dict.datasets[plan.dataset]
   const geoCodes = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []
@@ -108,6 +118,9 @@ export async function buildDashboard(
     (v) => new Intl.NumberFormat(lang, { notation: 'compact', maximumFractionDigits: 2 }).format(v),
     signal,
   ).catch(() => [] as WidgetSpec[])
+
+  // Explainer: Eurostat's own description of the indicator (local knowledge base; optional).
+  const explainer = datasetDescription(plan.dataset, 3).catch(() => null)
 
   const fetchWith = (f: typeof filters) =>
     fetchEurostatData(plan.dataset, {
@@ -294,7 +307,9 @@ export async function buildDashboard(
     }
   }
 
+  let view: 'compare' | 'mix' | 'trend' | 'single' = 'single'
   if (plan.intent === 'compare' && multi) {
+    view = 'compare'
     const ranked = series
       .map((x) => ({ x, value: x.data[focusIndex] }))
       .filter((r): r is { x: (typeof series)[number]; value: number } => r.value != null)
@@ -400,6 +415,7 @@ export async function buildDashboard(
       )
     }
   } else if ((plan.intent === 'mix' || composition) && multi) {
+    view = 'mix'
     const slices = series
       .map((x) => ({ x, y: x.data[focusIndex] ?? 0 }))
       .filter((r) => r.y > 0)
@@ -453,6 +469,7 @@ export async function buildDashboard(
       summary.push(fill(s.summaryMix, { period, top: slices[0].x.name, share: fmt.number((slices[0].y / totalShown) * 100, 1) }))
     }
   } else if (multi) {
+    view = 'trend'
     // Several series over time.
     const shown = [...series]
       .sort((p, q) => (q.data[latestIndex(q.data)] ?? 0) - (p.data[latestIndex(p.data)] ?? 0))
@@ -622,7 +639,7 @@ export async function buildDashboard(
   }
 
   if (plan.chart) applyChartOverride(widgets, plan.chart)
-  widgets.push(...(await companions).map((w) => ({ ...w, role: 'related' as const })))
+  widgets.push(...(await companions).map((w) => ({ ...w, role: w.role ?? ('related' as const) })))
 
   // Data table: every series; for a single-year comparison or mix only that year's column,
   // otherwise every period.
@@ -656,7 +673,18 @@ export async function buildDashboard(
       )
     : null
   if (answer) widgets.unshift(answer)
-  const arranged = arrange(widgets, plan)
+  const described = await explainer
+  if (described?.text) {
+    widgets.push({
+      type: 'text',
+      title: s.aboutIndicator,
+      body: described.text,
+      ...(described.url ? { source: { code: ds.code, title: `${described.title} › ${described.section}`, url: described.url } } : {}),
+    })
+  }
+  const kind = arrange(widgets, plan, view).presentation.template.replace(/-[ab]$/, '') as Kind
+  const variant = chooseVariant ? await chooseVariant(kind).catch(() => undefined) : undefined
+  const arranged = arrange(widgets, plan, view, variant)
 
   const insights = computeInsights(
     { intent: composition ? 'mix' : plan.intent, multi, ranked: !!topNote, lag, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
@@ -677,6 +705,9 @@ export async function buildDashboard(
     ],
     widgets: arranged.widgets,
     layout: arranged.layout,
+    presentation: arranged.presentation,
+    // The codes on screen (e.g. the 5 countries of a "top 5"), so the filters show them selected.
+    ...(seriesDim ? { shown: { [seriesDim]: series.map((x) => x.code) } } : {}),
     unit,
     source: {
       code: ds.code,

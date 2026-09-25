@@ -5,7 +5,7 @@ import type { EurostatResult } from '../data/eurostat'
 import { STRINGS } from '../i18n'
 import { companionsFor, toWidget } from './companions'
 import { planQuestion } from './planner'
-import type { Plan } from './types'
+import type { Plan, WidgetSpec } from './types'
 
 const read = (f: string) => JSON.parse(readFileSync(`public/data/eurostat/energy/${f}`, 'utf8'))
 const dict = read('dictionary.json')
@@ -36,9 +36,9 @@ test('price components: VAT is not counted twice (taxes include it)', () => {
     dimensions: { nrg_prc: { label: '', codes: codes.map((code) => ({ code, label: code === 'VAT' ? 'Value added tax (VAT)' : code })) }, time: { label: '', codes: [{ code: '2025', label: '2025' }] } },
     observations: codes.map((code) => ({ keys: { nrg_prc: code, time: '2025' }, value: values[code] })),
   } as EurostatResult
-  const w = toWidget(c, result, 'en', (v) => v.toFixed(4))
+  const w = [toWidget(c, result, 'en', (v) => v.toFixed(4))].flat()[0]
   assert.equal(w?.type, 'pie')
-  const slices = (w as Extract<typeof w, { type: 'pie' }>).slices
+  const slices = (w as Extract<WidgetSpec, { type: 'pie' }>).slices
   const total = slices.reduce((n, x) => n + x.y, 0)
   assert.ok(Math.abs(total - 0.3852) < 0.001, `sum ${total}`)
   assert.ok(slices.some((x) => x.name === 'Other taxes and levies' && Math.abs(x.y - 0.0626) < 0.0001))

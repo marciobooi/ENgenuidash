@@ -52,6 +52,9 @@ export function refinePlan(
   const p = parse(question)
   // "Why did it rise in 2022?" asks for an explanation, not a change of the dashboard.
   if (any(p, ['why', 'warum', 'wieso', 'weshalb', 'pourquoi'])) return null
+  // "Electricity mix in France" on a dashboard without a mix (prices, import dependency) asks
+  // for another dataset: a new question, not "electricity for France" on the prices shown.
+  if (any(p, MIX_WORDS) && current.dataset !== 'nrg_bal_c' && current.dataset !== 'nrg_bal_peh') return null
   const products = find(p, PRODUCTS)
   const onlyProducts = products.length > 0 && !find(p, METRICS).length && !find(p, FLOWS).length
   // "What about oil?" on the import dependency dashboard: the same indicator for that product.

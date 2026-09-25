@@ -3,7 +3,8 @@ import type { FilterControl } from '../components/filters'
 import { notify } from '../components/toast'
 import { EurostatUnavailableError, type EnergyCodelists, type EnergyDictionary } from '../data/eurostat'
 import { recordMiss } from '../eval/missLog'
-import { buildDashboard, NoDataError } from '../genui/execute'
+import { buildDashboard, NoDataError, type ChooseVariant } from '../genui/execute'
+import { variantPrompt } from '../genui/layout'
 import { applyFilter, filterControls } from '../genui/filters'
 import { planQuestion } from '../genui/planner'
 import { dashStrings } from '../genui/strings'
@@ -44,9 +45,25 @@ export function useDashboards({
 
   // Toolbar filters for the dashboard on screen (countries, products, flows…).
   const filters = useMemo(
-    () => (current && dict && codelists ? filterControls(current.plan, dict, codelists, lang, t.filters) : []),
+    () => (current && dict && codelists ? filterControls(current.plan, dict, codelists, lang, t.filters, current.shown) : []),
     [current, dict, codelists, lang, t.filters],
   )
+
+  /**
+   * When the language model is already loaded, it may pick one of the two page variants for the
+   * question (a small, checked choice between valid templates). Only a clear preference given
+   * quickly counts; otherwise the topic's variant stays. Never downloads or waits for the model.
+   */
+  const modelVariant = (question: string): ChooseVariant | undefined =>
+    assistant.ready && !llm.generating
+      ? async (kind) => {
+          const timeout = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1500))
+          const probs = await Promise.race([llm.choose(variantPrompt(question, kind), 2), timeout])
+          if (!probs || probs.length < 2) return undefined
+          const best = probs[1] > probs[0] ? 1 : 0
+          return probs[best] >= 0.7 ? best : undefined
+        }
+      : undefined
 
   async function runPlan(plan: Plan, question: string) {
     if (!dict) return
@@ -59,7 +76,7 @@ export function useDashboards({
       // the question again without it (at most twice) before saying there is no data.
       for (let attempt = 0; !spec; attempt++) {
         try {
-          spec = await buildDashboard(plan, dict, lang, dashStrings(t))
+          spec = await buildDashboard(plan, dict, lang, dashStrings(t), undefined, modelVariant(question))
         } catch (err) {
           if (!(err instanceof NoDataError) || !plan.retry || attempt >= 2 || !codelists) throw err
           // Next best datasets about the same product ("wood pellets" in the biomass supply, not
@@ -81,7 +98,7 @@ export function useDashboards({
       // A focused question ("which country…?") also gets its answer in the chat.
       const answer = spec.widgets.find((w) => w.type === 'answer')
       const message = [fill(hasDashboard ? t.dashboardUpdated : t.dashboardReady, { title: spec.title }), answer?.text].filter(Boolean).join(' ')
-      setDashboards((d) => [...d, spec])
+      setDashboards((d) => [...d, { ...spec, question }])
       setActive(index)
       llm.updateLast((m) => !!m.pending, { content: message, pending: false, card: { index, title: spec.title } })
       announce(answer ? message : `${message} ${spec.summary.join(' ')}`)

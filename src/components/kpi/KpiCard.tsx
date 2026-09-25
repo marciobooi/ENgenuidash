@@ -27,6 +27,8 @@ export interface KpiCardProps {
   trend?: (number | null)[]
   /** BCP 47 locale for number formatting. */
   locale?: string
+  /** 'big': a large number and its change, without a card (a strip of headline figures). */
+  variant?: 'cards' | 'big'
 }
 
 /** Headline number with optional change indicator. Status is never colour-alone: arrow + signed text. */
@@ -44,6 +46,7 @@ export function KpiCard({
   deltaDecimals = 1,
   trend,
   locale = 'en',
+  variant = 'cards',
 }: KpiCardProps) {
   const fmt = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
   const fmtDelta = new Intl.NumberFormat(locale, {
@@ -62,7 +65,7 @@ export function KpiCard({
     delta !== undefined ? `${fmtDelta.format(delta)}${deltaUnit === '%' ? '' : ' '}${deltaUnit}`.trim() : ''
 
   return (
-    <article className="kpi" aria-label={[label, valueText, deltaText && `${deltaText} ${deltaLabel ?? ''}`].filter(Boolean).join(', ')}>
+    <article className={`kpi${variant === 'big' ? ' kpi--big' : ''}`} aria-label={[label, valueText, deltaText && `${deltaText} ${deltaLabel ?? ''}`].filter(Boolean).join(', ')}>
       <header className="kpi__head">
         {Icon && (
           <span className="kpi__icon">
@@ -113,9 +116,9 @@ function Sparkline({ values }: { values: (number | null)[] }) {
 }
 
 /** Responsive row of KPI cards. */
-export function KpiGrid({ children, label }: { children: ReactNode; label?: string }) {
+export function KpiGrid({ children, label, variant = 'cards' }: { children: ReactNode; label?: string; variant?: 'cards' | 'big' }) {
   return (
-    <section className="kpi-grid" aria-label={label}>
+    <section className={`kpi-grid${variant === 'big' ? ' kpi-grid--big' : ''}`} aria-label={label}>
       {children}
     </section>
   )

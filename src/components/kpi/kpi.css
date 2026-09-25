@@ -126,3 +126,39 @@
 .kpi__spark-dot {
   fill: var(--ecl-color-primary);
 }
+
+/* Big numbers: a strip of headline figures with their change, without cards. */
+.kpi-grid--big {
+  gap: 0;
+  padding: 6px 0;
+  border-top: 1px solid var(--ecl-color-dark-10);
+  border-bottom: 1px solid var(--ecl-color-dark-10);
+}
+
+.kpi--big {
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.kpi--big + .kpi--big {
+  border-left: 1px solid var(--ecl-color-dark-10);
+}
+
+.kpi--big .kpi__value {
+  font-size: clamp(2rem, 5vw, 2.625rem);
+  letter-spacing: -0.02em;
+}
+
+.kpi--big .kpi__delta {
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 600px) {
+  .kpi--big + .kpi--big {
+    border-left: 0;
+    border-top: 1px solid var(--ecl-color-dark-10);
+  }
+}

@@ -35,38 +35,53 @@ export function Filters({
 }) {
   return (
     <>
-      {filters.map((f) =>
-        f.multiple ? (
-          <EclMultiSelect
-            // A new choice or option list remounts it (ECL owns the enhanced markup).
-            key={`${f.dim}:${f.selected.join()}:${f.options.length}`}
-            label={f.label}
-            options={f.options}
-            selected={f.selected}
-            labels={labels}
-            disabled={disabled}
-            onApply={(codes) => onChange(f, codes)}
-          />
-        ) : (
-          <div key={f.dim} className="ecl-form-group filters__single">
-            <label className="ecl-form-label" htmlFor={`filter-${f.dim}`}>
-              {f.label}
-            </label>
-            <div className="ecl-select__container ecl-select__container--s">
-              <select id={`filter-${f.dim}`} className="ecl-select" value={f.selected[0] ?? ''} disabled={disabled} onChange={(e) => onChange(f, [e.target.value])}>
-                {f.options.map((o) => (
-                  <option key={o.code} value={o.code}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <div className="ecl-select__icon filters__icon" aria-hidden="true">
-                <ChevronDown size={18} />
-              </div>
-            </div>
-          </div>
-        ),
-      )}
+      {filters.map((f) => (
+        <FilterField key={f.dim} filter={f} onChange={onChange} labels={labels} disabled={disabled} />
+      ))}
     </>
+  )
+}
+
+/** One filter of the toolbar (so the toolbar can order them and fold some away). */
+export function FilterField({
+  filter: f,
+  onChange,
+  labels,
+  disabled,
+}: {
+  filter: FilterControl
+  onChange: (filter: FilterControl, codes: string[]) => void
+  labels: EclMultiSelectLabels
+  disabled?: boolean
+}) {
+  return f.multiple ? (
+    <EclMultiSelect
+      // A new choice or option list remounts it (ECL owns the enhanced markup).
+      key={`${f.dim}:${f.selected.join()}:${f.options.length}`}
+      label={f.label}
+      options={f.options}
+      selected={f.selected}
+      labels={labels}
+      disabled={disabled}
+      onApply={(codes) => onChange(f, codes)}
+    />
+  ) : (
+    <div className="ecl-form-group filters__single">
+      <label className="ecl-form-label" htmlFor={`filter-${f.dim}`}>
+        {f.label}
+      </label>
+      <div className="ecl-select__container ecl-select__container--s">
+        <select id={`filter-${f.dim}`} className="ecl-select" value={f.selected[0] ?? ''} disabled={disabled} onChange={(e) => onChange(f, [e.target.value])}>
+          {f.options.map((o) => (
+            <option key={o.code} value={o.code}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <div className="ecl-select__icon filters__icon" aria-hidden="true">
+          <ChevronDown size={18} />
+        </div>
+      </div>
+    </div>
   )
 }

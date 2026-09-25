@@ -1,13 +1,13 @@
-import { Database, ExternalLink, Info, Sparkles } from 'lucide-react'
-import { Fragment, type ReactNode } from 'react'
+import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
+import { useId, useState, type CSSProperties, type ReactNode } from 'react'
 import { AreaChart, BarChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
-import { Filters, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
+import { FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
 import { DataTable } from '../components/table'
 import { AnswerCard } from './AnswerCard'
 import { BreakdownCard } from './BreakdownCard'
-import type { DashboardControls, DashboardSpec, SectionKey, Suggestion, WidgetSpec } from './types'
+import type { DashboardControls, DashboardSpec, Presentation, SectionKey, Suggestion, WidgetSpec } from './types'
 import './dashboard.css'
 
 export interface DashboardLabels {
@@ -26,6 +26,9 @@ export interface DashboardLabels {
   source: string
   opensNewTab: string
   missing: string
+  /** "More filters ({n})" / "Fewer filters": the toolbar controls folded away. */
+  moreFilters: string
+  fewerFilters: string
 }
 
 /**
@@ -42,6 +45,7 @@ export function Dashboard({
   onFilter,
   multiSelectLabels,
   busy,
+  actions,
 }: {
   spec: DashboardSpec
   lang: string
@@ -53,8 +57,10 @@ export function Dashboard({
   onFilter?: (control: FilterControl, codes: string[]) => void
   multiSelectLabels?: EclMultiSelectLabels
   busy?: boolean
+  /** Buttons next to the title (e.g. copy the link to this dashboard). */
+  actions?: ReactNode
 }) {
-  const charts = spec.widgets.filter((w) => !['kpis', 'table', 'answer'].includes(w.type))
+  const charts = spec.widgets.filter((w) => !['kpis', 'table', 'answer', 'text'].includes(w.type))
   const decimals = spec.widgets.find((w) => w.type === 'kpis')?.items[0]?.decimals ?? 1
 
   // Layout: 'full' charts span the width; 'half' charts pair up. A half chart without a partner
@@ -103,6 +109,7 @@ export function Dashboard({
             categories={w.categories}
             series={w.series}
             orientation={w.horizontal ? 'horizontal' : 'vertical'}
+            stacked={w.stacked}
             showValues={w.series.length === 1 && w.categories.length <= 30}
             reference={w.reference}
             signed={w.signed}
@@ -137,6 +144,8 @@ export function Dashboard({
   }
 
   const answer = spec.widgets.find((w) => w.type === 'answer')
+  const text = spec.widgets.find((w) => w.type === 'text')
+  const { presentation } = spec
   const kpis = spec.widgets.find((w) => w.type === 'kpis')
   const table = spec.widgets.find((w) => w.type === 'table')
 
@@ -144,6 +153,7 @@ export function Dashboard({
   // answer; an overview with the summary and insights.
   const sections: Record<SectionKey, () => ReactNode> = {
     answer: () => (answer ? <AnswerCard widget={answer} label={labels.answer} /> : null),
+    explainer: () => (text?.type === 'text' ? <Explainer widget={text} labels={labels} /> : null),
     summary: () =>
       spec.summary.length > 0 && (
         <div className="dash__summary">
@@ -169,6 +179,7 @@ export function Dashboard({
           filters={filters}
           onFilter={onFilter}
           multiSelectLabels={multiSelectLabels}
+          presentation={presentation}
         />
       ),
     suggestions: () =>
@@ -189,9 +200,9 @@ export function Dashboard({
     kpis: () =>
       kpis?.type === 'kpis' &&
       kpis.items.length > 0 && (
-        <KpiGrid label={labels.keyIndicators}>
+        <KpiGrid label={labels.keyIndicators} variant={presentation.kpiStyle}>
           {kpis.items.map((k) => (
-            <KpiCard key={`${k.label}-${k.caption}`} {...k} locale={lang} />
+            <KpiCard key={`${k.label}-${k.caption}`} {...k} locale={lang} variant={presentation.kpiStyle} />
           ))}
         </KpiGrid>
       ),
@@ -228,8 +239,42 @@ export function Dashboard({
       ),
   }
 
+  // One section, or a row of sections side by side on wide screens. Empty ones are skipped, and
+  // each gets its place in the entrance sequence (a short fade, off with reduced motion).
+  const render = (key: SectionKey) => {
+    const node = sections[key]?.()
+    return node && !(Array.isArray(node) && node.length === 0) ? node : null
+  }
+  let step = 0
+  const items = spec.layout.map((item) => {
+    const keys = Array.isArray(item) ? item : [item]
+    const parts = keys.map((k) => ({ k, node: render(k) })).filter((x) => x.node)
+    if (!parts.length) return null
+    const style = { '--step': step++ } as CSSProperties
+    if (parts.length === 1) {
+      return (
+        <div key={keys.join('+')} className={`dash__section dash__section--${parts[0].k}`} style={style}>
+          {parts[0].node}
+        </div>
+      )
+    }
+    return (
+      <div key={keys.join('+')} className="dash__section dash__row" style={style}>
+        {parts.map((x) => (
+          <div key={x.k} className={`dash__row-cell dash__section--${x.k}`}>
+            {x.node}
+          </div>
+        ))}
+      </div>
+    )
+  })
+
   return (
-    <article className="dash" aria-labelledby="dash-title" aria-busy={busy}>
+    <article
+      className={`dash dash--${presentation.accent} dash--${presentation.template}`}
+      aria-labelledby="dash-title"
+      aria-busy={busy}
+    >
       <header className="dash__head">
         <div className="dash__heading">
           <h2 className="dash__title" id="dash-title" tabIndex={-1}>
@@ -237,15 +282,41 @@ export function Dashboard({
           </h2>
           {spec.subtitle && <p className="dash__subtitle">{spec.subtitle}</p>}
         </div>
+        {actions && <div className="dash__actions">{actions}</div>}
       </header>
-      {spec.layout.map((key) => (
-        <Fragment key={key}>{sections[key]?.()}</Fragment>
-      ))}
+      {items}
     </article>
   )
 }
 
-/** Period / year / unit controls. Choosing an option runs its plan, like a chat request. */
+/** Eurostat's description of the indicator, with a link to the full metadata. */
+function Explainer({ widget, labels }: { widget: Extract<WidgetSpec, { type: 'text' }>; labels: DashboardLabels }) {
+  const id = useId()
+  return (
+    <section className="explainer" aria-labelledby={`${id}-title`}>
+      <h3 className="explainer__title" id={`${id}-title`}>
+        <BookOpen size={16} aria-hidden="true" />
+        {widget.title}
+      </h3>
+      <p className="explainer__body">{widget.body}</p>
+      {widget.source && (
+        <a className="dash__source" href={widget.source.url} target="_blank" rel="noreferrer">
+          <Database size={12} aria-hidden="true" />
+          {labels.source}: {widget.source.title}
+          <ExternalLink size={11} aria-hidden="true" />
+          <span className="sr-only"> ({labels.opensNewTab})</span>
+        </a>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Period / year / unit controls and the data filters (countries, products…), most relevant first
+ * for the kind of question (see layout.ts). The first ones show; the others are folded under
+ * "More filters", so the toolbar stays short and differs from one question to another.
+ * Choosing an option runs its plan, like a chat request.
+ */
 function Toolbar({
   controls,
   labels,
@@ -254,6 +325,7 @@ function Toolbar({
   filters,
   onFilter,
   multiSelectLabels,
+  presentation,
 }: {
   controls: DashboardControls
   labels: DashboardLabels
@@ -262,14 +334,22 @@ function Toolbar({
   filters: FilterControl[]
   onFilter?: (control: FilterControl, codes: string[]) => void
   multiSelectLabels?: EclMultiSelectLabels
+  presentation: Presentation
 }) {
+  const [expanded, setExpanded] = useState(false)
+  const moreId = useId()
+  const periodId = useId()
   const activeYear = controls.years?.find((y) => y.active)
-  return (
-    <div className="dash__toolbar" role="toolbar" aria-label={[labels.period, labels.year, ...filters.map((f) => f.label), labels.unit].join(', ')}>
-      {controls.periods && (
+
+  const entries: { key: string; label: string; node: ReactNode }[] = []
+  if (controls.periods) {
+    entries.push({
+      key: 'period',
+      label: labels.period,
+      node: (
         <div className="dash__control">
-          <span id="ctl-period">{controls.periodsTo ? labels.periodTo.replace('{year}', controls.periodsTo) : labels.period}</span>
-          <div className="segmented" role="group" aria-labelledby="ctl-period">
+          <span id={periodId}>{controls.periodsTo ? labels.periodTo.replace('{year}', controls.periodsTo) : labels.period}</span>
+          <div className="segmented" role="group" aria-labelledby={periodId}>
             {controls.periods.map((o) => (
               <button
                 key={o.label}
@@ -283,8 +363,14 @@ function Toolbar({
             ))}
           </div>
         </div>
-      )}
-      {controls.years && (
+      ),
+    })
+  }
+  if (controls.years) {
+    entries.push({
+      key: 'year',
+      label: labels.year,
+      node: (
         <label className="dash__control">
           {labels.year}
           <select
@@ -306,9 +392,19 @@ function Toolbar({
             ))}
           </select>
         </label>
-      )}
-      {onFilter && multiSelectLabels && <Filters filters={filters} onChange={onFilter} labels={multiSelectLabels} disabled={busy} />}
-      {controls.units && controls.units.length > 1 && (
+      ),
+    })
+  }
+  if (onFilter && multiSelectLabels) {
+    for (const f of filters) {
+      entries.push({ key: f.dim, label: f.label, node: <FilterField filter={f} onChange={onFilter} labels={multiSelectLabels} disabled={busy} /> })
+    }
+  }
+  if (controls.units && controls.units.length > 1) {
+    entries.push({
+      key: 'unit',
+      label: labels.unit,
+      node: (
         <label className="dash__control">
           {labels.unit}
           <select
@@ -327,6 +423,51 @@ function Toolbar({
             ))}
           </select>
         </label>
+      ),
+    })
+  }
+  if (!entries.length) return null
+
+  // Most relevant first; controls the template does not rank keep their order, after these.
+  const rank = (key: string) => {
+    const i = presentation.controls.indexOf(key)
+    return i < 0 ? presentation.controls.length : i
+  }
+  const ordered = entries.map((e, i) => ({ e, i })).sort((a, b) => rank(a.e.key) - rank(b.e.key) || a.i - b.i).map((x) => x.e)
+  // Folding one control away saves nothing: show it.
+  const shown = ordered.length - presentation.primaryControls > 1 ? presentation.primaryControls : ordered.length
+  const primary = ordered.slice(0, shown)
+  const more = ordered.slice(shown)
+
+  return (
+    <div className="dash__toolbar" role="toolbar" aria-label={ordered.map((e) => e.label).join(', ')}>
+      {primary.map((e) => (
+        <div key={e.key} className="dash__toolbar-item">
+          {e.node}
+        </div>
+      ))}
+      {more.length > 0 && (
+        <>
+          <button
+            type="button"
+            className="dash__more"
+            aria-expanded={expanded}
+            aria-controls={moreId}
+            onClick={() => setExpanded((x) => !x)}
+          >
+            <ChevronDown size={16} aria-hidden="true" className="dash__more-icon" />
+            {expanded ? labels.fewerFilters : labels.moreFilters.replace('{n}', String(more.length))}
+          </button>
+          {/* Mounted only when open: ECL selects are enhanced on mount, at their real size. */}
+          <div id={moreId} className="dash__toolbar-more" hidden={!expanded}>
+            {expanded &&
+              more.map((e) => (
+                <div key={e.key} className="dash__toolbar-item">
+                  {e.node}
+                </div>
+              ))}
+          </div>
+        </>
       )}
     </div>
   )

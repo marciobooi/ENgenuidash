@@ -33,7 +33,16 @@ const MAX_OPTIONS = 12
 const codesOf = (ds: DatasetInfo, dim: string) => ds.dimensions.find((d) => d.id === dim)?.codes ?? []
 const asList = (v: string | string[] | undefined) => ([] as string[]).concat(v ?? [])
 
-export function filterControls(plan: Plan, dict: EnergyDictionary, codelists: EnergyCodelists, lang: string, labels: FilterLabels): FilterControl[] {
+export function filterControls(
+  plan: Plan,
+  dict: EnergyDictionary,
+  codelists: EnergyCodelists,
+  lang: string,
+  labels: FilterLabels,
+  /** Codes the dashboard actually shows (DashboardSpec.shown): a "top 5" asks for all 27 countries
+   * but shows 5, and those are the ones selected. */
+  shown?: Record<string, string[]>,
+): FilterControl[] {
   const ds = dict.datasets[plan.dataset]
   if (!ds) return []
   const varying = Object.entries(plan.filters).find(([, v]) => Array.isArray(v) && v.length > 1)?.[0]
@@ -44,7 +53,7 @@ export function filterControls(plan: Plan, dict: EnergyDictionary, codelists: En
     return code === 'EU27_2020' ? `EU-27 (${text})` : text
   }
   const control = (dim: string, name: string, codes: string[], multiple: boolean, sort = false) => {
-    const selected = asList(plan.filters[dim])
+    const selected = shown?.[dim]?.length ? shown[dim] : asList(plan.filters[dim])
     const all = [...new Set([...codes, ...selected])].filter((c) => codesOf(ds, dim).includes(c))
     if (all.length < 2) return
     let options = all.map((code) => ({ code, label: label(dim, code) }))

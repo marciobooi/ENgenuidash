@@ -19,6 +19,8 @@ export interface CompanionStrings {
   gasOrigins: string
   renBySector: string
   priceParts: string
+  /** The same parts over the years (stacked columns). */
+  pricePartsOverTime: string
   /** Taxes, fees, levies and charges other than VAT. */
   otherTaxes: string
 }
@@ -33,7 +35,7 @@ export interface Companion {
   title: string
   view: 'pie' | 'bar'
   /** Price components: taxes other than VAT are derived (see PRICE_PARTS). */
-  priceSplit?: { otherTaxes: string }
+  priceSplit?: { otherTaxes: string; overTime: string }
   unit?: string
   top?: number
 }
@@ -78,7 +80,7 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
     const filters: Record<string, string> = { geo, currency: one(f.currency) ?? 'EUR' }
     filters.nrg_cons = band && has(parts, 'nrg_cons', band) ? band : (ds.defaults.nrg_cons ?? '')
     if (ds.dimensions.some((d) => d.id === 'unit')) filters.unit = ds.defaults.unit ?? 'KWH'
-    out.push({ dataset: parts, filters, dim: 'nrg_prc', codes: PRICE_PARTS, title: s.priceParts, view: 'pie', priceSplit: { otherTaxes: s.otherTaxes } })
+    out.push({ dataset: parts, filters, dim: 'nrg_prc', codes: PRICE_PARTS, title: s.priceParts, view: 'pie', priceSplit: { otherTaxes: s.otherTaxes, overTime: s.pricePartsOverTime } })
   }
   return out
 }
@@ -109,7 +111,14 @@ export async function buildCompanions(
     list.map((c) =>
       fetchEurostatData(c.dataset, {
         filters: { ...c.filters, ...(Array.isArray(c.codes) ? { [c.dim]: c.codes } : {}) },
-        ...(year ? { sinceTimePeriod: year, untilTimePeriod: year } : { lastTimePeriod: 3 }),
+        // Price components: several years, for their evolution; the others: one year.
+        ...(c.priceSplit
+          ? year
+            ? { sinceTimePeriod: String(Number(year) - 7), untilTimePeriod: year }
+            : { lastTimePeriod: 8 }
+          : year
+            ? { sinceTimePeriod: year, untilTimePeriod: year }
+            : { lastTimePeriod: 3 }),
         lang,
         signal,
       }),
@@ -119,12 +128,12 @@ export async function buildCompanions(
   results.forEach((r, i) => {
     if (r.status !== 'fulfilled') return
     const w = toWidget(list[i], r.value, lang, format)
-    if (w) widgets.push(w)
+    if (w) widgets.push(...([] as WidgetSpec[]).concat(w))
   })
   return widgets
 }
 
-export function toWidget(c: Companion, result: EurostatResult, lang: string, format: (v: number) => string): WidgetSpec | null {
+export function toWidget(c: Companion, result: EurostatResult, lang: string, format: (v: number) => string): WidgetSpec | WidgetSpec[] | null {
   const codes = result.dimensions[c.dim]?.codes ?? []
   const times = result.dimensions.time?.codes ?? []
   const value = (code: string, time: string) => result.observations.find((o) => o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
@@ -132,18 +141,38 @@ export function toWidget(c: Companion, result: EurostatResult, lang: string, for
   const time = [...times].reverse().find((t) => codes.filter((k) => value(k.code, t.code) != null).length >= Math.max(2, Math.ceil(codes.length / 2)))
   if (!time) return null
   if (c.priceSplit) {
-    const v = (code: string) => value(code, time.code) ?? 0
     const labelOf = (code: string) => shortLabel(codes.find((k) => k.code === code)?.label ?? code)
-    const other = v('TAX_FEE_LEV_CHRG') - v('VAT') - v('TAX_FEE_LEV_CHRG_ALLOW')
-    const rows = [
-      { name: labelOf('NRG_SUP'), y: v('NRG_SUP') },
-      { name: labelOf('NETC'), y: v('NETC') },
-      { name: c.priceSplit.otherTaxes, y: Math.round(other * 10000) / 10000 },
-      { name: labelOf('VAT'), y: v('VAT') },
-    ].filter((x) => x.y > 0)
+    const partsAt = (t: string) => {
+      const v = (code: string) => value(code, t) ?? 0
+      const other = v('TAX_FEE_LEV_CHRG') - v('VAT') - v('TAX_FEE_LEV_CHRG_ALLOW')
+      return [
+        { name: labelOf('NRG_SUP'), y: v('NRG_SUP') },
+        { name: labelOf('NETC'), y: v('NETC') },
+        { name: c.priceSplit!.otherTaxes, y: Math.round(other * 10000) / 10000 },
+        { name: labelOf('VAT'), y: v('VAT') },
+      ]
+    }
+    const rows = partsAt(time.code).filter((x) => x.y > 0)
     if (rows.length < 2) return null
     const total = rows.reduce((n, x) => n + x.y, 0)
-    return { type: 'pie', title: c.title.replace('{period}', time.label), slices: rows, centerLabel: format(total), size: 'half', source: sourceOf(c, lang) }
+    const source = sourceOf(c, lang)
+    const pie: WidgetSpec = { type: 'pie', title: c.title.replace('{period}', time.label), slices: rows, centerLabel: format(total), size: 'half', source, role: 'price' }
+    // The parts over the years with data, stacked: how the price and what it is made of changed.
+    const years = times.filter((t) => value('NRG_SUP', t.code) != null && t.code <= time.code)
+    if (years.length < 3) return pie
+    const names = rows.map((x) => x.name)
+    const byYear = years.map((t) => partsAt(t.code))
+    const stacked: WidgetSpec = {
+      type: 'bar',
+      title: c.priceSplit.overTime,
+      categories: years.map((t) => t.label),
+      series: names.map((name) => ({ name, data: byYear.map((parts) => Math.max(0, parts.find((x) => x.name === name)?.y ?? 0)) })),
+      stacked: true,
+      size: 'half',
+      source,
+      role: 'price',
+    }
+    return [pie, stacked]
   }
   let rows = codes
     .filter((k) => (c.codes === 'partners' ? /^[A-Z]{2}$/.test(k.code) && k.code !== 'EU' : true))

@@ -61,10 +61,29 @@ export interface WidgetSource {
  * What a chart is for; the layout orders charts by the question's focus (ranking first for
  * "which…?", changes first for "how has it changed?").
  */
-export type WidgetRole = 'headline' | 'ranking' | 'map' | 'change' | 'evolution' | 'composition' | 'detail' | 'related'
+export type WidgetRole = 'headline' | 'ranking' | 'map' | 'change' | 'evolution' | 'composition' | 'detail' | 'related' | 'price'
 
 /** The sections of a dashboard, in the order the spec lists them (see layout.ts). */
-export type SectionKey = 'answer' | 'summary' | 'insights' | 'notes' | 'toolbar' | 'suggestions' | 'kpis' | 'charts' | 'table'
+export type SectionKey = 'answer' | 'summary' | 'insights' | 'explainer' | 'notes' | 'toolbar' | 'suggestions' | 'kpis' | 'charts' | 'table'
+
+/** A section, or sections side by side on wide screens (stacked on phones). */
+export type LayoutItem = SectionKey | SectionKey[]
+
+/** How the dashboard is presented (see layout.ts): chosen for the question, varied by topic. */
+export interface Presentation {
+  /** Which page template: the kind of question and one of its variants. */
+  template: string
+  /** Key figures as cards, or as a strip of big numbers with their change. */
+  kpiStyle: 'cards' | 'big'
+  /** Toolbar controls, most relevant first: 'period', 'year', 'unit' or a dimension ('geo'…). */
+  controls: string[]
+  /** How many toolbar controls show at once; the others are under "More filters". */
+  primaryControls: number
+  /** Accent of the page (ECL colours), so dashboards do not all look alike. */
+  accent: 'blue' | 'teal' | 'violet' | 'orange'
+  /** Who chose the variant: the topic (default) or the language model. */
+  chosenBy?: 'topic' | 'model'
+}
 
 export type WidgetSpec = (
   | { type: 'kpis'; items: KpiSpec[] }
@@ -109,6 +128,8 @@ export type WidgetSpec = (
       decimals?: number
       /** A chart from another dataset than the dashboard's (see companions.ts). */
       source?: WidgetSource
+      /** Stacked parts (price components, sources of a mix); 'percent' shows shares. */
+      stacked?: boolean | 'percent'
     }
   | {
       type: 'pie'
@@ -154,6 +175,13 @@ export type WidgetSpec = (
       /** Small area chart under the list. */
       trend?: { label: string; categories: string[]; data: (number | null)[] }
       size?: WidgetSize
+    }
+  | {
+      /** Explainer: Eurostat's own description of the indicator (from the local knowledge base). */
+      type: 'text'
+      title: string
+      body: string
+      source?: { code: string; title: string; url: string }
     }
   | {
       type: 'table'
@@ -217,7 +245,12 @@ export interface DashboardSpec {
   notes: string[]
   widgets: WidgetSpec[]
   /** Order of the sections on the page, chosen for the question (see layout.ts). */
-  layout: SectionKey[]
+  layout: LayoutItem[]
+  presentation: Presentation
+  /** The question (or toolbar change) that produced this dashboard, for sharing it. */
+  question?: string
+  /** Codes actually shown per dimension (e.g. the 5 countries of a "top 5"), for the filters. */
+  shown?: Record<string, string[]>
   source: Source
   unit?: string
   suggestions: Suggestion[]

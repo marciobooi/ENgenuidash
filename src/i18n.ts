@@ -119,6 +119,11 @@ const en = {
   },
   ctlPeriod: 'Period',
   ctlPeriodTo: 'Period to {year}',
+  shareLink: 'Copy link',
+  linkCopied: 'Link to this dashboard copied',
+  moreFilters: 'More filters ({n})',
+  fewerFilters: 'Fewer filters',
+  dAboutIndicator: 'About this indicator',
   dAnswer: {
     title: 'Answer',
     highest: '{name} has the highest value in {period}: {value}.',
@@ -137,6 +142,7 @@ const en = {
     gasOrigins: 'Where natural gas imports come from, {period}',
     renBySector: 'Renewable share by sector, {period}',
     priceParts: 'What the price is made of, {period}',
+    pricePartsOverTime: 'What the price is made of, over time',
     otherTaxes: 'Other taxes and levies',
   },
   filters: {
@@ -359,6 +365,11 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     ctlPeriod: 'Zeitraum',
     ctlPeriodTo: 'Zeitraum bis {year}',
+    shareLink: 'Link kopieren',
+    linkCopied: 'Link zu diesem Dashboard kopiert',
+    moreFilters: 'Weitere Filter ({n})',
+    fewerFilters: 'Weniger Filter',
+    dAboutIndicator: 'Über diesen Indikator',
     dAnswer: {
       title: 'Antwort',
       highest: '{name} hat {period} den höchsten Wert: {value}.',
@@ -377,6 +388,7 @@ export const STRINGS: Record<Lang, Strings> = {
       gasOrigins: 'Herkunft der Erdgasimporte, {period}',
       renBySector: 'Anteil erneuerbarer Energien nach Sektor, {period}',
       priceParts: 'Zusammensetzung des Preises, {period}',
+      pricePartsOverTime: 'Zusammensetzung des Preises im Zeitverlauf',
       otherTaxes: 'Sonstige Steuern und Abgaben',
     },
     filters: {
@@ -594,6 +606,11 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     ctlPeriod: 'Période',
     ctlPeriodTo: 'Période jusqu’à {year}',
+    shareLink: 'Copier le lien',
+    linkCopied: 'Lien vers ce tableau de bord copié',
+    moreFilters: 'Plus de filtres ({n})',
+    fewerFilters: 'Moins de filtres',
+    dAboutIndicator: 'À propos de cet indicateur',
     dAnswer: {
       title: 'Réponse',
       highest: '{name} a la valeur la plus élevée en {period} : {value}.',
@@ -612,6 +629,7 @@ export const STRINGS: Record<Lang, Strings> = {
       gasOrigins: 'Origine des importations de gaz naturel, {period}',
       renBySector: 'Part des renouvelables par secteur, {period}',
       priceParts: 'Composition du prix, {period}',
+      pricePartsOverTime: 'Composition du prix dans le temps',
       otherTaxes: 'Autres taxes et prélèvements',
     },
     filters: {

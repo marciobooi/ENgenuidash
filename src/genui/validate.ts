@@ -8,7 +8,7 @@ import type { DashboardSpec, SectionKey, WidgetSpec } from './types'
  * returned so they can be logged. The layout falls back to the overview when it is not valid.
  */
 
-const SECTIONS: SectionKey[] = ['answer', 'summary', 'insights', 'notes', 'toolbar', 'suggestions', 'kpis', 'charts', 'table']
+const SECTIONS: SectionKey[] = ['answer', 'summary', 'insights', 'explainer', 'notes', 'toolbar', 'suggestions', 'kpis', 'charts', 'table']
 
 const num = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v)
 const numOrNull = (v: unknown): boolean => v === null || num(v)
@@ -43,6 +43,8 @@ export function widgetProblem(w: WidgetSpec): string | null {
       return Array.isArray(w.data) && w.data.every((d) => /^[A-Z]{2}$/.test(d.code) && text(d.name) && num(d.value)) ? null : 'map: data'
     case 'breakdown':
       return Array.isArray(w.items) && w.items.every((i) => text(i.name) && text(i.value)) ? null : 'breakdown: items'
+    case 'text':
+      return text(w.title) && text(w.body) && w.body.length > 0 ? null : 'text without a body'
     case 'table':
       if (!texts(w.columns)) return 'table: columns'
       return Array.isArray(w.rows) && w.rows.every((r) => text(r.label) && values(r.values, w.columns.length)) ? null : 'table: rows do not match the columns'
@@ -58,8 +60,25 @@ export function sanitizeSpec(spec: DashboardSpec): { spec: DashboardSpec; proble
     if (problem) problems.push(problem)
     return !problem
   })
+  const keys = Array.isArray(spec.layout) ? spec.layout.flat() : []
   const layoutOk =
-    Array.isArray(spec.layout) && spec.layout.every((k) => SECTIONS.includes(k)) && new Set(spec.layout).size === spec.layout.length
+    Array.isArray(spec.layout) &&
+    spec.layout.every((item) => (Array.isArray(item) ? item.length > 0 && item.length <= 3 : true)) &&
+    keys.every((k) => SECTIONS.includes(k)) &&
+    new Set(keys).size === keys.length
   if (!layoutOk) problems.push('layout')
-  return { spec: { ...spec, widgets, layout: layoutOk ? spec.layout : OVERVIEW_LAYOUT }, problems }
+  const accents = ['blue', 'teal', 'violet', 'orange']
+  const p = spec.presentation
+  const presentationOk =
+    !!p && ['cards', 'big'].includes(p.kpiStyle) && accents.includes(p.accent) && texts(p.controls) && Number.isInteger(p.primaryControls) && p.primaryControls >= 1
+  if (!presentationOk) problems.push('presentation')
+  return {
+    spec: {
+      ...spec,
+      widgets,
+      layout: layoutOk ? spec.layout : OVERVIEW_LAYOUT,
+      presentation: presentationOk ? p : { template: 'default', kpiStyle: 'cards', controls: [], primaryControls: 3, accent: 'blue' },
+    },
+    problems,
+  }
 }

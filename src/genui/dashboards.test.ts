@@ -56,7 +56,9 @@ test('a year for one series: that year highlighted, ten years of context', async
 
 test('three countries over time: lines, ranking, change since the start; no map, no heatmap', async () => {
   const d = await dash('Renewable energy share in Spain, France and Germany since 2010')
-  assert.deepEqual(kinds(d), ['line', 'breakdown', 'bar'])
+  // (the order depends on the page variant, see layout.ts; the evolution always leads)
+  assert.equal(kinds(d)[0], 'line')
+  assert.deepEqual([...kinds(d)].sort(), ['bar', 'breakdown', 'line'])
   assert.equal(d.widgets.find((w) => w.type === 'kpis')?.type, 'kpis')
 })
 

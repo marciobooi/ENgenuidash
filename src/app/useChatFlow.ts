@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { recordMiss } from '../eval/missLog'
 import { dashboardActions, rankByOverlap, type DashboardAction } from '../genui/actions'
@@ -6,12 +6,12 @@ import { routeMessage } from '../genui/route'
 import type { Plan, Suggestion } from '../genui/types'
 import { STRINGS, type Lang, type Strings } from '../i18n'
 import { answerFromHits, smallTalkReply } from '../llm/answers'
-import { GENERATION, SYSTEM_PROMPT } from '../llm/config'
+import { EXPLAIN_GENERATION, GENERATION, SYSTEM_PROMPT } from '../llm/config'
 import { searchQuery } from '../llm/crossLingual'
 import type { createScopeChecker } from '../llm/energyScope'
 import { definitionText, directDefinition } from '../llm/glossary'
 import { datasetDescription, knowledgeDocFreq, searchKnowledge } from '../llm/knowledge'
-import { modelPrompt } from '../llm/prompt'
+import { EXPLAIN_SYSTEM_PROMPT, explainPrompt, modelPrompt } from '../llm/prompt'
 import type { Vocabulary } from '../llm/vocabulary'
 import type { Assistant } from './useAssistant'
 import type { Dashboards } from './useDashboards'
@@ -72,13 +72,22 @@ export function useChatFlow({
     })
   }
 
-  // When the model becomes ready, the question that asked for a fuller answer is answered.
+  // When the model becomes ready, the question that asked for a fuller answer (or an AI
+  // explanation of the dashboard) is answered.
+  const pendingExplain = useRef(false)
   useEffect(() => {
-    assistant.setAnswerPending((q: string) => askModel(q, 'energy', [], false, true))
+    assistant.setAnswerPending((q: string) => {
+      if (pendingExplain.current) {
+        pendingExplain.current = false
+        return void explainWithModel(q)
+      }
+      askModel(q, 'energy', [], false, true)
+    })
   })
 
   /** "Write a fuller answer": the model answers now, or once it is downloaded. */
   function requestFullerAnswer(question: string) {
+    pendingExplain.current = false
     if (ready) return void askModel(question, 'energy', [], false, true)
     assistant.requestDownload(question)
   }
@@ -240,21 +249,58 @@ export function useChatFlow({
     return true
   }
 
+  /** The dashboard's own facts: Eurostat's description of the indicator and the key insights. */
+  async function dashboardFacts() {
+    const spec = current!
+    const described = await datasetDescription(spec.plan.dataset, 3).catch(() => null)
+    const insights = spec.insights.map((i) => i.parts.map((p) => (typeof p === 'string' ? p : p.strong)).join(''))
+    const sources = [spec.source, ...(described?.url ? [{ code: spec.plan.dataset, title: `${described.title} › ${described.section}`, url: described.url }] : [])]
+    return { spec, described, insights, sources }
+  }
+
   /**
-   * Explains the dashboard on screen from facts only: Eurostat's own description of the indicator,
-   * then the key insights (or the summary). No free-form model text, so nothing is invented.
+   * "Explain these figures": the model explains the dashboard in plain words from its own facts
+   * (labelled as written by the assistant, sources under it). Without the model yet: the facts
+   * (Eurostat's description and the key insights) and the offer to explain them with AI.
    */
   async function explainDashboard(question: string) {
-    const spec = current
-    if (!spec) return
+    if (!current) return
     openChat()
-    const described = await datasetDescription(spec.plan.dataset).catch(() => null)
-    const insights = spec.insights.map((i) => `• ${i.parts.map((p) => (typeof p === 'string' ? p : p.strong)).join('')}`)
-    const answer = [described?.text, insights.length ? insights.join('\n') : spec.summary.join(' ')].filter(Boolean).join('\n\n')
-    const sources = [spec.source, ...(described?.url ? [{ code: spec.plan.dataset, title: `${described.title} › ${described.section}`, url: described.url }] : [])]
-    llm.reply(question, answer || t.dNoData, undefined, sources)
+    if (ready) return void explainWithModel(question)
+    const { spec, described, insights, sources } = await dashboardFacts()
+    const answer = [described?.text, insights.length ? insights.map((i) => `• ${i}`).join('\n') : spec.summary.join(' ')].filter(Boolean).join('\n\n')
+    llm.append(
+      { role: 'user', content: question },
+      { role: 'assistant', content: answer || t.dNoData, sources, choices: [{ label: t.explainWithAi, query: question, explainAi: true }] },
+    )
     announce(answer)
   }
 
-  return { send, onSuggestion, runAction, requestFullerAnswer }
+  /** The model's explanation of the dashboard on screen. */
+  function explainWithModel(question: string) {
+    if (!current) return
+    openChat()
+    llm.ask(question, {
+      systemPrompt: EXPLAIN_SYSTEM_PROMPT,
+      options: EXPLAIN_GENERATION,
+      prepare: async () => {
+        const { spec, described, insights, sources } = await dashboardFacts()
+        // The place in words ("EU-27", "Germany, France"), so the model does not say "global".
+        const geo = ([] as string[]).concat(spec.plan.filters.geo ?? [])
+        const name = (code: string) =>
+          code === 'EU27_2020' ? 'the EU-27 (European Union)' : ((codelists?.codelists.GEO?.codes[code] as Record<string, string> | undefined)?.en ?? code)
+        const place = geo.length ? geo.map(name).join(', ') : undefined
+        return { prompt: explainPrompt({ ...spec, place }, { description: described?.text, insights }, lang), sources }
+      },
+    })
+  }
+
+  /** "Explain with AI": now, or once the model is downloaded (with consent). */
+  function requestAiExplanation(question: string) {
+    if (ready) return explainWithModel(question)
+    pendingExplain.current = true
+    assistant.requestDownload(question)
+  }
+
+  return { send, onSuggestion, runAction, requestFullerAnswer, requestAiExplanation }
 }

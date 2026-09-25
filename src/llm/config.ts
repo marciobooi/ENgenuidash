@@ -30,3 +30,6 @@ export const GENERATION: GenerationOptions = {
   /** Values above 1 discourage repetition loops; much higher would stop it quoting numbers from the data. */
   repetition_penalty: 1.15,
 }
+
+/** Explanations of a dashboard are a little longer than answers (three or four sentences). */
+export const EXPLAIN_GENERATION: GenerationOptions = { ...GENERATION, max_new_tokens: 220 }

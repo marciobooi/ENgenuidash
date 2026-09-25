@@ -25,7 +25,7 @@ export interface UIMessage extends ChatMessage {
   card?: { index: number; title: string }
   /** One-click answers to a clarifying question. */
   /** Buttons under a message; `fuller` asks the model for a written answer to `query`. */
-  choices?: { label: string; query: string; plan?: Plan; explain?: boolean; fuller?: boolean }[]
+  choices?: { label: string; query: string; plan?: Plan; explain?: boolean; fuller?: boolean; explainAi?: boolean }[]
   /** Shown with a progress indicator until updated (e.g. while a dashboard is built). */
   pending?: boolean
   /** UI-only message (dashboards, refusals, clarifications): never sent to the model. */
@@ -62,6 +62,17 @@ export function withoutSourceTag(text: string): string {
     // …or a made-up citation with a date or dataset code: "(Energieproduktionsdaten: 2026-06-29, NRG Stk Gas.)"
     .replace(/([.!?])\s*\((?=[^()]*(\b(nrg|sdg|ten\d|dataset|daten|data|source|quelle)\b|\d{4}-\d{2}))[^()]{2,120}\)\s*\.?$/i, '$1')
     .trim()
+}
+
+/**
+ * A reply cut by the length limit ends mid-sentence ("…across these countries. O"): the
+ * unfinished sentence is dropped, when at least one whole sentence stays.
+ */
+export function withoutUnfinishedSentence(text: string): string {
+  const t = text.trim()
+  if (!t || /[.!?…:)"”»]$/.test(t)) return t
+  const end = Math.max(...['. ', '! ', '? ', '.\n', '!\n', '?\n'].map((m) => t.lastIndexOf(m)))
+  return end > 0 ? t.slice(0, end + 1).trim() : t
 }
 
 /**
@@ -172,7 +183,9 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
           {
             // Small models like to end with an invented source tag ("(Energiewende)"); the real
             // sources are listed under the answer, so a final bracket without numbers is dropped.
-            const clean = withoutSourceTag(replyRef.current.trim())
+            // A reply cut by the length limit loses its unfinished last sentence (not when stopped).
+            const tagless = withoutSourceTag(replyRef.current.trim())
+            const clean = stoppedRef.current ? tagless : withoutUnfinishedSentence(tagless)
             if (clean !== replyRef.current.trim()) {
               replyRef.current = clean
               setMessages((m) => [...m.slice(0, -1), { ...m[m.length - 1], content: clean }])

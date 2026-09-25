@@ -227,7 +227,15 @@ export default function App() {
         // After the dialog has closed: while it is modal, the rest of the page is inert.
         requestAnimationFrame(() => fabRef.current?.focus())
       }}
-      onChoice={(c) => (c.fuller ? chat.requestFullerAnswer(c.query) : c.plan || c.explain ? chat.runAction(c, c.label) : send(c.query))}
+      onChoice={(c) =>
+        c.explainAi
+          ? chat.requestAiExplanation(t.explainWithAi)
+          : c.fuller
+            ? chat.requestFullerAnswer(c.query)
+            : c.plan || c.explain
+              ? chat.runAction(c, c.label)
+              : send(c.query)
+      }
       endRef={endRef}
     />
   )

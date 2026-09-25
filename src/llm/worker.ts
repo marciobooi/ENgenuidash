@@ -65,7 +65,8 @@ async function resetCache() {
 // scripts/ensure-model.mjs, listed in public/models/manifest.json). The browser never contacts
 // the Hugging Face Hub.
 
-type ModelKey = 'small'
+/** 'small' is the app's model; others (e.g. 'lfm') are tried on request (?model=…). */
+type ModelKey = 'small' | 'lfm'
 
 /** A downloaded model: its settings (from src/llm/models.json) and each format's part dtypes. */
 interface ModelEntry {
@@ -126,15 +127,19 @@ async function gpuSupport(): Promise<{ webgpu: boolean; f16: boolean }> {
  * (q4f16 fails without fp16). On CPU (WASM), computers use q8 (faster there) and phones q4 (half
  * the download).
  */
-function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, manifest: Manifest): Candidate[] {
+function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, manifest: Manifest, preferred?: ModelKey): Candidate[] {
   const has = (key: ModelKey, dtype: string) => !!manifest[key]?.dtypes[dtype]
-  const out: Candidate[] = []
-  if (gpu.webgpu && gpu.f16 && has('small', 'q4f16')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4f16' })
-  else if (gpu.webgpu && has('small', 'q4')) out.push({ key: 'small', device: 'webgpu', dtype: 'q4' })
-  const cpu: Candidate['dtype'][] = mobile ? ['q4', 'q8'] : ['q8', 'q4']
-  const onCpu = cpu.find((d) => has('small', d))
-  if (onCpu) out.push({ key: 'small', device: 'wasm', dtype: onCpu })
-  return out
+  const forKey = (key: ModelKey): Candidate[] => {
+    const out: Candidate[] = []
+    if (gpu.webgpu && gpu.f16 && has(key, 'q4f16')) out.push({ key, device: 'webgpu', dtype: 'q4f16' })
+    else if (gpu.webgpu && has(key, 'q4')) out.push({ key, device: 'webgpu', dtype: 'q4' })
+    const cpu: Candidate['dtype'][] = mobile ? ['q4', 'q8'] : ['q8', 'q4']
+    const onCpu = cpu.find((d) => has(key, d))
+    if (onCpu) out.push({ key, device: 'wasm', dtype: onCpu })
+    return out
+  }
+  // A model asked for (testing another model) first; the app's model stays the fallback.
+  return [...(preferred && preferred !== 'small' && manifest[preferred] ? forKey(preferred) : []), ...forKey('small')]
 }
 
 async function loadCandidate(c: Candidate, manifest: Manifest) {
@@ -162,7 +167,7 @@ async function loadCandidate(c: Candidate, manifest: Manifest) {
   await model.generate({ ...warm, max_new_tokens: 1 })
 }
 
-async function load(mobile: boolean) {
+async function load(mobile: boolean, preferred?: ModelKey) {
   const started = performance.now()
   const [manifest, gpu] = await Promise.all([readManifest(), gpuSupport()])
   if (!manifest) throw new Error('No language model in public/models (run npm run model:download).')
@@ -172,7 +177,7 @@ async function load(mobile: boolean) {
   // URLs, and with remote models off it then treats tokenizer_config.json as missing.
   env.localModelPath = new URL(`${base}models/`).pathname
 
-  const list = candidates(mobile, gpu, manifest)
+  const list = candidates(mobile, gpu, manifest, preferred)
   if (!list.length) throw new Error('No downloaded model runs on this device.')
   let lastError: unknown
   for (const c of list) {
@@ -401,7 +406,7 @@ self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
   try {
     switch (msg.type) {
       case 'load':
-        loading ??= load(msg.mobile)
+        loading ??= load(msg.mobile, msg.model as ModelKey | undefined)
         await loading
         break
       case 'generate':

@@ -64,6 +64,15 @@ export function withoutSourceTag(text: string): string {
     .trim()
 }
 
+/** A model to test instead of the app's own (`?model=lfm`), if the URL asks for one. */
+function requestedModel(): string | undefined {
+  try {
+    return new URLSearchParams(window.location.search).get('model') ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * A reply cut by the length limit ends mid-sentence ("…across these countries. O"): the
  * unfinished sentence is dropped, when at least one whole sentence stays.
@@ -219,7 +228,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     }
 
     // Start downloading the model as soon as the page opens (after consent, see App).
-    if (autoLoadRef.current) startRef.current().postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
+    if (autoLoadRef.current) startRef.current().postMessage({ type: 'load', mobile: isMobileDevice(), model: requestedModel() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)
@@ -234,7 +243,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     setError(null)
     setStatus('loading')
     loadingRef.current = true
-    startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice() } satisfies WorkerRequest)
+    startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice(), model: requestedModel() } satisfies WorkerRequest)
   }, [])
 
   const ask = useCallback(

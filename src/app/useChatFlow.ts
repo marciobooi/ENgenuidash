@@ -12,7 +12,7 @@ import { searchQuery } from '../llm/crossLingual'
 import type { createScopeChecker } from '../llm/energyScope'
 import { definitionText, directDefinition } from '../llm/glossary'
 import { datasetDescription, knowledgeDocFreq, searchKnowledge } from '../llm/knowledge'
-import { EXPLAIN_SYSTEM_PROMPT, explainPrompt, modelPrompt } from '../llm/prompt'
+import { dashboardContext, EXPLAIN_SYSTEM_PROMPT, explainPrompt, modelPrompt, relatesToDashboard } from '../llm/prompt'
 import type { Vocabulary } from '../llm/vocabulary'
 import type { Assistant } from './useAssistant'
 import type { Dashboards } from './useDashboards'
@@ -50,7 +50,7 @@ export function useChatFlow({
   // Offered after "not understood" and small talk; a click opens the topic's exact dashboard.
   const ideaChoices = ideas.map(({ text, plan }) => ({ label: text, query: text, plan }))
 
-  function askModel(text: string, verdict: string, previous: string[], conceptual = false, fuller = false) {
+  function askModel(text: string, verdict: string, previous: string[], conceptual = false, fuller = false, withDashboard = false) {
     if (!ready && !fuller) {
       // Not downloaded yet ("Not now"): say so and offer the download again.
       const message = llm.status === 'idle' ? t.dlNeeded : t.modelNotReady
@@ -68,7 +68,9 @@ export function useChatFlow({
           : async (signal) => {
               // Follow-ups ("and in Germany?") reuse the previous question to find the dataset.
               const searchWith = verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text
-              return modelPrompt(text, dict, codelists, lang, { conceptual, signal, searchWith })
+              // A question about the dashboard on screen gets its figures (see relatesToDashboard).
+              const dashboard = withDashboard && current ? await onScreenFacts() : undefined
+              return modelPrompt(text, dict, codelists, lang, { conceptual, signal, searchWith, dashboard })
             },
     })
   }
@@ -124,6 +126,15 @@ export function useChatFlow({
         return
       }
       case 'off-topic': {
+        // No energy word, but about the dashboard on screen ("why is Spain higher than France?"):
+        // answered from its figures (or its facts, while the model is not there).
+        if (current && relatesToDashboard(text, current, false)) {
+          if (ready) {
+            askModel(typed, 'follow-up', previous, false, false, true)
+            openChat()
+          } else void explainDashboard(typed)
+          return
+        }
         // With a dashboard on screen, a message made of known words is most likely a change we
         // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
         if (route.tryActions && resolveWithActions(typed)) return
@@ -167,6 +178,14 @@ export function useChatFlow({
         return
     }
     const conceptual = route.kind === 'answer' && route.conceptual
+
+    // A question about the dashboard on screen ("why is Spain higher than France?"): the model
+    // answers from its figures, rather than from a separate search that could show other numbers.
+    if (ready && current && verdict !== 'small-talk' && relatesToDashboard(text, current, verdict === 'follow-up')) {
+      askModel(typed, verdict, previous, conceptual, false, true)
+      openChat()
+      return
+    }
 
     // "What is X?" for a known concept → the verified glossary definition, word for word.
     const definition = verdict !== 'small-talk' ? directDefinition(text) : null
@@ -256,6 +275,20 @@ export function useChatFlow({
     return true
   }
 
+  /** The dashboard on screen as background for a question about it. */
+  async function onScreenFacts() {
+    const { spec, insights } = await dashboardFacts()
+    return { context: dashboardContext({ ...spec, place: placeOf(spec) }, insights), source: spec.source }
+  }
+
+  /** The places of a dashboard in words ("the EU-27 (European Union)", "Spain, France"). */
+  function placeOf(spec: NonNullable<typeof current>) {
+    const geo = ([] as string[]).concat(spec.plan.filters.geo ?? [])
+    const name = (code: string) =>
+      code === 'EU27_2020' ? 'the EU-27 (European Union)' : ((codelists?.codelists.GEO?.codes[code] as Record<string, string> | undefined)?.en ?? code)
+    return geo.length ? geo.map(name).join(', ') : undefined
+  }
+
   /** The dashboard's own facts: Eurostat's description of the indicator and the key insights. */
   async function dashboardFacts() {
     const spec = current!
@@ -296,11 +329,7 @@ export function useChatFlow({
       prepare: async () => {
         const { spec, described, insights, sources } = await dashboardFacts()
         // The place in words ("EU-27", "Germany, France"), so the model does not say "global".
-        const geo = ([] as string[]).concat(spec.plan.filters.geo ?? [])
-        const name = (code: string) =>
-          code === 'EU27_2020' ? 'the EU-27 (European Union)' : ((codelists?.codelists.GEO?.codes[code] as Record<string, string> | undefined)?.en ?? code)
-        const place = geo.length ? geo.map(name).join(', ') : undefined
-        return { prompt: explainPrompt({ ...spec, place }, { description: described?.text, insights }, lang), sources }
+        return { prompt: explainPrompt({ ...spec, place: placeOf(spec) }, { description: described?.text, insights }, lang), sources }
       },
     })
   }

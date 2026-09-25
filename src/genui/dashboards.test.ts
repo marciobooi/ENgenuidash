@@ -150,3 +150,10 @@ test('every dashboard has a title, a summary, insights, a data table and a sourc
     assert.match(d.source.url, /ec\.europa\.eu\/eurostat/, q)
   }
 })
+
+test('the data given to the model has the precision the dashboard shows, not all of Eurostat\'s digits', async () => {
+  const d = await dash('Renewable energy share in Spain, France and Germany since 2010')
+  const numbers = [...d.context.matchAll(/: (\d+(?:\.\d+)?)/g)].map((m) => m[1])
+  assert.ok(numbers.length > 10)
+  assert.ok(numbers.every((n) => (n.split('.')[1] ?? '').length <= 1), numbers.join(' '))
+})

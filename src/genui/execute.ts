@@ -738,7 +738,7 @@ export async function buildDashboard(
     },
     suggestions: suggest(plan, dict, s),
     controls: controlsFor(plan, dict, s, lang, view === 'compare' ? periods[focusIndex]?.code : undefined),
-    context: toContext(title, subtitle, unit, periodLabels, tableSeries),
+    context: toContext(title, subtitle, unit, periodLabels, tableSeries, fmt.decimals),
     plan,
   })
   if (problems.length) console.warn(`Dashboard ${ds.code}: left out`, problems)
@@ -798,10 +798,22 @@ function numberFormat(lang: string, plan: Plan, result: EurostatResult) {
   }
 }
 
-function toContext(title: string, subtitle: string, unit: string | undefined, periods: string[], series: { name: string; data: (number | null)[] }[]) {
+/**
+ * The data as plain text for the language model, with the precision the dashboard shows ("61.4",
+ * not Eurostat's "61.446"): small models copy the digits they are given.
+ */
+function toContext(
+  title: string,
+  subtitle: string,
+  unit: string | undefined,
+  periods: string[],
+  series: { name: string; data: (number | null)[] }[],
+  decimals: number,
+) {
+  const round = (v: number) => Number(v.toFixed(decimals))
   const lines = series.slice(0, 8).map((x) => {
     const pts = periods
-      .map((p, i) => (x.data[i] == null ? null : `${p}: ${x.data[i]}`))
+      .map((p, i) => (x.data[i] == null ? null : `${p}: ${round(x.data[i] as number)}`))
       .filter(Boolean)
       .slice(-10)
     return `- ${x.name}: ${pts.join('; ')}`

@@ -65,6 +65,9 @@ const QUESTION_WORDS = new Set(
         // Words used to steer a dashboard ("I prefer columns", "Germany alone", "go back to 2015",
         // "wie hat sich das entwickelt", "lieber als Balken", "s'il te plaît")
         'ones prefer rather draw plot alone back raw instead instead ' +
+        // The app itself: "add all countries to this dashboard", "on this chart", "on the page"
+        'dashboard dashboards dash page screen view chart charts graph graphs visual available tableau seite ansicht grafik ' +
+        'verfugbar verfugbare verfugbaren anzeigen zeigen disponible disponibles afficher affiche montre ' +
         // Analysis words: "what drives prices?", "main factors", "was beeinflusst", "facteurs"
         'drive drives driven driver drivers factor factors influence influences influenced determine determines behind reason why cause caused ' +
         'treiber faktor faktoren beeinflusst beeinflussen einfluss ursache ursachen facteur facteurs influence influencent cause causes raison ' +
@@ -97,6 +100,17 @@ export interface Vocabulary {
 function variants(w: string): string[] {
   const out = [w]
   for (const suffix of ['s', 'es', 'en', 'n', 'e', 'er', 'ed', 'ing']) if (w.length > suffix.length + 3 && w.endsWith(suffix)) out.push(w.slice(0, -suffix.length))
+  return out
+}
+
+/**
+ * The usual typing slips: a letter typed twice ("daash", "countriess") or two neighbouring
+ * letters swapped ("dashbaord"). Not any missing letter: "capital" is not "capita".
+ */
+function typos(w: string): string[] {
+  const out: string[] = []
+  for (let i = 1; i < w.length; i++) if (w[i] === w[i - 1]) out.push(w.slice(0, i) + w.slice(i + 1))
+  for (let i = 0; i < w.length - 1; i++) out.push(w.slice(0, i) + w[i + 1] + w[i] + w.slice(i + 2))
   return out
 }
 
@@ -144,16 +158,20 @@ export function buildVocabulary(
     unknownWords(text, knowledgeDocFreq) {
       // Hyphens split words too: "est-elle", "peut-on", "Kraft-Wärme".
       const words = normalize(text).replace(/[’']/g, ' ').split(/[^a-z0-9_]+/).filter(Boolean)
-      return words.filter((w) => {
-        if (w.length <= 2 || STOPWORDS.has(w) || /\d/.test(w) || w.includes('_')) return false
-        if (placeWords.has(w) || hasEnergySignal(w)) return false
-        return !variants(w).some(
+      const known = (w: string) =>
+        variants(w).some(
           (v) =>
             QUESTION_WORDS.has(v) ||
             vocab.has(v) ||
             stems.some((st) => v.startsWith(st)) ||
             (knowledgeDocFreq?.get(v) ?? 0) >= MIN_DOC_FREQ,
         )
+      return words.filter((w) => {
+        if (w.length <= 2 || STOPWORDS.has(w) || /\d/.test(w) || w.includes('_')) return false
+        if (placeWords.has(w) || hasEnergySignal(w)) return false
+        if (known(w)) return false
+        // A typo of a known word (see typos). Only for words of 5+ letters.
+        return !(w.length >= 5 && typos(w).some((t) => t.length >= 4 && known(t)))
       })
     },
   }

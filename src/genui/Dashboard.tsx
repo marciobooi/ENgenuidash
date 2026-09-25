@@ -2,7 +2,7 @@ import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'l
 import { useId, useState, type CSSProperties, type ReactNode } from 'react'
 import { AreaChart, BarChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
-import { FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
+import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
 import { DataTable } from '../components/table'
 import { AnswerCard } from './AnswerCard'
@@ -371,27 +371,19 @@ function Toolbar({
       key: 'year',
       label: labels.year,
       node: (
-        <label className="dash__control">
-          {labels.year}
-          <select
-            className="dash__select"
-            value={activeYear?.label ?? ''}
-            disabled={busy}
-            onChange={(e) => {
-              const option = controls.years?.find((y) => y.label === e.target.value)
-              if (option) onSelect({ label: `${labels.year}: ${option.label}`, plan: option.plan })
-              // "Over time": back to the latest years.
-              else if (controls.overTime) onSelect({ label: labels.overTime, plan: controls.overTime })
-            }}
-          >
-            <option value="">{labels.overTime}</option>
-            {controls.years.map((y) => (
-              <option key={y.label} value={y.label}>
-                {y.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <EclSelect
+          id={`${periodId}-year`}
+          label={labels.year}
+          value={activeYear?.label ?? ''}
+          disabled={busy}
+          // "Over time" (no single year): back to the latest years.
+          options={[{ code: '', label: labels.overTime }, ...controls.years.map((y) => ({ code: y.label, label: y.label }))]}
+          onChange={(code) => {
+            const option = controls.years?.find((y) => y.label === code)
+            if (option) onSelect({ label: `${labels.year}: ${option.label}`, plan: option.plan })
+            else if (controls.overTime) onSelect({ label: labels.overTime, plan: controls.overTime })
+          }}
+        />
       ),
     })
   }
@@ -405,24 +397,17 @@ function Toolbar({
       key: 'unit',
       label: labels.unit,
       node: (
-        <label className="dash__control">
-          {labels.unit}
-          <select
-            className="dash__select"
-            value={controls.units.find((u) => u.active)?.label ?? ''}
-            disabled={busy}
-            onChange={(e) => {
-              const option = controls.units?.find((u) => u.label === e.target.value)
-              if (option) onSelect({ label: `${labels.unit}: ${option.label}`, plan: option.plan })
-            }}
-          >
-            {controls.units.map((u) => (
-              <option key={u.label} value={u.label}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <EclSelect
+          id={`${periodId}-unit`}
+          label={labels.unit}
+          value={controls.units.find((u) => u.active)?.label ?? ''}
+          disabled={busy}
+          options={controls.units.map((u) => ({ code: u.label, label: u.label }))}
+          onChange={(code) => {
+            const option = controls.units?.find((u) => u.label === code)
+            if (option) onSelect({ label: `${labels.unit}: ${option.label}`, plan: option.plan })
+          }}
+        />
       ),
     })
   }

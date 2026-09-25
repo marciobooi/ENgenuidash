@@ -161,3 +161,21 @@ test('thanks with a compliment is small talk, not off-topic', () => {
     assert.ok(r.kind === 'answer' && r.smallTalk, `${t} → ${r.kind}`)
   }
 })
+
+test('"add all available countries to this daash": all countries, despite the words in between and the typo', () => {
+  const current = planOf('What is the energy import dependency of the EU?')
+  for (const text of [
+    'add all available countries to this daash',
+    'add all available countries to this dashboard',
+    'show every EU member state',
+    'alle verfügbaren Länder anzeigen',
+    'ajoute tous les pays disponibles',
+  ]) {
+    const r = route(text, current, ['What is the energy import dependency of the EU?'])
+    assert.equal(r.kind, 'refine', text)
+    assert.equal((r as Extract<Route, { kind: 'refine' }>).plan.allCountries, true, text)
+  }
+  // Typo tolerance is narrow: a doubled letter or two swapped letters, not any missing one.
+  assert.deepEqual(vocabulary.unknownWords('dashbaord countriess'), [])
+  assert.deepEqual(vocabulary.unknownWords('capital'), ['capital'])
+})

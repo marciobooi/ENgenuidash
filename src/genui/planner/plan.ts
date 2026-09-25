@@ -1,6 +1,5 @@
 import type { EnergyCodelists, EnergyDictionary } from '../../data/eurostat'
 import {
-  ALL_COUNTRIES_WORDS,
   CAUSAL_WORDS,
   ELECTRICITY_MIX,
   ENERGY_MIX,
@@ -23,6 +22,7 @@ import {
   find,
   detectGeos,
   detectFocus,
+  wantsAllCountries,
   detectTop,
   detectTime,
   periodFor,
@@ -59,7 +59,7 @@ export function planQuestion(
   const time = detectTime(p)
   const geo = detectGeos(p, codelists)
   const top = detectTop(p)
-  let allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
+  let allCountries = wantsAllCountries(p) || !!top
   let mix = any(p, MIX_WORDS)
   const notes: NoteKey[] = []
 

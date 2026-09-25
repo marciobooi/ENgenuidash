@@ -3,7 +3,6 @@ import {
   ADD_PREFIXES,
   ADD_WORDS,
   ONLY_WORDS,
-  ALL_COUNTRIES_WORDS,
   REMOVE_WORDS,
   TREND_WORDS,
   ELECTRICITY_MIX,
@@ -21,6 +20,7 @@ import {
   find,
   detectGeos,
   detectFocus,
+  wantsAllCountries,
   detectTop,
   detectTime,
   periodFor,
@@ -77,7 +77,7 @@ export function refinePlan(
   const chart = detectChart(p)
   const top = detectTop(p)
   // "I want a map": the map comes with the comparison of all countries.
-  const allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top || any(p, ['map', 'karte', 'carte'])
+  const allCountries = wantsAllCountries(p) || !!top || any(p, ['map', 'karte', 'carte'])
   const mix = any(p, MIX_WORDS)
 
   const next: Plan = { ...current, filters: { ...current.filters }, notes: [], retry: undefined }

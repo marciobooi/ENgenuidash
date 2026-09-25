@@ -66,13 +66,37 @@ export function FilterField({
       onApply={(codes) => onChange(f, codes)}
     />
   ) : (
+    <EclSelect id={`filter-${f.dim}`} label={f.label} value={f.selected[0] ?? ''} options={f.options} disabled={disabled} onChange={(code) => onChange(f, [code])} />
+  )
+}
+
+/**
+ * A single-choice ECL select (label, native <select>, ECL chevron): the filters and the toolbar's
+ * year and unit use the same one, so every dropdown looks and behaves alike.
+ */
+export function EclSelect({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  id: string
+  label: string
+  value: string
+  options: FilterOption[]
+  onChange: (code: string) => void
+  disabled?: boolean
+}) {
+  return (
     <div className="ecl-form-group filters__single">
-      <label className="ecl-form-label" htmlFor={`filter-${f.dim}`}>
-        {f.label}
+      <label className="ecl-form-label" htmlFor={id}>
+        {label}
       </label>
       <div className="ecl-select__container ecl-select__container--s">
-        <select id={`filter-${f.dim}`} className="ecl-select" value={f.selected[0] ?? ''} disabled={disabled} onChange={(e) => onChange(f, [e.target.value])}>
-          {f.options.map((o) => (
+        <select id={id} className="ecl-select" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+          {options.map((o) => (
             <option key={o.code} value={o.code}>
               {o.label}
             </option>

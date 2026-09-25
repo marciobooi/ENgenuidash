@@ -1,6 +1,7 @@
 import type { DatasetInfo, EnergyCodelists, EnergyDictionary } from '../../data/eurostat'
 import { normalize } from '../../llm/energyScope'
 import {
+  ALL_COUNTRIES_WORDS,
   CHART_WORDS,
   ALL_TIME_WORDS,
   EU27,
@@ -116,6 +117,17 @@ const CHANGE_WORDS =
 const RANKED_SUBJECT = /\b(countr(y|ies)|member states?|states|ones|who|lander|land|staaten|pays|etats)\b/
 const LOWEST_WORDS = /\b(least|lowest|smallest|fewest|am wenigsten|am niedrigsten|am kleinsten|les moins|le moins|la moins|les plus faibles|les plus bas)\b/
 const HIGHEST_WORDS = /\b(the most|most \w+|highest|largest|biggest|am meisten|am \w+sten|les plus|le plus|la plus)\b/
+
+/**
+ * "All countries", also with words in between: "all available countries", "every EU member
+ * state", "alle verfügbaren Länder", "tous les pays disponibles".
+ */
+export function wantsAllCountries(p: Parsed): boolean {
+  if (any(p, ALL_COUNTRIES_WORDS)) return true
+  return /\b(all|every|each|alle[nms]?|jede[nms]?|tous|toutes|chaque)( [a-z-]+){0,3} (countries|country|member states?|states|lander|staaten|mitgliedstaaten|pays|etats)\b/.test(
+    p.text,
+  )
+}
 
 /** Places named in free text (EU27 countries, neighbours, the EU itself). */
 export function placesInText(text: string, codelists: EnergyCodelists): { codes: string[]; eu: boolean } {

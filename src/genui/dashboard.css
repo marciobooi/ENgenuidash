@@ -338,21 +338,33 @@
   color: var(--ecl-color-dark-80);
 }
 
+/* ---------- toolbar controls: one look (ECL) for toggles, selects and buttons ---------- */
+
+.dash__toolbar {
+  --ctl-height: 40px;
+  --ctl-radius: 4px;
+  --ctl-border: 1px solid var(--ecl-color-dark-80);
+  --ctl-font: 0.875rem arial, sans-serif;
+}
+
 .segmented {
   display: inline-flex;
+  height: var(--ctl-height);
+  box-sizing: border-box;
   padding: 3px;
-  border: 1px solid var(--ecl-color-dark-10);
-  border-radius: 10px;
+  gap: 2px;
+  border: var(--ctl-border);
+  border-radius: var(--ctl-radius);
   background: #fff;
 }
 
 .segmented button {
-  min-height: 30px;
+  min-width: 40px;
   padding: 0 12px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 2px;
   background: transparent;
-  font: 0.8125rem arial, sans-serif;
+  font: var(--ctl-font);
   color: var(--ecl-color-dark-100);
   cursor: pointer;
 }
@@ -365,22 +377,17 @@
 
 .segmented button:hover:not([aria-pressed='true']):not(:disabled) {
   background: var(--ecl-color-primary-5);
+  color: var(--ecl-color-primary);
 }
 
-.segmented button:focus-visible,
-.dash__select:focus-visible {
+.segmented button:focus-visible {
   outline: 3px solid var(--ecl-color-secondary);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
-.dash__select {
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--ecl-color-dark-10);
-  border-radius: 10px;
-  background: #fff;
-  font: 0.8125rem arial, sans-serif;
-  color: var(--ecl-color-dark-100);
+.segmented button:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 /* ---------- direct answer (focused questions) ---------- */
@@ -586,29 +593,6 @@
   display: contents;
 }
 
-.dash__more {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--ecl-color-dark-40);
-  border-radius: 999px;
-  background: #fff;
-  font: 0.8125rem arial, sans-serif;
-  color: var(--ecl-color-primary);
-  cursor: pointer;
-}
-
-.dash__more:hover {
-  background: var(--ecl-color-primary-5);
-}
-
-.dash__more:focus-visible {
-  outline: 3px solid var(--ecl-color-secondary);
-  outline-offset: 2px;
-}
-
 .dash__more[aria-expanded='true'] .dash__more-icon {
   transform: rotate(180deg);
 }
@@ -641,24 +625,30 @@
   gap: 8px;
 }
 
+
+/* "More filters" and "Copy link": ECL secondary buttons, as tall as the toolbar controls. */
+.dash__more,
 .dash__share {
   display: inline-flex;
   gap: 6px;
   align-items: center;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--ecl-color-dark-40);
-  border-radius: 999px;
+  height: var(--ctl-height, 40px);
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--ecl-color-primary);
+  border-radius: var(--ctl-radius, 4px);
   background: #fff;
-  font: 0.8125rem arial, sans-serif;
+  font: 700 0.875rem arial, sans-serif;
   color: var(--ecl-color-primary);
   cursor: pointer;
 }
 
+.dash__more:hover,
 .dash__share:hover {
   background: var(--ecl-color-primary-5);
 }
 
+.dash__more:focus-visible,
 .dash__share:focus-visible {
   outline: 3px solid var(--ecl-color-secondary);
   outline-offset: 2px;

@@ -30,6 +30,7 @@ import {
 import { dashboardActions, rankByOverlap, type DashboardAction } from './genui/actions'
 import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
+import { recordMiss } from './eval/missLog'
 import { planQuestion } from './genui/planner'
 import { routeMessage } from './genui/route'
 import { answerFromHits, smallTalkReply } from './llm/answers'
@@ -309,6 +310,7 @@ export default function App() {
         err instanceof NoDataError ? err.message : err instanceof EurostatUnavailableError ? t.eurostatDown : t.dashboardError
       llm.updateLast((m) => !!m.pending, { content: message, pending: false, kind: 'error' })
       setAnnouncement(message)
+      if (err instanceof NoDataError) recordMiss({ text: question, lang, kind: 'nodata', followUp: hasDashboard })
       if (err instanceof EurostatUnavailableError) notify.warning(t.eurostatDownTitle, { description: t.eurostatDown })
       else if (!(err instanceof NoDataError)) notify.error(t.dashboardError, { description: (err as Error).message })
     } finally {
@@ -364,6 +366,7 @@ export default function App() {
         // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
         if (route.tryActions && resolveWithActions(text)) return
         const message = route.tryActions ? t.notApplied : t.offTopic
+        recordMiss({ text, lang, kind: 'refused', followUp: hasDashboard })
         llm.reply(text, message, 'refusal')
         setAnnouncement(message)
         if (hasDashboard) openChat()
@@ -371,6 +374,7 @@ export default function App() {
       }
       case 'rephrase': {
         const message = `${fill(t.notUnderstoodWord, { word: route.unknown.slice(0, 2).join('”, “') })} ${t.notUnderstood}`
+        recordMiss({ text, lang, kind: 'rephrase', followUp: hasDashboard })
         llm.append({ role: 'user', content: text }, { role: 'assistant', content: message, choices: ideas.map((i) => ({ label: i.text, query: i.text })) })
         setAnnouncement(message)
         if (hasDashboard) openChat()
@@ -428,6 +432,7 @@ export default function App() {
     void answerFromDocuments(text, query).then((outcome) => {
       if (outcome === 'model') askModel(text, verdict, previous, conceptual)
       else if (outcome === 'unclear') {
+        recordMiss({ text, lang, kind: 'unclear', followUp: hasDashboard })
         llm.append(
           { role: 'user', content: text },
           { role: 'assistant', content: t.notUnderstood, choices: ideas.map((i) => ({ label: i.text, query: i.text })) },
@@ -494,6 +499,7 @@ export default function App() {
         },
       )
       setAnnouncement(t.didYouMean)
+      recordMiss({ text, lang, kind: 'buttons', followUp: true })
       openChat()
     }
     // The options as buttons, most word overlap first. The model does not pick for the user: on

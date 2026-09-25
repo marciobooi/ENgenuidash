@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { loadKnowledge } from '../llm/knowledge'
 import { AnswerEval } from './AnswerEval'
+import { MissLog } from './MissLogPanel'
 import { EVAL_CASES } from './cases'
 import { runEval, summarize, type CaseResult, type Choose } from './runEval'
 
@@ -101,6 +102,7 @@ export default function EvalPage({
         </table>
       )}
       <AnswerEval dict={dict} codelists={codelists} complete={complete} ready={ready} />
+      <MissLog />
     </main>
   )
 }

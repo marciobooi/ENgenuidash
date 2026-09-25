@@ -152,6 +152,14 @@ labelled "Written by the assistant — check the sources".
 Quotes come from the passage whose sentences cover the question best; legal references
 ("Article 29 …") and publication boilerplate ("Data are comparable…") are never quoted.
 
+### Learning from use
+
+In development builds, every message the app did not handle well (refused, asked to rephrase, not
+understood, offered as buttons, no data) is kept in the browser (`src/eval/missLog.ts`, never
+sent anywhere). `#/eval` lists them and "Copy as test cases" gives lines to paste into
+`src/eval/cases.ts` or `answerCases.ts` with the expected result. There is no backend, so users'
+misunderstandings cannot be collected centrally.
+
 ### Measuring it
 
 `src/eval/cases.ts` holds labelled follow-up messages (EN/DE/FR). Add one whenever a real message

@@ -138,16 +138,18 @@ function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, man
     if (onCpu) out.push({ key, device: 'wasm', dtype: onCpu })
     return out
   }
-  // A model (and format) asked for, to test it, first; the app's model stays the fallback.
-  const asked = preferred && manifest[preferred] ? preferred : undefined
-  const forced: Candidate[] =
-    asked && dtype && has(asked, dtype)
+  // A model (and format) asked for, to test it: only that one. If it fails, the page loads the
+  // app's model in a fresh worker (a model too large for memory leaves this one unusable).
+  const asked = preferred && preferred !== 'small' && manifest[preferred] ? preferred : undefined
+  if (asked) {
+    return dtype && has(asked, dtype)
       ? [
           ...(gpu.webgpu ? [{ key: asked, device: 'webgpu' as Device, dtype: dtype as Candidate['dtype'] }] : []),
           { key: asked, device: 'wasm', dtype: dtype as Candidate['dtype'] },
         ]
-      : []
-  return [...forced, ...(asked && asked !== 'small' && !forced.length ? forKey(asked) : []), ...forKey('small')]
+      : forKey(asked)
+  }
+  return forKey('small')
 }
 
 async function loadCandidate(c: Candidate, manifest: Manifest) {

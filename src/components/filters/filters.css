@@ -2,7 +2,7 @@
 .filters__multi,
 .filters__single {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   margin: 0;
 }
@@ -43,7 +43,11 @@
 }
 
 .filters__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
+  color: #fff;
 }
 
 /* In the dashboard toolbar: the same height, border and type as the other controls. */
@@ -65,4 +69,24 @@
 
 .dash__toolbar .ecl-select__container {
   min-width: 150px;
+}
+
+/* Labels line up with the control, whatever ECL adds below it (the multiple select's dropdown). */
+.dash__toolbar .filters__multi .ecl-form-label,
+.dash__toolbar .filters__single .ecl-form-label,
+.dash__toolbar .dash__control > span {
+  line-height: var(--ctl-height);
+}
+
+/* The chevron: ECL's icon, white on the primary square, 20px, in single and multiple selects. */
+.dash__toolbar .ecl-select__icon .ecl-icon {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+  fill: #fff;
+}
+
+/* ECL spaces the multiple select 8px below a stacked label; inline, it sits level with the label. */
+.dash__toolbar .filters__multi .ecl-select__multiple {
+  margin-top: 0;
 }

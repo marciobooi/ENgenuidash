@@ -1,4 +1,3 @@
-import { ChevronDown } from 'lucide-react'
 import { EclMultiSelect, type EclMultiSelectLabels } from './EclMultiSelect'
 import './filters.css'
 
@@ -103,9 +102,18 @@ export function EclSelect({
           ))}
         </select>
         <div className="ecl-select__icon filters__icon" aria-hidden="true">
-          <ChevronDown size={18} />
+          <EclChevron />
         </div>
       </div>
     </div>
+  )
+}
+
+/** ECL's own select chevron (the same icon ECL draws in its multiple select), so all match. */
+function EclChevron() {
+  return (
+    <svg className="ecl-icon ecl-icon--xs ecl-icon--rotate-180" viewBox="0 0 48 48" width="48" height="48" fill="currentColor" focusable="false" aria-hidden="true">
+      <path d="m45 30.12-2.73 2.82-18.24-18.36L5.73 33 3 30.18 24.03 9z" />
+    </svg>
   )
 }

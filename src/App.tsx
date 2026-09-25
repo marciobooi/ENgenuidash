@@ -1,190 +1,92 @@
-import {
-  ArrowUp,
-  ArrowUpRight,
-  CircleAlert,
-  Database,
-  ExternalLink,
-  LayoutDashboard,
-  MessagesSquare,
-  PlugZap,
-  Plus,
-  ShieldAlert,
-  Square,
-  X,
-  Zap,
-} from 'lucide-react'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { Database, PlugZap, Zap } from 'lucide-react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import ComponentsGallery from './ComponentsGallery'
 import { Header } from './Header'
-import { StarsMark } from './Icons'
-import { notify, Toaster } from './components/toast'
-import { Tooltip } from './components/tooltip'
+import { ChatModal } from './app/ChatModal'
+import { ChatThread } from './app/ChatThread'
+import { Composer } from './app/Composer'
+import { useAssistant } from './app/useAssistant'
+import { useChatFlow } from './app/useChatFlow'
+import { useDashboards } from './app/useDashboards'
+import { useEnergyData } from './app/useEnergyData'
+import { WelcomePage } from './app/WelcomePage'
 import { DownloadNotice } from './components/download-notice'
-import {
-  EurostatUnavailableError,
-  loadEnergyCodelists,
-  loadEnergyDictionary,
-  type EnergyCodelists,
-  type EnergyDictionary,
-} from './data/eurostat'
-import { dashboardActions, rankByOverlap, type DashboardAction } from './genui/actions'
+import { notify, Toaster } from './components/toast'
 import { Dashboard } from './genui/Dashboard'
-import { buildDashboard, NoDataError } from './genui/execute'
-import { recordMiss } from './eval/missLog'
-import type { FilterControl } from './components/filters'
-import { applyFilter, filterControls } from './genui/filters'
-import { planQuestion } from './genui/planner'
-import { dashStrings } from './genui/strings'
-import { routeMessage } from './genui/route'
-import { answerFromHits, smallTalkReply } from './llm/answers'
-import { searchQuery } from './llm/crossLingual'
-import { modelPrompt } from './llm/prompt'
-import type { DashboardSpec, Plan, Suggestion } from './genui/types'
-import { GENERATION, SYSTEM_PROMPT } from './llm/config'
-import { createScopeChecker } from './llm/energyScope'
-import { definitionText, directDefinition, loadGlossary } from './llm/glossary'
-import { datasetDescription, knowledgeDocFreq, loadKnowledge, searchKnowledge } from './llm/knowledge'
-import { buildVocabulary } from './llm/vocabulary'
-import { useLocalLLM, type UIMessage } from './llm/useLocalLLM'
 import { APP_ABBR, STRINGS, type Lang } from './i18n'
 import './App.css'
 
 // Development-only evaluation page (#/eval); the import is dropped from production builds.
 const EvalPage = import.meta.env.DEV ? lazy(() => import('./eval/EvalPage')) : null
 
-const fill = (template: string, values: Record<string, string>) =>
-  template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')
-
-// The language model is downloaded only after the user agrees (DownloadNotice); the answer
-// "Download now" is remembered on the device, and the model then loads on each visit.
-const DOWNLOAD_CONSENT_KEY = 'engenuidash.modelDownload'
-function hasDownloadConsent(): boolean {
-  try {
-    return localStorage.getItem(DOWNLOAD_CONSENT_KEY) === 'accepted'
-  } catch {
-    return false
-  }
-}
-function saveDownloadConsent() {
-  try {
-    localStorage.setItem(DOWNLOAD_CONSENT_KEY, 'accepted')
-  } catch {
-    // Private mode or blocked storage: the notice shows again next time.
-  }
-}
-
+/**
+ * The page: the header, then the welcome screen, the conversation or the dashboard on screen
+ * (with the chat behind a floating button). The work is done by hooks in src/app:
+ *   useEnergyData  – dictionary, codelists, glossary, knowledge base, topic guard, vocabulary
+ *   useAssistant   – the optional language model (consent, loading, the chat thread it keeps)
+ *   useDashboards  – the dashboards of the conversation, building them, filters, going back
+ *   useChatFlow    – what happens to a message (route → dashboard, definition, quote, answer…)
+ */
 export default function App() {
   const [input, setInput] = useState('')
   const [lang, setLang] = useState<Lang>('en')
   const [route, setRoute] = useState(() => window.location.hash)
   const t = STRINGS[lang]
   const [announcement, setAnnouncement] = useState('')
-  const [dict, setDict] = useState<EnergyDictionary | null>(null)
-  const [codelists, setCodelists] = useState<EnergyCodelists | null>(null)
-  const scope = useMemo(() => createScopeChecker(dict, codelists), [dict, codelists])
-  // Words ENgenuidash understands (energy vocabulary, places, question words): see vocabulary.ts.
-  const vocabulary = useMemo(() => buildVocabulary(dict, codelists, scope.places), [dict, codelists, scope])
-
-  // Generated dashboards (JSON specs) and which one is on screen.
-  const [dashboards, setDashboards] = useState<DashboardSpec[]>([])
-  const [active, setActive] = useState(0)
-  const [building, setBuilding] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [unread, setUnread] = useState(false)
-  const dialogRef = useRef<HTMLDialogElement>(null)
+  const chatOpenRef = useRef(chatOpen)
   const fabRef = useRef<HTMLButtonElement>(null)
   const dashTitleRef = useRef<HTMLDivElement>(null)
-  const chatOpenRef = useRef(chatOpen)
-
-  // Screen-reader announcements. The thread itself is not a live region,
-  // so streamed tokens aren't read out one by one; the full reply is announced at the end.
-  // The language model is optional: it is downloaded only when someone asks for a written
-  // answer and agrees (DownloadNotice), on every device. After that it loads on each visit.
-  const [askBeforeDownload] = useState(() => !hasDownloadConsent())
-  const [downloadNotice, setDownloadNotice] = useState(false)
-  // The question that asked for a fuller answer, answered as soon as the model is ready.
-  const pendingQuestionRef = useRef<string | null>(null)
-  const askModelRef = useRef<(text: string) => void>(() => {})
-  const llm = useLocalLLM((e) => {
-    switch (e.type) {
-      case 'ready':
-        if (pendingQuestionRef.current) {
-          const q = pendingQuestionRef.current
-          pendingQuestionRef.current = null
-          askModelRef.current(q)
-        }
-        break
-      // Loading is silent: the model downloads in the background and data questions work meanwhile.
-      case 'error':
-        if (!e.duringLoad) notify.error(t.generationFailed, { description: e.message })
-        break
-      case 'retrieving':
-        setAnnouncement(t.searchingData)
-        break
-      case 'start':
-        setAnnouncement(t.responding)
-        break
-      case 'done':
-        setAnnouncement(e.stopped || !e.text ? t.responseStopped : t.responseDone.replace('{text}', e.text))
-        if (!chatOpenRef.current) setUnread(true)
-        break
-    }
-  }, { autoLoad: !askBeforeDownload })
-
-  const acceptDownload = () => {
-    saveDownloadConsent()
-    setDownloadNotice(false)
-    llm.load()
-    if (pendingQuestionRef.current) {
-      llm.append({ role: 'assistant', content: t.dlPreparing })
-      setAnnouncement(t.dlPreparing)
-    }
-  }
-
-  // The model-ready event answers the pending question with the current askModel.
-  useEffect(() => {
-    askModelRef.current = (q: string) => askModel(q, 'energy', [], false, true)
-  })
-
-  /** "Write a fuller answer": the model answers now, or once it is downloaded. */
-  function requestFullerAnswer(question: string) {
-    if (ready) return void askModel(question, 'energy', [], false, true)
-    pendingQuestionRef.current = question
-    if (llm.status === 'loading') {
-      llm.append({ role: 'assistant', content: t.dlPreparing })
-      setAnnouncement(t.dlPreparing)
-    } else setDownloadNotice(true)
-  }
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const data = useEnergyData()
+  const assistant = useAssistant({
+    t,
+    announce: setAnnouncement,
+    onReplyDone: () => {
+      if (!chatOpenRef.current) setUnread(true)
+    },
+  })
+  const { llm, ready } = assistant
+  const dash = useDashboards({
+    dict: data.dict,
+    codelists: data.codelists,
+    lang,
+    t,
+    assistant,
+    announce: setAnnouncement,
+    // Show the result: close the chat and move focus to the dashboard heading.
+    onShown: () => {
+      setChatOpen(false)
+      requestAnimationFrame(() => dashTitleRef.current?.querySelector<HTMLElement>('h2')?.focus())
+    },
+  })
+
+  const ideas = [
+    { icon: <PlugZap size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaSolar },
+    { icon: <Zap size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaWind },
+    { icon: <Database size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaSave },
+  ]
+  const openChat = () => {
+    setUnread(false)
+    setChatOpen(true)
+  }
+  const chat = useChatFlow({ t, lang, data, assistant, dash, announce: setAnnouncement, openChat, ideas: ideas.map((i) => i.text) })
+
+  const busy = llm.generating || dash.building
+  const inConversation = llm.messages.length > 0
+  const { current } = dash
 
   useEffect(() => {
     chatOpenRef.current = chatOpen
   }, [chatOpen])
 
-  // If the model fails to load (e.g. a dropped connection), retry quietly: 5 s, 20 s, 60 s.
-  const loadRetries = useRef(0)
-  useEffect(() => {
-    if (llm.status !== 'error' || loadRetries.current >= 3) return
-    const delay = [5_000, 20_000, 60_000][loadRetries.current++]
-    const timer = window.setTimeout(llm.load, delay)
-    return () => window.clearTimeout(timer)
-  }, [llm.status, llm.load])
-
   useEffect(() => {
     document.documentElement.lang = lang
     document.title = `${APP_ABBR} – ${t.title}`
   }, [lang, t])
-
-  // Eurostat energy dictionary: powers the topic guard, the planner and the data lookup.
-  useEffect(() => {
-    loadEnergyDictionary().then(setDict).catch(() => setDict(null))
-    loadEnergyCodelists().then(setCodelists).catch(() => setCodelists(null))
-    void loadGlossary()
-    // The knowledge base (~170 kB gzipped) loads in the background: it also feeds the vocabulary check.
-    const idle = (window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1500))) as (cb: () => void) => void
-    idle(() => void loadKnowledge().catch(() => undefined))
-  }, [])
 
   useEffect(() => {
     const onHash = () => setRoute(window.location.hash)
@@ -196,475 +98,57 @@ export default function App() {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [llm.messages, chatOpen])
 
-  // The chat modal is a native <dialog>: focus trap, Escape and inert background for free.
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (chatOpen && !dialog.open) {
-      dialog.showModal()
-      inputRef.current?.focus()
-    } else if (!chatOpen && dialog.open) {
-      dialog.close()
-    }
-  }, [chatOpen])
-
-
-  const ready = llm.status === 'ready'
-  const busy = llm.generating || building
-  const current = dashboards[active] as DashboardSpec | undefined
-  // Toolbar filters for the dashboard on screen (countries, products, flows…).
-  const filters = useMemo(
-    () => (current && dict && codelists ? filterControls(current.plan, dict, codelists, lang, t.filters) : []),
-    [current, dict, codelists, lang, t.filters],
-  )
-  const hasDashboard = dashboards.length > 0
-  const inConversation = llm.messages.length > 0
-
-  const openChat = () => {
-    setUnread(false)
-    setChatOpen(true)
-  }
-  const closeChat = () => {
-    setChatOpen(false)
-    fabRef.current?.focus()
-  }
-
-  // ---------- dashboards ----------
-
-  async function runPlan(plan: Plan, question: string) {
-    if (!dict) return
-    setBuilding(true)
-    llm.append({ role: 'user', content: question }, { role: 'assistant', content: t.buildingDashboard, pending: true })
-    setAnnouncement(t.buildingDashboard)
-    try {
-      let spec: DashboardSpec | undefined
-      // A dataset chosen by the dictionary search may have no values for this selection: plan
-      // the question again without it (at most twice) before saying there is no data.
-      for (let attempt = 0; !spec; attempt++) {
-        try {
-          spec = await buildDashboard(plan, dict, lang, dashStrings(t))
-        } catch (err) {
-          if (!(err instanceof NoDataError) || !plan.retry || attempt >= 2 || !codelists) throw err
-          // Next best datasets about the same product ("wood pellets" in the biomass supply, not
-          // electricity use in the wood industry); unrelated ones are skipped.
-          const tried = [...plan.retry.tried, plan.dataset]
-          let next: Plan | null = null
-          for (let skip = 0; skip < 4 && !next; skip++) {
-            const r = planQuestion(plan.retry.question, dict, codelists, { exclude: tried })
-            if (r.kind !== 'plan') break
-            const sameProduct = !plan.filters.siec || JSON.stringify(r.plan.filters.siec) === JSON.stringify(plan.filters.siec)
-            if (sameProduct && r.plan.dataset !== plan.dataset) next = r.plan
-            else tried.push(r.plan.dataset)
-          }
-          if (!next) throw err
-          plan = next
-        }
-      }
-      const index = dashboards.length
-      const message = fill(hasDashboard ? t.dashboardUpdated : t.dashboardReady, { title: spec.title })
-      setDashboards((d) => [...d, spec])
-      setActive(index)
-      llm.updateLast((m) => !!m.pending, { content: message, pending: false, card: { index, title: spec.title } })
-      setAnnouncement(`${message} ${spec.summary.join(' ')}`)
-      // Show the result: close the chat and move focus to the dashboard heading.
-      setChatOpen(false)
-      requestAnimationFrame(() => dashTitleRef.current?.querySelector<HTMLElement>('h2')?.focus())
-    } catch (err) {
-      const message =
-        err instanceof NoDataError ? err.message : err instanceof EurostatUnavailableError ? t.eurostatDown : t.dashboardError
-      llm.updateLast((m) => !!m.pending, { content: message, pending: false, kind: 'error' })
-      setAnnouncement(message)
-      if (err instanceof NoDataError) recordMiss({ text: question, lang, kind: 'nodata', followUp: hasDashboard })
-      if (err instanceof EurostatUnavailableError) notify.warning(t.eurostatDownTitle, { description: t.eurostatDown })
-      else if (!(err instanceof NoDataError)) notify.error(t.dashboardError, { description: (err as Error).message })
-    } finally {
-      setBuilding(false)
-    }
-  }
-
-  function askModel(text: string, verdict: string, previous: string[], conceptual = false, fuller = false) {
-    if (!ready && !fuller) {
-      // Not downloaded yet on this phone ("Not now"): say so and offer the download again.
-      const message = llm.status === 'idle' ? t.dlNeeded : t.modelNotReady
-      llm.reply(text, message, 'refusal')
-      setAnnouncement(message)
-      if (llm.status === 'idle') setDownloadNotice(true)
-      return
-    }
-    llm.ask(text, {
-      systemPrompt: SYSTEM_PROMPT,
-      options: GENERATION,
-      prepare:
-        verdict === 'small-talk'
-          ? undefined
-          : async (signal) => {
-              // Follow-ups ("and in Germany?") reuse the previous question to find the dataset.
-              const searchWith = verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text
-              return modelPrompt(text, dict, codelists, lang, { conceptual, signal, searchWith })
-            },
-    })
-  }
-
   const send = (raw: string) => {
     const text = raw.trim()
     if (!text || busy) return
     setInput('')
-
-    const previous = llm.messages.filter((m) => m.role === 'user').map((m) => m.content)
-    const verdict = scope.classify(text, previous)
-    const route = routeMessage(text, {
-      current: current?.plan ?? null,
-      dict,
-      codelists,
-      classify: () => verdict,
-      unknownWords: (x) => vocabulary.unknownWords(x, knowledgeDocFreq()),
-      previous,
-    })
-
-    switch (route.kind) {
-      // "Explain these figures" (typed or clicked) explains the dashboard on screen.
-      case 'explain':
-        return void explainDashboard(text)
-      case 'back': {
-        // The previous dashboard of this conversation (they are kept in order).
-        const target = Math.max(0, active - 1)
-        const message = active > 0 ? fill(t.backTo, { title: dashboards[target].title }) : t.noPrevious
-        llm.reply(text, message, active > 0 ? undefined : 'refusal')
-        setAnnouncement(message)
-        if (active > 0) setActive(target)
-        return
-      }
-      case 'off-topic': {
-        // With a dashboard on screen, a message made of known words is most likely a change we
-        // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
-        if (route.tryActions && resolveWithActions(text)) return
-        const message = route.tryActions ? t.notApplied : t.offTopic
-        recordMiss({ text, lang, kind: 'refused', followUp: hasDashboard })
-        llm.reply(text, message, 'refusal')
-        setAnnouncement(message)
-        if (hasDashboard) openChat()
-        return
-      }
-      case 'rephrase': {
-        const message = `${fill(t.notUnderstoodWord, { word: route.unknown.slice(0, 2).join('”, “') })} ${t.notUnderstood}`
-        recordMiss({ text, lang, kind: 'rephrase', followUp: hasDashboard })
-        llm.append({ role: 'user', content: text }, { role: 'assistant', content: message, choices: ideas.map((i) => ({ label: i.text, query: i.text })) })
-        setAnnouncement(message)
-        if (hasDashboard) openChat()
-        return
-      }
-      case 'refine':
-      case 'plan':
-        return void runPlan(route.plan, text)
-      case 'actions':
-        if (resolveWithActions(text)) return
-        break
-      case 'clarify':
-        llm.append(
-          { role: 'user', content: text },
-          {
-            role: 'assistant',
-            content: t.whichPrices,
-            choices: [
-              { label: t.priceElecHh, query: t.qElecHh },
-              { label: t.priceElecInd, query: t.qElecInd },
-              { label: t.priceGasHh, query: t.qGasHh },
-              { label: t.priceGasInd, query: t.qGasInd },
-            ],
-          },
-        )
-        setAnnouncement(t.whichPrices)
-        if (hasDashboard) openChat()
-        return
-    }
-    const conceptual = route.kind === 'answer' && route.conceptual
-
-    // 3. "What is X?" for a known concept → the verified glossary definition, word for word.
-    const definition = verdict !== 'small-talk' ? directDefinition(text) : null
-    if (definition) {
-      const answer = definitionText(definition)
-      llm.reply(text, answer, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined)
-      setAnnouncement(answer)
-      if (hasDashboard) openChat()
-      return
-    }
-
-    // 4. Small talk → a fixed reply (no model needed).
-    if (verdict === 'small-talk') {
-      const reply = smallTalkReply(text, { hello: t.smallTalkHello, thanks: t.smallTalkThanks })
-      llm.append({ role: 'user', content: text }, { role: 'assistant', content: reply, choices: ideas.map((i) => ({ label: i.text, query: i.text })) })
-      setAnnouncement(reply)
-      if (hasDashboard) openChat()
-      return
-    }
-
-    // 5. Our Eurostat documents answer it well → quote them (extractive answer).
-    // 6. They support it (every key word found) → the model, with the passages as background.
-    // 7. Otherwise ("what is the date of oil") → ask the user to rephrase; never a free-form guess.
-    const query = searchQuery(verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text)
-    void answerFromDocuments(text, query).then((outcome) => {
-      if (outcome === 'model') askModel(text, verdict, previous, conceptual)
-      else if (outcome === 'unclear') {
-        recordMiss({ text, lang, kind: 'unclear', followUp: hasDashboard })
-        llm.append(
-          { role: 'user', content: text },
-          { role: 'assistant', content: t.notUnderstood, choices: ideas.map((i) => ({ label: i.text, query: i.text })) },
-        )
-        setAnnouncement(t.notUnderstood)
-      }
-    })
-    if (hasDashboard) openChat()
-  }
-
-  /**
-   * Decides how a conceptual question is answered, based on how well our Eurostat documents
-   * cover it: 'quoted' (answered here), 'model' (well supported) or 'unclear' (not supported).
-   */
-  async function answerFromDocuments(text: string, query: string): Promise<'quoted' | 'model' | 'unclear' | 'offered'> {
-    const hits = await searchKnowledge(query, { limit: 2 }).catch(() => [])
-    const answer = answerFromHits(hits, query)
-    if (answer.kind === 'unclear') return 'unclear'
-    if (answer.kind === 'quote') {
-      llm.reply(text, answer.text, 'quote', answer.sources)
-      setAnnouncement(`${t.fromEurostat}: ${answer.text}`)
-      return 'quoted'
-    }
-    if (ready) return 'model'
-    // No model: the closest Eurostat passage, and the offer of a fuller, written answer.
-    const fuller = [{ label: t.fullerAnswer, query: text, fuller: true }]
-    if (answer.quote) {
-      llm.append({ role: 'user', content: text }, { role: 'assistant', content: answer.quote.text, kind: 'quote', sources: answer.quote.sources, choices: fuller })
-      setAnnouncement(`${t.fromEurostat}: ${answer.quote.text}`)
-    } else {
-      llm.append({ role: 'user', content: text }, { role: 'assistant', content: t.dlOffer, choices: fuller })
-      setAnnouncement(t.dlOffer)
-    }
-    return 'offered'
-  }
-
-  /** A toolbar filter changed: rebuild the dashboard, as if the change had been typed. */
-  const onFilter = (f: FilterControl, codes: string[]) => {
-    if (busy || !current || !dict) return
-    const names = codes.map((c) => f.options.find((o) => o.code === c)?.label ?? c)
-    void runPlan(applyFilter(current.plan, f.dim, codes, dict), `${f.label}: ${names.join(', ')}`)
-  }
-
-  const onSuggestion = (s: Suggestion) => {
-    if (busy || !current) return
-    if (s.plan) return void runPlan(s.plan, s.label)
-    if (s.explain) void explainDashboard(s.label)
-  }
-
-  const runAction = (a: { plan?: Plan; explain?: boolean }, question: string) =>
-    a.explain ? void explainDashboard(question) : a.plan ? void runPlan(a.plan, question) : undefined
-
-  /**
-   * A dashboard change the rules could not map. The options come from dashboardActions (each a
-   * plan built by the rules); the model only picks an option number. A confident pick is run;
-   * otherwise, or while the model is loading, the best options are offered as buttons.
-   * Returns false when there is nothing to offer.
-   */
-  function resolveWithActions(text: string): boolean {
-    if (!current || !dict || !codelists) return false
-    const actions = dashboardActions(current, text, dict, codelists, t.actions, STRINGS.en.actions, lang)
-    if (!actions.length) return false
-
-    const offer = (ranked: DashboardAction[]) => {
-      llm.append(
-        { role: 'user', content: text },
-        {
-          role: 'assistant',
-          content: t.didYouMean,
-          choices: ranked.slice(0, 4).map((a) => ({ label: a.label, query: a.label, plan: a.plan, explain: a.explain })),
-        },
-      )
-      setAnnouncement(t.didYouMean)
-      recordMiss({ text, lang, kind: 'buttons', followUp: true })
-      openChat()
-    }
-    // The options as buttons, most word overlap first. The model does not pick for the user: on
-    // the labelled follow-ups (#/eval) its picks were right 0 of 69 times, even when confident,
-    // while the rules now handle every labelled case directly.
-    offer(rankByOverlap(actions, text))
-    return true
-  }
-
-  /**
-   * Explains the dashboard on screen from facts only: Eurostat's own description of the indicator,
-   * then the computed summary and key insights. No free-form model text, so nothing is invented.
-   */
-  async function explainDashboard(question: string) {
-    const spec = current
-    if (!spec) return
-    openChat()
-    const described = await datasetDescription(spec.plan.dataset).catch(() => null)
-    const insights = spec.insights.map((i) => `• ${i.parts.map((p) => (typeof p === 'string' ? p : p.strong)).join('')}`)
-    // The insights already restate the summary's facts; the summary is used only when there are none.
-    const answer = [described?.text, insights.length ? insights.join('\n') : spec.summary.join(' ')].filter(Boolean).join('\n\n')
-    const sources = [
-      spec.source,
-      ...(described?.url ? [{ code: spec.plan.dataset, title: `${described.title} › ${described.section}`, url: described.url }] : []),
-    ]
-    llm.reply(question, answer || t.dNoData, undefined, sources)
-    setAnnouncement(answer)
-  }
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    send(input)
-  }
-
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      send(input)
-    }
+    chat.send(text)
   }
 
   const newChat = () => {
     if (busy || !inConversation) return
     llm.clear()
-    setDashboards([])
-    setActive(0)
+    dash.clear()
     setChatOpen(false)
     setInput('')
     notify.info(t.chatCleared)
     requestAnimationFrame(() => inputRef.current?.focus())
   }
 
-  const ideas = [
-    { icon: <PlugZap size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaSolar },
-    { icon: <Zap size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaWind },
-    { icon: <Database size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaSave },
-  ]
-
-  const canSend = !!input.trim() && !busy && (!!dict || ready)
   const composer = (
-    <form className="composer" onSubmit={submit}>
-      <label className="sr-only" htmlFor="chat-input">
-        {t.message}
-      </label>
-      <textarea
-        id="chat-input"
-        ref={inputRef}
-        className="composer__input"
-        rows={inConversation ? 1 : 2}
-        value={input}
-        placeholder={t.placeholder}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={onKeyDown}
-        aria-describedby="chat-input-hint"
-        autoFocus
-      />
-      <span id="chat-input-hint" className="sr-only">
-        {t.enterHint}
-      </span>
-      <div className="composer__bar">
-        <Tooltip content={t.newChat}>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={newChat}
-            // aria-disabled keeps the button focusable so its tooltip stays reachable.
-            aria-disabled={busy || !inConversation}
-          >
-            <Plus size={18} strokeWidth={2} aria-hidden="true" />
-          </button>
-        </Tooltip>
-        {llm.generating ? (
-          <Tooltip content={t.stop}>
-            <button type="button" className="send-btn" onClick={llm.stop}>
-              <Square size={12} fill="currentColor" aria-hidden="true" />
-            </button>
-          </Tooltip>
-        ) : (
-          <Tooltip content={t.send}>
-            <button type="submit" className="send-btn" aria-disabled={!canSend}>
-              <ArrowUp size={18} strokeWidth={2.25} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        )}
-      </div>
-    </form>
-  )
-
-  const renderMessage = (m: UIMessage, i: number): ReactNode => (
-    <div key={i} className={`msg msg--${m.role}${m.kind ? ` msg--${m.kind}` : ''}${m.pending ? ' msg--status' : ''}`}>
-      <span className="sr-only">{m.role === 'user' ? t.you : t.assistant}: </span>
-      {m.kind === 'refusal' && <ShieldAlert className="msg__icon" size={16} aria-hidden="true" />}
-      {m.kind === 'error' && <CircleAlert className="msg__icon msg__icon--error" size={16} aria-hidden="true" />}
-      {m.kind === 'quote' && <span className="msg__quote-label">{t.fromEurostat}</span>}
-      {m.kind === 'generated' && <span className="msg__quote-label msg__quote-label--generated">{t.writtenByAssistant}</span>}
-      {m.pending && <Database size={15} aria-hidden="true" />}
-      {m.content ||
-        (llm.generating && i === llm.messages.length - 1 ? (
-          <span className="msg__typing" aria-label={t.responding} role="img" />
-        ) : (
-          ''
-        ))}
-      {m.card && (
-        <button
-          type="button"
-          className={`dash-card${m.card.index === active && hasDashboard ? ' dash-card--active' : ''}`}
-          aria-current={m.card.index === active ? 'true' : undefined}
-          onClick={() => {
-            setActive(m.card!.index)
-            closeChat()
-          }}
-        >
-          <LayoutDashboard size={16} aria-hidden="true" />
-          <span className="dash-card__title">{m.card.title}</span>
-          <span className="dash-card__action">{t.showDashboard}</span>
-        </button>
-      )}
-      {m.choices && (
-        <ul className="msg__choices">
-          {m.choices.map((c) => (
-            <li key={c.label}>
-              <button
-                type="button"
-                className="suggestion-chip"
-                disabled={busy}
-                onClick={() => (c.fuller ? requestFullerAnswer(c.query) : c.plan || c.explain ? runAction(c, c.label) : send(c.query))}
-              >
-                {c.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {m.sources && m.sources.length > 0 && (
-        <div className="msg__sources">
-          <span className="msg__sources-label">{t.sources}</span>
-          <ul>
-            {m.sources.map((src, i) => (
-              <li key={`${src.url}-${i}`}>
-                <a href={src.url} target="_blank" rel="noreferrer" className="source-chip">
-                  <Database size={13} aria-hidden="true" />
-                  <span className="source-chip__title">{src.title}</span>
-                  <span className="source-chip__code">{src.code}</span>
-                  <ExternalLink size={12} aria-hidden="true" />
-                  <span className="sr-only"> ({t.opensNewTab})</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+    <Composer
+      t={t}
+      value={input}
+      onChange={setInput}
+      onSend={() => send(input)}
+      onStop={llm.stop}
+      onNewChat={newChat}
+      canSend={!!input.trim() && !busy && (!!data.dict || ready)}
+      canClear={!busy && inConversation}
+      generating={llm.generating}
+      compact={inConversation}
+      inputRef={inputRef}
+    />
   )
 
   const thread = (
-    <div className="thread" role="log" aria-label={t.conversation} aria-busy={busy}>
-      {llm.messages.map(renderMessage)}
-      {llm.phase === 'retrieving' && (
-        <div className="msg msg--assistant msg--status">
-          <Database size={15} aria-hidden="true" />
-          {t.searchingData}
-        </div>
-      )}
-      <div ref={endRef} />
-    </div>
+    <ChatThread
+      t={t}
+      messages={llm.messages}
+      generating={llm.generating}
+      retrieving={llm.phase === 'retrieving'}
+      busy={busy}
+      activeDashboard={dash.active}
+      hasDashboard={dash.hasDashboard}
+      onShowDashboard={(index) => {
+        dash.setActive(index)
+        setChatOpen(false)
+        // After the dialog has closed: while it is modal, the rest of the page is inert.
+        requestAnimationFrame(() => fabRef.current?.focus())
+      }}
+      onChoice={(c) => (c.fuller ? chat.requestFullerAnswer(c.query) : c.plan || c.explain ? chat.runAction(c, c.label) : send(c.query))}
+      endRef={endRef}
+    />
   )
 
   const chartLabels = {
@@ -685,7 +169,7 @@ export default function App() {
   } else if (EvalPage && route === '#/eval') {
     page = (
       <Suspense>
-        <EvalPage dict={dict} codelists={codelists} choose={llm.choose} complete={llm.complete} ready={ready} model={llm.runtime?.model} />
+        <EvalPage dict={data.dict} codelists={data.codelists} choose={llm.choose} complete={llm.complete} ready={ready} model={llm.runtime?.model} />
       </Suspense>
     )
   } else if (current) {
@@ -693,7 +177,7 @@ export default function App() {
       <main className="dash-page" id="main" tabIndex={-1}>
         <div ref={dashTitleRef}>
           <Dashboard
-            key={active}
+            key={dash.active}
             spec={current}
             lang={lang}
             busy={busy}
@@ -712,9 +196,9 @@ export default function App() {
               missing: t.notAvailable,
             }}
             chartLabels={chartLabels}
-            onSuggestion={onSuggestion}
-            filters={filters}
-            onFilter={onFilter}
+            onSuggestion={chat.onSuggestion}
+            filters={dash.filters}
+            onFilter={dash.onFilter}
             multiSelectLabels={t.multiSelect}
           />
         </div>
@@ -725,40 +209,11 @@ export default function App() {
       <main className="conversation" id="main" tabIndex={-1}>
         <h2 className="sr-only">{t.conversation}</h2>
         {thread}
-        <div className="dock">
-          {composer}
-        </div>
+        <div className="dock">{composer}</div>
       </main>
     )
   } else {
-    page = (
-      <main className="welcome" id="main" tabIndex={-1}>
-        <div className="welcome__head">
-          <h2 className="welcome__title">
-            <StarsMark size={36} />
-            {t.welcome}
-          </h2>
-          <p className="welcome__sub">{t.welcomeSub}</p>
-        </div>
-        {composer}
-        <section className="ideas" aria-labelledby="ideas-title">
-          <h3 className="ideas__title" id="ideas-title">
-            {t.ideas}
-          </h3>
-          <ul>
-            {ideas.map((idea) => (
-              <li key={idea.text}>
-                <button type="button" className="idea" disabled={busy || !dict} onClick={() => send(idea.text)}>
-                  <span className="idea__icon">{idea.icon}</span>
-                  <span className="idea__text">{idea.text}</span>
-                  <ArrowUpRight className="idea__go" size={16} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </main>
-    )
+    page = <WelcomePage t={t} composer={composer} ideas={ideas} disabled={busy || !data.dict} onIdea={send} />
   }
 
   return (
@@ -774,60 +229,34 @@ export default function App() {
           setAnnouncement(STRINGS[l].languageChanged)
         }}
       />
-      {downloadNotice && (
+      {assistant.downloadNotice && (
         <DownloadNotice
           labels={{ title: t.dlTitle, body: t.dlBody, wifi: t.dlWifi, accept: t.dlAccept, later: t.dlLater }}
-          onAccept={acceptDownload}
-          onLater={() => setDownloadNotice(false)}
+          onAccept={assistant.acceptDownload}
+          onLater={assistant.declineDownload}
         />
       )}
-      <Toaster
-        labels={{
-          region: t.notifications,
-          hotkeyHint: t.notificationsHotkey,
-          close: t.closeNotification,
-        }}
-      />
+      <Toaster labels={{ region: t.notifications, hotkeyHint: t.notificationsHotkey, close: t.closeNotification }} />
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {announcement}
       </div>
 
       {page}
 
-      {/* Once a dashboard is on screen, the chat lives behind a floating button and opens as a modal. */}
       {current && route !== '#/components' && (
-        <>
-          <Tooltip content={t.openChat} placement="top">
-            <button
-              ref={fabRef}
-              type="button"
-              className={`chat-fab${unread ? ' chat-fab--unread' : ''}`}
-              aria-haspopup="dialog"
-              aria-expanded={chatOpen}
-              onClick={openChat}
-            >
-              <MessagesSquare size={22} aria-hidden="true" />
-              {(busy || unread) && <span className="chat-fab__dot" aria-hidden="true" />}
-            </button>
-          </Tooltip>
-          <dialog ref={dialogRef} className="chat-modal" aria-labelledby="chat-modal-title" onClose={() => setChatOpen(false)}>
-            <div className="chat-modal__head">
-              <h2 id="chat-modal-title" className="chat-modal__title">
-                <MessagesSquare size={18} aria-hidden="true" />
-                {t.chatTitle}
-              </h2>
-              <Tooltip content={t.closeChat} placement="bottom">
-                <button type="button" className="icon-btn" onClick={closeChat}>
-                  <X size={18} aria-hidden="true" />
-                </button>
-              </Tooltip>
-            </div>
-            {thread}
-            <div className="chat-modal__dock">
-                  {composer}
-            </div>
-          </dialog>
-        </>
+        <ChatModal
+          t={t}
+          open={chatOpen}
+          unread={unread}
+          busy={busy}
+          onOpen={openChat}
+          onClose={() => setChatOpen(false)}
+          fabRef={fabRef}
+          onOpened={() => inputRef.current?.focus()}
+        >
+          {thread}
+          <div className="chat-modal__dock">{composer}</div>
+        </ChatModal>
       )}
     </div>
   )

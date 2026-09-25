@@ -28,7 +28,10 @@ export function widgetProblem(w: WidgetSpec): string | null {
     case 'bar':
       if (!texts(w.categories)) return `${w.type}: categories`
       if (!Array.isArray(w.series) || !w.series.length) return `${w.type}: no series`
-      return w.series.every((x) => text(x.name) && values(x.data, w.categories.length)) ? null : `${w.type}: series do not match the categories`
+      if (!w.series.every((x) => text(x.name) && values(x.data, w.categories.length))) return `${w.type}: series do not match the categories`
+      if (w.type === 'bar' && w.views && !w.views.every((v) => text(v.label) && text(v.title) && texts(v.categories) && values(v.data, v.categories.length)))
+        return 'bar: views do not match their categories'
+      return null
     case 'pie':
       return Array.isArray(w.slices) && w.slices.length > 0 && w.slices.every((x) => text(x.name) && num(x.y) && x.y >= 0) ? null : 'pie: slices'
     case 'hero':

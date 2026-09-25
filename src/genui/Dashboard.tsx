@@ -1,5 +1,5 @@
 import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
-import { useId, useState, type CSSProperties, type ReactNode } from 'react'
+import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { AreaChart, BarChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
@@ -105,6 +105,7 @@ export function Dashboard({
           />
         )
       case 'bar':
+        if (w.views && w.views.length > 1) return <SwitchableBar widget={w} common={common} />
         return (
           <BarChart
             {...common}
@@ -288,6 +289,43 @@ export function Dashboard({
       </header>
       {items}
     </article>
+  )
+}
+
+type BarWidget = Extract<WidgetSpec, { type: 'bar' }>
+
+/**
+ * A bar chart with a selector above the plot ("Compared with: 2019"): each option is a view the
+ * composer already computed from the data on screen, so switching needs no new request.
+ */
+function SwitchableBar({ widget: w, common }: { widget: BarWidget; common: Omit<ComponentProps<typeof BarChart>, 'categories' | 'series'> }) {
+  const id = useId()
+  const views = w.views ?? []
+  const [index, setIndex] = useState(0)
+  const view = views[index] ?? views[0]
+  return (
+    <BarChart
+      {...common}
+      title={view.title}
+      categories={view.categories}
+      series={[{ name: view.title, data: view.data }]}
+      orientation={w.horizontal ? 'horizontal' : 'vertical'}
+      showValues={view.categories.length <= 30}
+      reference={w.reference}
+      signed={w.signed}
+      height={w.horizontal ? Math.max(260, view.categories.length * 28 + 90) : 320}
+      headline={
+        <div className="chart-view">
+          <EclSelect
+            id={`${id}-view`}
+            label={w.viewLabel ?? ''}
+            value={view.label}
+            options={views.map((v) => ({ code: v.label, label: v.label }))}
+            onChange={(code) => setIndex(Math.max(0, views.findIndex((v) => v.label === code)))}
+          />
+        </div>
+      }
+    />
   )
 }
 

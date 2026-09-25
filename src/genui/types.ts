@@ -130,6 +130,13 @@ export type WidgetSpec = (
       source?: WidgetSource
       /** Stacked parts (price components, sources of a mix); 'percent' shows shares. */
       stacked?: boolean | 'percent'
+      /**
+       * Alternative versions the reader can switch between in the chart ("Compared with: 2019"),
+       * computed from the data already fetched; the widget's own categories/series are the first.
+       */
+      views?: { label: string; title: string; categories: string[]; data: (number | null)[] }[]
+      /** Label of the view selector, e.g. "Compared with". */
+      viewLabel?: string
     }
   | {
       type: 'pie'

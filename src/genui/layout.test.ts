@@ -207,3 +207,23 @@ test('"Show" all / top / bottom: in comparisons, many-country trends and import 
   assert.equal((await dash('Electricity mix in Germany')).controls?.ranks, undefined)
   assert.equal((await dash('Oil consumption in Spain')).controls?.ranks, undefined)
 })
+
+test('change chart: "from the year before to the year ranked", and any earlier year can be chosen', async () => {
+  const d = await dash('Compare energy import dependency of all EU countries')
+  const change = charts(d).find((w): w is Extract<WidgetSpec, { type: 'bar' }> => w.role === 'change')!
+  const ranked = (charts(d).find((w) => w.role === 'ranking') as Extract<WidgetSpec, { type: 'bar' }>).title.match(/\d{4}/)![0]
+  const before = String(Number(ranked) - 1)
+  assert.equal(change.title, `Change from ${before} to ${ranked}`)
+  assert.equal(change.viewLabel, 'Compared with')
+  // The previous year first, then earlier years, at most ten back; each view is complete.
+  const labels = change.views!.map((v) => v.label)
+  assert.equal(labels[0], before)
+  assert.ok(labels.length >= 5 && labels.length <= 10)
+  assert.ok(labels.every((y) => Number(y) < Number(ranked) && Number(ranked) - Number(y) <= 10))
+  for (const v of change.views!) assert.equal(v.data.length, v.categories.length)
+  assert.equal(change.views!.at(-1)!.title, `Change from ${labels.at(-1)} to ${ranked}`)
+  // A single year asked for fetches only the year before: no selector.
+  const one = await dash('Compare energy import dependency of all EU countries in 2023')
+  const oneChange = charts(one).find((w): w is Extract<WidgetSpec, { type: 'bar' }> => w.role === 'change')!
+  assert.equal(oneChange.views, undefined)
+})

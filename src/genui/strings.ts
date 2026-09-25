@@ -30,6 +30,8 @@ export function dashStrings(t: Strings): DashStrings {
     evolution: t.dEvolution,
     rankingIn: t.dRankingIn,
     changeVs: t.dChangeVs,
+    changeFromTo: t.dChangeFromTo,
+    comparedWith: t.dComparedWith,
     changeSince: t.dChangeSince,
     shareOfTotal: t.dShareOfTotal,
     yearOnYear: t.dYearOnYear,

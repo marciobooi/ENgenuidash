@@ -653,3 +653,12 @@
   outline: 3px solid var(--ecl-color-secondary);
   outline-offset: 2px;
 }
+
+/* A chart's own selector ("Compared with"), styled like the toolbar controls. */
+.chart-view {
+  --ctl-height: 40px;
+  --ctl-radius: 4px;
+  --ctl-border: 1px solid var(--ecl-color-dark-80);
+  --ctl-font: 0.875rem arial, sans-serif;
+  margin: 4px 0 8px;
+}

@@ -52,7 +52,8 @@
 
 /* In the dashboard toolbar: the same height, border and type as the other controls. */
 .dash__toolbar .ecl-select,
-.dash__toolbar .ecl-select__multiple-toggle {
+.dash__toolbar .ecl-select__multiple-toggle,
+.chart-view .ecl-select {
   height: var(--ctl-height);
   min-height: var(--ctl-height);
   border: var(--ctl-border);
@@ -60,26 +61,30 @@
   font: var(--ctl-font);
 }
 
-.dash__toolbar .ecl-select__icon {
+.dash__toolbar .ecl-select__icon,
+.chart-view .ecl-select__icon {
   height: calc(var(--ctl-height) - 2px);
   width: calc(var(--ctl-height) - 2px);
   top: 1px;
   right: 1px;
 }
 
-.dash__toolbar .ecl-select__container {
+.dash__toolbar .ecl-select__container,
+.chart-view .ecl-select__container {
   min-width: 150px;
 }
 
 /* Labels line up with the control, whatever ECL adds below it (the multiple select's dropdown). */
 .dash__toolbar .filters__multi .ecl-form-label,
 .dash__toolbar .filters__single .ecl-form-label,
+.chart-view .filters__single .ecl-form-label,
 .dash__toolbar .dash__control > span {
   line-height: var(--ctl-height);
 }
 
 /* The chevron: ECL's icon, white on the primary square, 20px, in single and multiple selects. */
-.dash__toolbar .ecl-select__icon .ecl-icon {
+.dash__toolbar .ecl-select__icon .ecl-icon,
+.chart-view .ecl-select__icon .ecl-icon {
   width: 20px;
   height: 20px;
   color: #fff;

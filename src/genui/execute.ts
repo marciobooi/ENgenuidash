@@ -46,6 +46,8 @@ export interface DashStrings {
   evolution: string
   rankingIn: string
   changeVs: string
+  changeFromTo: string
+  comparedWith: string
   changeSince: string
   shareOfTotal: string
   yearOnYear: string
@@ -352,25 +354,42 @@ export async function buildDashboard(
     // already lists every value; few countries: change and share/breakdown side by side.
     const many = ranked.length > 8
     const prev = previousIndex(ranked[0]?.x.data ?? [], focusIndex)
-    if (prev >= 0) {
+    // The change to the year ranked, from the year before by default; the reader can compare with
+    // any earlier year already fetched (up to ten years back), without a new request.
+    const changeFrom = (base: number) => {
       const changes = ranked
-        .map((r) => ({ name: r.x.name, value: round1(changeBetween(r.x.data, prev, focusIndex)) }))
+        .map((r) => ({ name: r.x.name, value: round1(changeBetween(r.x.data, base, focusIndex)) }))
         .sort((p, q) => (many ? (q.value ?? -Infinity) - (p.value ?? -Infinity) : 0))
-      if (changes.some((c) => c.value != null)) {
-        widgets.push({
-          type: 'bar',
-          title: fill(s.changeVs, { period: periodLabels[prev] }),
-          subtitle: `${changeUnit} · ${period}`,
-          categories: changes.map((c) => c.name),
-          series: [{ name: fill(s.changeVs, { period: periodLabels[prev] }), data: changes.map((c) => c.value) }],
-          horizontal: false,
-          signed: true,
-          unit: changeUnit,
-          decimals: 1,
-          size: many ? 'full' : 'half',
-          role: 'change',
-        })
-      }
+      return changes.some((c) => c.value != null)
+        ? {
+            label: periodLabels[base],
+            title: fill(s.changeFromTo, { from: periodLabels[base], to: period }),
+            categories: changes.map((c) => c.name),
+            data: changes.map((c) => c.value),
+          }
+        : null
+    }
+    const bases = periods.map((_, k) => focusIndex - 1 - k).filter((k) => k >= 0 && focusIndex - k <= 10 * perYear)
+    const views = [prev, ...bases.filter((k) => k !== prev)]
+      .filter((k) => k >= 0)
+      .map(changeFrom)
+      .filter((v): v is NonNullable<typeof v> => v != null)
+    if (views.length) {
+      const first = views[0]
+      widgets.push({
+        type: 'bar',
+        title: first.title,
+        subtitle: `${changeUnit} · ${period}`,
+        categories: first.categories,
+        series: [{ name: first.title, data: first.data }],
+        horizontal: false,
+        signed: true,
+        unit: changeUnit,
+        decimals: 1,
+        size: many ? 'full' : 'half',
+        role: 'change',
+        ...(views.length > 1 ? { views, viewLabel: s.comparedWith } : {}),
+      })
     }
     if (many && !additive) {
       // (ranking + map already show every value)

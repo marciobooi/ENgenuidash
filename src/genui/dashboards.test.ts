@@ -66,7 +66,7 @@ test('all EU countries in a year: map, ranking, change; no evolution (a year was
   const d = await dash('Compare energy import dependency of all EU countries in 2023')
   assert.ok(has(d, 'map'))
   assert.ok(titled(d, 'Ranking in 2023'))
-  assert.ok(titled(d, 'Change vs 2022'))
+  assert.ok(titled(d, 'Change from 2022 to 2023'))
   assert.ok(!has(d, 'line') && !has(d, 'heatmap'))
 })
 

@@ -12,7 +12,9 @@ import type { Plan } from './types'
  * chat, the same questions go through the planner like any other.
  *
  * GHG emissions use env_air_gge (the energy sectors' fuel combustion, CRF 1.A), filed by
- * Eurostat under the environment. Households per capita use sdg_07_20 (SDG indicators).
+ * Eurostat under the environment. Households per capita use sdg_07_20 (SDG indicators); energy
+ * poverty uses ilc_mdes01 (living conditions). Eurostat's electricity market indicators
+ * (nrg_ind_market, ten00119) only hold 2013 and are not served any more, so they are not offered.
  */
 
 export type PresetId =
@@ -36,6 +38,7 @@ export type PresetId =
   | 'combustible'
   | 'supply'
   | 'gae'
+  | 'energyPoverty'
 
 // Main products of the simplified energy balance (nrg_bal_s).
 const BAL_PRODUCTS = ['C0000X0350-0370', 'C0350-0370', 'P1000', 'S2000', 'G3000', 'O4000XBIO', 'RA000', 'W6100_6220', 'N900H', 'E7000', 'H8000']
@@ -86,6 +89,8 @@ export const PRESETS: Record<PresetId, Plan> = {
   }),
   supply: mix('nrg_bal_s', { nrg_bal: 'NRGSUP', siec: BAL_PRODUCTS, unit: 'KTOE' }),
   gae: mix('nrg_bal_s', { nrg_bal: 'GAE', siec: BAL_PRODUCTS, unit: 'KTOE' }),
+  // Energy poverty: share of the population unable to keep their home adequately warm (EU-SILC).
+  energyPoverty: trend('ilc_mdes01', { hhcomp: 'TOTAL', rskpovth: 'TOTAL', unit: 'PC' }),
 }
 
 export const PRESET_IDS = Object.keys(PRESETS) as PresetId[]

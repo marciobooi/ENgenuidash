@@ -15,6 +15,7 @@ import {
   Leaf,
   Link2,
   Ship,
+  Snowflake,
   Thermometer,
   TrainFront,
   TrendingUp,
@@ -62,6 +63,7 @@ const PRESET_ICONS: Record<PresetId, LucideIcon> = {
   combustible: Flame,
   supply: Warehouse,
   gae: Database,
+  energyPoverty: Snowflake,
 }
 
 // Development-only evaluation page (#/eval); the import is dropped from production builds.

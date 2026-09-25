@@ -150,8 +150,9 @@ for (const row of en.slice(start + 1)) {
 }
 // Energy tables Eurostat files outside the energy folder (e.g. under the SDG indicators), added
 // at the root of the tree: "Final energy consumption in households per capita" (SDG), and
-// "Greenhouse gas emissions by source sector" (environment: the energy sectors' emissions).
-const EXTRA_TABLES = ['sdg_07_20', 'env_air_gge']
+// "Greenhouse gas emissions by source sector" (environment: the energy sectors' emissions), and
+// "Inability to keep home adequately warm" (living conditions: energy poverty).
+const EXTRA_TABLES = ['sdg_07_20', 'env_air_gge', 'ilc_mdes01']
 for (const code of EXTRA_TABLES) {
   const row = en.find((r) => r.code === code && r.type !== 'folder')
   if (!row || items.some((i) => i.code === code)) continue

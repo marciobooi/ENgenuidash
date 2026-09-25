@@ -2,7 +2,8 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { STRINGS } from '../i18n'
 import { normalize } from '../llm/energyScope'
 import { refinePlan } from './planner'
-import { detectFocus, parse } from './planner/parse'
+import { EXPLAIN_WORDS } from './concepts'
+import { any, detectFocus, detectGeos, detectTime, parse } from './planner/parse'
 import type { Plan } from './types'
 
 /**
@@ -111,7 +112,10 @@ export function pickPresets(n: number, random: () => number = Math.random): Pres
 // period of a typed question are applied on top of the topic's plan, see presetPlan).
 const IGNORED = new Set(
   (
-    'the a an of in for by to and from at on per show me what how has have is are was were do does use ' +
+    'the a an of in for by to and from at on per show me what whats how has have is are was were do does use ' +
+    'tell give about please can you i see ' +
+    'wie hoch ist sind zeig zeige mir bitte was gibt ' +
+    'est ce c montre moi donne quelle quel s il te plait ' +
     'eu ue union european europe europaische europeenne ' +
     'der die das des dem den ein eine im in nach von fur und aus an am zu pro ' +
     'le la les l d de du des un une et en par dans au aux a quel quelle quels quelles ' +
@@ -124,34 +128,60 @@ const contentWords = (text: string) =>
     .split(/[^a-z0-9-]+/)
     .filter((w) => w.length > 1 && !IGNORED.has(w) && !/\d/.test(w))
 // Same word, allowing plural and case endings ("fuel"/"fuels", "Energieträger"/"Energieträgern"):
-// equal without the ending, or sharing their first 8 letters. Not just "Energie…": German
-// compounds ("Energieimportabhängigkeit", "Energieproduktivität") differ after it.
+// equal without the ending, or sharing their first 10 letters. Not fewer: German compounds
+// ("Energieimportabhängigkeit", "Energieintensität") share their first 8.
 const stem = (w: string) => w.replace(/(es|en|s|n|e)$/, '')
 const same = (a: string, b: string) => {
   if (a === b || stem(a) === stem(b)) return true
-  const k = Math.min(8, a.length, b.length)
+  const k = Math.min(10, a.length, b.length)
   return k >= 7 && a.slice(0, k) === b.slice(0, k)
 }
 
+/** Other names people use for a topic, in EN/DE/FR (besides its questions and Eurostat title). */
+const ALIASES: Partial<Record<PresetId, string[]>> = {
+  energyPoverty: ['energy poverty', 'cold homes', 'Energiearmut', 'précarité énergétique', 'pauvreté énergétique'],
+  ghg: ['greenhouse gas emissions from energy', 'CO2 emissions from energy', 'Treibhausgasemissionen der Energie', "émissions de gaz à effet de serre de l'énergie"],
+  efficiency: ['energy efficiency', 'Energieeffizienz', 'efficacité énergétique'],
+  householdUses: ['household energy by use', 'energy use in households by end use', 'Energieverbrauch der Haushalte nach Verwendungszweck', 'consommation des ménages par usage'],
+}
+
 /**
- * The starter topic a typed question names, if any: it must contain (nearly) all of a topic
- * question's words, in any language, and little else apart from places and periods.
+ * The names a topic is known by: its starter question in each language, Eurostat's title of its
+ * dataset (when no other topic uses that dataset: "Simplified energy balances" names several)
+ * and everyday names ("energy poverty").
  */
-export function matchPreset(text: string, isPlaceWord: (word: string) => boolean): PresetId | null {
+function namesOf(id: PresetId, dict?: EnergyDictionary): string[] {
+  const names: string[] = (['en', 'de', 'fr'] as const).map((l) => STRINGS[l].starterQuestions[id])
+  const dataset = PRESETS[id].dataset
+  const title = dict?.datasets[dataset]?.title as Record<string, string> | undefined
+  if (title && PRESET_IDS.filter((x) => PRESETS[x].dataset === dataset).length === 1) names.push(...Object.values(title))
+  return [...names, ...(ALIASES[id] ?? [])]
+}
+
+/** The best topic for a typed question, and the words of the name it matched. */
+function bestMatch(text: string, isPlaceWord: (word: string) => boolean, dict?: EnergyDictionary): { id: PresetId; topic: string[] } | null {
   const words = contentWords(text).filter((w) => !isPlaceWord(w))
   if (!words.length) return null
-  let best: { id: PresetId; score: number } | null = null
+  let best: { id: PresetId; topic: string[]; score: number } | null = null
   for (const id of PRESET_IDS) {
-    for (const lang of ['en', 'de', 'fr'] as const) {
-      const topic = contentWords(STRINGS[lang].starterQuestions[id])
+    for (const name of namesOf(id, dict)) {
+      const topic = contentWords(name)
       if (!topic.length) continue
       const covered = topic.filter((t) => words.some((w) => same(w, t))).length / topic.length
       const precise = words.filter((w) => topic.some((t) => same(w, t))).length / words.length
       const score = covered + precise
-      if (covered >= 0.8 && precise >= 0.7 && (!best || score > best.score)) best = { id, score }
+      if (covered >= 0.8 && precise >= 0.7 && (!best || score > best.score)) best = { id, topic, score }
     }
   }
-  return best?.id ?? null
+  return best && { id: best.id, topic: best.topic }
+}
+
+/**
+ * The starter topic a typed question names, if any: it must contain (nearly) all of one of the
+ * topic's names, in any language, and little else apart from places and periods.
+ */
+export function matchPreset(text: string, isPlaceWord: (word: string) => boolean, dict?: EnergyDictionary): PresetId | null {
+  return bestMatch(text, isPlaceWord, dict)?.id ?? null
 }
 
 /**
@@ -160,10 +190,16 @@ export function matchPreset(text: string, isPlaceWord: (word: string) => boolean
  */
 export function presetPlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   const places = placeWords(codelists)
-  const id = matchPreset(text, (w) => places.has(w))
-  if (!id) return null
-  const preset = PRESETS[id]
-  const topic = contentWords(STRINGS.en.starterQuestions[id])
+  const match = bestMatch(text, (w) => places.has(w), dict)
+  if (!match) return null
+  // "What is energy poverty?" without a place or period asks for a definition, not data (the
+  // planner's rule for conceptual questions).
+  const p = parse(text)
+  const geo = detectGeos(p, codelists)
+  const time = detectTime(p)
+  if (any(p, EXPLAIN_WORDS) && !geo.codes.length && !geo.eu && !time.years.length && !time.range) return null
+  const preset = PRESETS[match.id]
+  const { topic } = match
   // What the question adds to the topic (places, years): applied like a follow-up.
   const rest = normalize(text)
     .replace(/[’']/g, ' ')
@@ -172,7 +208,7 @@ export function presetPlan(text: string, dict: EnergyDictionary, codelists: Ener
     .join(' ')
   const plan = (rest && refinePlan(preset, rest, dict, codelists)) || preset
   // "How has … developed?", "which country …?": the question's focus (an answer card first).
-  const focus = detectFocus(parse(text))
+  const focus = detectFocus(p)
   return focus ? { ...plan, focus } : plan
 }
 

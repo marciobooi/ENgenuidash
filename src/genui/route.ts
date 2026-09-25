@@ -61,9 +61,14 @@ export function routeMessage(text: string, ctx: RouteContext): Route {
   const refined = current && dict && codelists && unknown.length === 0 ? refinePlan(current, text, dict, codelists) : null
 
   // A starter topic typed in any language ("Endenergieverbrauch nach Sektor in der EU", "final
-  // non-energy consumption by fuel in Germany"): its exact plan, with the places and period asked.
+  // non-energy consumption by fuel in Germany", "energy poverty in Portugal"): its exact plan,
+  // with the places and period asked. When the planner reaches the same dataset on its own, its
+  // plan is kept: it follows the wording ("the import dependency of the EU": the total).
   const preset = !refined && dict && codelists && verdict !== 'small-talk' ? presetPlan(text, dict, codelists) : null
-  if (preset) return { kind: 'plan', plan: preset }
+  if (preset) {
+    const planned = planQuestion(text, dict!, codelists!)
+    return { kind: 'plan', plan: planned.kind === 'plan' && planned.plan.dataset === preset.dataset ? planned.plan : preset }
+  }
 
   // Off-topic questions never reach the model or the planner. A dashboard change such as
   // "show as bar chart" has no energy word but is fine when every word is understood.

@@ -80,7 +80,7 @@ test('the places and period of a typed topic question are applied; other questio
   assert.equal(ne.filters.geo, 'DE')
   assert.equal(ne.time.kind === 'range' && ne.time.since, '2010')
   assert.equal(presetPlan('Endenergieverbrauch nach Sektor in Frankreich', dict, codelists)?.filters.geo, 'FR')
-  for (const q of ['What is the energy import dependency of the EU?', 'Oil consumption in Spain', 'Energy intensity in France', 'Electricity mix in Germany', 'top 5 countries for energy import dependency']) {
+  for (const q of ['Oil consumption in Spain', 'Electricity mix in Germany', 'top 5 countries for energy import dependency', 'Wie hoch ist die Energieimportabhängigkeit in Deutschland?']) {
     assert.equal(presetPlan(q, dict, codelists), null, q)
   }
 })
@@ -95,4 +95,24 @@ test('energy efficiency: primary and final consumption as two lines, never as sh
 test('a typed topic question keeps its focus: "how has … developed?" opens with the change', () => {
   assert.deepEqual(presetPlan('How has energy efficiency developed in the EU?', dict, codelists)?.focus, { kind: 'change' })
   assert.equal(presetPlan('Final energy consumption by sector in the EU', dict, codelists)?.focus, undefined)
+})
+
+test('a topic is also known by its Eurostat title and everyday names, in any language', () => {
+  const cases: [string, string, string | string[]][] = [
+    ['whats the Inability to keep home adequately warm in portugal', 'ilc_mdes01', 'PT'],
+    ['energy poverty in Portugal and Spain', 'ilc_mdes01', ['ES', 'PT']],
+    ['Energiearmut in Deutschland', 'ilc_mdes01', 'DE'],
+    ['précarité énergétique en France', 'ilc_mdes01', 'FR'],
+    ['Unfähigkeit, die Unterkunft angemessen warm zu halten in Italien', 'ilc_mdes01', 'IT'],
+    ['energy efficiency in France', 'nrg_ind_eff', 'FR'],
+  ]
+  for (const [q, dataset, geo] of cases) {
+    const plan = presetPlan(q, dict, codelists)
+    assert.equal(plan?.dataset, dataset, q)
+    assert.deepEqual(plan?.filters.geo, geo, q)
+  }
+  // "Simplified energy balances" names several topics: not an alias of any one of them.
+  assert.equal(presetPlan('Simplified energy balances', dict, codelists), null)
+  // A definition question without a place or period is not a dashboard.
+  assert.equal(presetPlan('what is energy poverty?', dict, codelists), null)
 })

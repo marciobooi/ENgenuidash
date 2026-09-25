@@ -113,7 +113,10 @@ export function pickPresets(n: number, random: () => number = Math.random): Pres
 const IGNORED = new Set(
   (
     'the a an of in for by to and from at on per show me what whats how has have is are was were do does use ' +
-    'tell give about please can you i see ' +
+    'tell give about please can you i see cant cannot people many much ' +
+    // Change words: the focus (see detectFocus), not the topic ("energy efficiency progress").
+    'progress evolution evolved development developed trend trends change changes changed ' +
+    'menschen personen leute entwicklung entwickelt veranderung personnes gens evolution evolue ' +
     'wie hoch ist sind zeig zeige mir bitte was gibt ' +
     'est ce c montre moi donne quelle quel s il te plait ' +
     'eu ue union european europe europaische europeenne ' +
@@ -126,7 +129,7 @@ const contentWords = (text: string) =>
   normalize(text)
     .replace(/[’']/g, ' ')
     .split(/[^a-z0-9-]+/)
-    .filter((w) => w.length > 1 && !IGNORED.has(w) && !/\d/.test(w))
+    .filter((w) => w.length > 1 && !IGNORED.has(w) && !/^\d+$/.test(w)) // years, not "co2"
 // Same word, allowing plural and case endings ("fuel"/"fuels", "Energieträger"/"Energieträgern"):
 // equal without the ending, or sharing their first 10 letters. Not fewer: German compounds
 // ("Energieimportabhängigkeit", "Energieintensität") share their first 8.
@@ -139,9 +142,37 @@ const same = (a: string, b: string) => {
 
 /** Other names people use for a topic, in EN/DE/FR (besides its questions and Eurostat title). */
 const ALIASES: Partial<Record<PresetId, string[]>> = {
-  energyPoverty: ['energy poverty', 'cold homes', 'Energiearmut', 'précarité énergétique', 'pauvreté énergétique'],
-  ghg: ['greenhouse gas emissions from energy', 'CO2 emissions from energy', 'Treibhausgasemissionen der Energie', "émissions de gaz à effet de serre de l'énergie"],
+  energyPoverty: [
+    'energy poverty',
+    'cold homes',
+    'cold house',
+    'heat home',
+    'heat their home',
+    'keep home warm',
+    'Energiearmut',
+    'Wohnung warm halten',
+    'précarité énergétique',
+    'pauvreté énergétique',
+    'chauffer logement',
+  ],
+  // The only emissions data: the energy sectors' greenhouse gases.
+  ghg: [
+    'emissions',
+    'CO2',
+    'CO2 emissions',
+    'carbon emissions',
+    'greenhouse gases',
+    'greenhouse gas emissions from energy',
+    'CO2 from energy',
+    'Emissionen',
+    'Treibhausgasemissionen',
+    'émissions',
+    'émissions de CO2',
+    'gaz à effet de serre',
+  ],
   efficiency: ['energy efficiency', 'Energieeffizienz', 'efficacité énergétique'],
+  // A country's energy mix is its gross available energy by product.
+  gae: ['energy mix', 'Energiemix', 'mix énergétique', 'bouquet énergétique'],
   householdUses: ['household energy by use', 'energy use in households by end use', 'Energieverbrauch der Haushalte nach Verwendungszweck', 'consommation des ménages par usage'],
 }
 
@@ -204,7 +235,8 @@ export function presetPlan(text: string, dict: EnergyDictionary, codelists: Ener
   const rest = normalize(text)
     .replace(/[’']/g, ' ')
     .split(/[^a-z0-9-]+/)
-    .filter((w) => w && !topic.some((t) => same(w, t)))
+    // Without "from" ("co2 from energy in Poland"): it would make the place a partner country.
+    .filter((w) => w && !topic.some((t) => same(w, t)) && !['from', 'von', 'aus'].includes(w))
     .join(' ')
   const plan = (rest && refinePlan(preset, rest, dict, codelists)) || preset
   // "How has … developed?", "which country …?": the question's focus (an answer card first).

@@ -17,7 +17,15 @@ const scope = createScopeChecker(dict, codelists)
 const vocabulary = buildVocabulary(dict, codelists, scope.places)
 
 function route(text: string, current: Plan | null = null, previous: string[] = []): Route {
-  return routeMessage(text, { current, dict, codelists, classify: scope.classify, unknownWords: (x) => vocabulary.unknownWords(x, docFreq), previous })
+  return routeMessage(text, {
+    current,
+    dict,
+    codelists,
+    classify: scope.classify,
+    unknownWords: (x) => vocabulary.unknownWords(x, docFreq),
+    correct: (w) => vocabulary.correct(w, docFreq),
+    previous,
+  })
 }
 const planOf = (text: string) => {
   const r = route(text)
@@ -175,7 +183,8 @@ test('"add all available countries to this daash": all countries, despite the wo
     assert.equal(r.kind, 'refine', text)
     assert.equal((r as Extract<Route, { kind: 'refine' }>).plan.allCountries, true, text)
   }
-  // Typo tolerance is narrow: a doubled letter or two swapped letters, not any missing one.
-  assert.deepEqual(vocabulary.unknownWords('dashbaord countriess'), [])
-  assert.deepEqual(vocabulary.unknownWords('capital'), ['capital'])
+  // Typing slips are corrected to known words; words of their own are not ("capital").
+  assert.equal(vocabulary.correct('dashbaord'), 'dashboard')
+  assert.equal(vocabulary.correct('countriess'), 'countries')
+  assert.equal(vocabulary.correct('capital', docFreq), null)
 })

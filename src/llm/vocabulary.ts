@@ -55,6 +55,8 @@ const QUESTION_WORDS = new Set(
       ' ' +
         // Conversational filler (EN/DE/FR): "add France too please", "can you show me…", "bitte auch"
         'too please pls thanks thank okay yes yeah can could would like want wanna need see let lets look again well ' +
+        // Contractions typed without the apostrophe ("cant", "dont"), and "wieviel"
+        'cant dont doesnt didnt isnt arent wont couldnt shouldnt whats wieviel wieviele ' +
         'maybe perhaps actually rather very really still yet already both either neither one two three four five some ' +
         'few several plus another else whole every each all put include take give get keep change switch replace ' +
         'bitte danke noch mal gerne kannst konnen konntest mochte mochten will wollen brauche sehen zeig nimm fuge ' +
@@ -77,6 +79,16 @@ const QUESTION_WORDS = new Set(
     .split(/\s+/),
 )
 
+/** Words about the app itself, which typing slips are corrected to ("dashbaord"). */
+const APP_WORDS = new Set(
+  (
+    'dashboard dashboards dash chart charts graph graphs countries country ' +
+    // Core energy words (the planner knows them as stems)
+    'energy electricity renewable renewables dependency consumption production emissions efficiency poverty ' +
+    'imports exports prices households industry transport nuclear petroleum natural'
+  ).split(' '),
+)
+
 const STOPWORDS = new Set(
   (
     'a an and are as at be by for from has have in is it of on or the to was were with me my i you your we our it ' +
@@ -95,6 +107,12 @@ const MIN_DOC_FREQ = 5
 export interface Vocabulary {
   /** Content words of `text` that ENgenuidash does not know. */
   unknownWords(text: string, knowledgeDocFreq?: Map<string, number>): string[]
+  /**
+   * The known word an unknown one is a typing slip of, or null: a letter missing ("enrgy",
+   * "portgal"), a wrong letter ("dependancy"), two letters swapped ("renewabel") or a letter typed
+   * twice ("daash"). Not any extra letter: "capital" is a word of its own, not "capita".
+   */
+  correct(word: string, knowledgeDocFreq?: Map<string, number>): string | null
 }
 
 function variants(w: string): string[] {
@@ -103,14 +121,16 @@ function variants(w: string): string[] {
   return out
 }
 
-/**
- * The usual typing slips: a letter typed twice ("daash", "countriess") or two neighbouring
- * letters swapped ("dashbaord"). Not any missing letter: "capital" is not "capita".
- */
-function typos(w: string): string[] {
+const LETTERS = 'abcdefghijklmnopqrstuvwxyz'
+/** Typing slips of a word, most likely first: swapped letters, a doubled letter, a missing letter, a wrong letter. */
+function slips(w: string): string[] {
   const out: string[] = []
-  for (let i = 1; i < w.length; i++) if (w[i] === w[i - 1]) out.push(w.slice(0, i) + w.slice(i + 1))
   for (let i = 0; i < w.length - 1; i++) out.push(w.slice(0, i) + w[i + 1] + w[i] + w.slice(i + 2))
+  for (let i = 1; i < w.length; i++) if (w[i] === w[i - 1]) out.push(w.slice(0, i) + w.slice(i + 1))
+  // A missing letter inside the word ("enrgy", "portgal"), not at its ends: "diese" + "l" is
+  // another word ("diesel"), as "capita" + "l" is.
+  for (let i = 1; i < w.length; i++) for (const c of LETTERS) out.push(w.slice(0, i) + c + w.slice(i))
+  for (let i = 0; i < w.length; i++) for (const c of LETTERS) if (c !== w[i]) out.push(w.slice(0, i) + c + w.slice(i + 1))
   return out
 }
 
@@ -144,12 +164,15 @@ export function buildVocabulary(
   extraTerms.forEach(addText)
   // Everything the planner understands; single-word stems of 5+ letters also match longer forms.
   const stems: string[] = []
+  // The words the planner itself understands: typing slips are corrected to these only.
+  const plannerWords = new Set<string>()
   for (const term of plannerTerms()) {
     // Single words only: a phrase ("to date", "hors taxe") must not make its words known on
     // their own ("what is the date of oil?").
     const t = normalize(term).trim().replace(/\$$/, '')
     if (t.includes(' ')) continue
     addText(t)
+    plannerWords.add(t)
     if (t.length >= 5) stems.push(t)
   }
   const placeWords = new Set([...places].flatMap((p) => p.split(' ')))
@@ -169,10 +192,23 @@ export function buildVocabulary(
       return words.filter((w) => {
         if (w.length <= 2 || STOPWORDS.has(w) || /\d/.test(w) || w.includes('_')) return false
         if (placeWords.has(w) || hasEnergySignal(w)) return false
-        if (known(w)) return false
-        // A typo of a known word (see typos). Only for words of 5+ letters.
-        return !(w.length >= 5 && typos(w).some((t) => t.length >= 4 && known(t)))
+        return !known(w)
       })
+    },
+    correct(word, knowledgeDocFreq) {
+      const w = normalize(word)
+      if (w.length < 5 || /\d/.test(w)) return null
+      // Only to words the planner understands (energy terms, places, dashboard words), never to
+      // any word of Eurostat's titles: "noise" is a word of its own, not a slip of a title word.
+      void knowledgeDocFreq
+      // Whole known words first ("electrcity" → "electricity"), then words a planner stem starts.
+      const candidates = slips(w)
+      return (
+        candidates.find((s) => plannerWords.has(s) || placeWords.has(s) || APP_WORDS.has(s)) ??
+        candidates.find((s) => stems.some((st) => s.startsWith(st))) ??
+        null
+      )
+      return null
     },
   }
 }

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { notify } from '../components/toast'
 import type { Strings } from '../i18n'
+import { isMobileDevice } from '../llm/device'
 import { useLocalLLM } from '../llm/useLocalLLM'
 
-// The language model is downloaded only after the user agrees (DownloadNotice); the answer
-// "Download now" is remembered on the device, and the model then loads on each visit.
+// On phones and tablets the language model is downloaded only after the user agrees
+// (DownloadNotice); the answer "Download now" is remembered on the device, and the model then
+// loads on each visit. Computers load it straight away.
 const DOWNLOAD_CONSENT_KEY = 'engenuidash.modelDownload'
 
 function hasDownloadConsent(): boolean {
@@ -38,7 +40,10 @@ export function useAssistant({
   /** A written answer finished (e.g. to flag the chat button as unread). */
   onReplyDone: () => void
 }) {
-  const [askBeforeDownload] = useState(() => !hasDownloadConsent())
+  // Phones and tablets ask before the download (mobile data, storage); computers load the model
+  // from our server as soon as the page opens, so "Explain these figures" and written answers are
+  // there without a question.
+  const [askBeforeDownload] = useState(() => isMobileDevice() && !hasDownloadConsent())
   const [downloadNotice, setDownloadNotice] = useState(false)
   // The question that asked for a fuller answer, and how to answer it (set by the chat flow).
   const pendingQuestionRef = useRef<string | null>(null)

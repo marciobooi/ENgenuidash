@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { recordMiss } from '../eval/missLog'
 import { dashboardActions, rankByOverlap, type DashboardAction } from '../genui/actions'
+import { prepareQuestion } from '../genui/prepare'
 import { routeMessage } from '../genui/route'
 import type { Plan, Suggestion } from '../genui/types'
 import { STRINGS, type Lang, type Strings } from '../i18n'
@@ -92,58 +93,64 @@ export function useChatFlow({
     assistant.requestDownload(question)
   }
 
-  function send(text: string) {
+  function send(typed: string) {
     const previous = llm.messages.filter((m) => m.role === 'user').map((m) => m.content)
+    const unknownWords = (x: string) => vocabulary.unknownWords(x, knowledgeDocFreq())
+    const correct = (w: string) => vocabulary.correct(w, knowledgeDocFreq())
+    // The rules read the prepared question (lead-ins dropped, other languages as English
+    // keywords, typing slips corrected); the chat and the model get what was typed.
+    const text = prepareQuestion(typed, { unknownWords, correct })
     const verdict = scope.classify(text, previous)
     const route = routeMessage(text, {
       current: current?.plan ?? null,
       dict,
       codelists,
       classify: () => verdict,
-      unknownWords: (x) => vocabulary.unknownWords(x, knowledgeDocFreq()),
+      unknownWords,
+      correct,
       previous,
     })
 
     switch (route.kind) {
       // "Explain these figures" (typed or clicked) explains the dashboard on screen.
       case 'explain':
-        return void explainDashboard(text)
+        return void explainDashboard(typed)
       case 'back': {
         // The previous dashboard of this conversation (they are kept in order).
         const r = dash.back()
         const message = r.ok ? fill(t.backTo, { title: r.title ?? '' }) : t.noPrevious
-        llm.reply(text, message, r.ok ? undefined : 'refusal')
+        llm.reply(typed, message, r.ok ? undefined : 'refusal')
         announce(message)
         return
       }
       case 'off-topic': {
         // With a dashboard on screen, a message made of known words is most likely a change we
         // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
-        if (route.tryActions && resolveWithActions(text)) return
+        if (route.tryActions && resolveWithActions(typed)) return
         const message = route.tryActions ? t.notApplied : t.offTopic
-        recordMiss({ text, lang, kind: 'refused', followUp: hasDashboard })
-        llm.reply(text, message, 'refusal')
+        recordMiss({ text: typed, lang, kind: 'refused', followUp: hasDashboard })
+        llm.reply(typed, message, 'refusal')
         announce(message)
         if (hasDashboard) openChat()
         return
       }
       case 'rephrase': {
         const message = `${fill(t.notUnderstoodWord, { word: route.unknown.slice(0, 2).join('”, “') })} ${t.notUnderstood}`
-        recordMiss({ text, lang, kind: 'rephrase', followUp: hasDashboard })
-        llm.append({ role: 'user', content: text }, { role: 'assistant', content: message, choices: ideaChoices })
+        recordMiss({ text: typed, lang, kind: 'rephrase', followUp: hasDashboard })
+        llm.append({ role: 'user', content: typed }, { role: 'assistant', content: message, choices: ideaChoices })
         announce(message)
         if (hasDashboard) openChat()
         return
       }
       case 'refine':
       case 'plan':
-        return void dash.runPlan(route.plan, text)
+        return void dash.runPlan(route.plan, typed)
       case 'actions':
-        if (resolveWithActions(text)) return
+        if (resolveWithActions(typed)) return
         break
       case 'clarify':
         llm.append(
-          { role: 'user', content: text },
+          { role: 'user', content: typed },
           {
             role: 'assistant',
             content: t.whichPrices,
@@ -165,7 +172,7 @@ export function useChatFlow({
     const definition = verdict !== 'small-talk' ? directDefinition(text) : null
     if (definition) {
       const answer = definitionText(definition)
-      llm.reply(text, answer, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined)
+      llm.reply(typed, answer, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined)
       announce(answer)
       if (hasDashboard) openChat()
       return
@@ -173,8 +180,8 @@ export function useChatFlow({
 
     // Small talk → a fixed reply (no model needed).
     if (verdict === 'small-talk') {
-      const reply = smallTalkReply(text, { hello: t.smallTalkHello, thanks: t.smallTalkThanks })
-      llm.append({ role: 'user', content: text }, { role: 'assistant', content: reply, choices: ideaChoices })
+      const reply = smallTalkReply(typed, { hello: t.smallTalkHello, thanks: t.smallTalkThanks })
+      llm.append({ role: 'user', content: typed }, { role: 'assistant', content: reply, choices: ideaChoices })
       announce(reply)
       if (hasDashboard) openChat()
       return
@@ -183,11 +190,11 @@ export function useChatFlow({
     // Our Eurostat documents answer it → quote them; they support it → the model, with the
     // passages as background; otherwise ("what is the date of oil") → ask to rephrase.
     const query = searchQuery(verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text)
-    void answerFromDocuments(text, query).then((outcome) => {
-      if (outcome === 'model') askModel(text, verdict, previous, conceptual)
+    void answerFromDocuments(typed, query).then((outcome) => {
+      if (outcome === 'model') askModel(typed, verdict, previous, conceptual)
       else if (outcome === 'unclear') {
-        recordMiss({ text, lang, kind: 'unclear', followUp: hasDashboard })
-        llm.append({ role: 'user', content: text }, { role: 'assistant', content: t.notUnderstood, choices: ideaChoices })
+        recordMiss({ text: typed, lang, kind: 'unclear', followUp: hasDashboard })
+        llm.append({ role: 'user', content: typed }, { role: 'assistant', content: t.notUnderstood, choices: ideaChoices })
         announce(t.notUnderstood)
       }
     })
@@ -267,6 +274,9 @@ export function useChatFlow({
     if (!current) return
     openChat()
     if (ready) return void explainWithModel(question)
+    // Loading (computers load it on their own, phones once agreed): explained as soon as it is ready.
+    if (llm.status === 'loading') return requestAiExplanation(question)
+    // Not downloaded (a phone that has not agreed yet): the facts, and the offer to explain with AI.
     const { spec, described, insights, sources } = await dashboardFacts()
     const answer = [described?.text, insights.length ? insights.map((i) => `• ${i}`).join('\n') : spec.summary.join(' ')].filter(Boolean).join('\n\n')
     llm.append(

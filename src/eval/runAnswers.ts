@@ -29,7 +29,7 @@ export async function runAnswerEval(dict: EnergyDictionary, codelists: EnergyCod
   const vocabulary = buildVocabulary(dict, codelists, scope.places)
   const out: AnswerResult[] = []
   for (const c of ANSWER_CASES) {
-    const route = routeMessage(c.q, { current: null, dict, codelists, classify: scope.classify, unknownWords: (x) => vocabulary.unknownWords(x, docFreq), previous: [] })
+    const route = routeMessage(c.q, { current: null, dict, codelists, classify: scope.classify, unknownWords: (x) => vocabulary.unknownWords(x, docFreq), correct: (w) => vocabulary.correct(w, docFreq), previous: [] })
     let kind: AnswerRoute
     let text = ''
     let dataset: string | undefined

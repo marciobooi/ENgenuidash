@@ -3,6 +3,7 @@ import type { ScopeVerdict } from '../llm/energyScope'
 import { normalize } from '../llm/energyScope'
 import { isExplainRequest } from './actions'
 import { planQuestion, refinePlan } from './planner'
+import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
 import type { Clarification, Plan } from './types'
 
@@ -44,11 +45,15 @@ export interface RouteContext {
   codelists: EnergyCodelists | null
   classify: (text: string, previous: string[]) => ScopeVerdict
   unknownWords: (text: string) => string[]
+  /** The known word an unknown one is a typing slip of (see Vocabulary.correct). */
+  correct?: (word: string) => string | null
   previous: string[]
 }
 
-export function routeMessage(text: string, ctx: RouteContext): Route {
+export function routeMessage(typed: string, ctx: RouteContext): Route {
   const { current, dict, codelists } = ctx
+  // Lead-ins dropped, other EU languages as English keywords, typing slips corrected (prepare.ts).
+  const text = prepareQuestion(typed, { unknownWords: ctx.unknownWords, correct: ctx.correct })
   if (current && isExplainRequest(text)) return { kind: 'explain' }
   const q = normalize(text).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
   if (current && BACK.test(q)) return { kind: 'back' }

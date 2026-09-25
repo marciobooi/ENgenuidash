@@ -60,6 +60,7 @@ export async function runEval(
       codelists,
       classify: scope.classify,
       unknownWords: (x) => vocabulary.unknownWords(x, docFreq),
+      correct: (w) => vocabulary.correct(w, docFreq),
       previous,
     })
     const menu = (route.kind === 'off-topic' && route.tryActions) || route.kind === 'actions'

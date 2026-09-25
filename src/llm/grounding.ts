@@ -12,7 +12,7 @@ import {
 import { unitFromText } from '../genui/planner'
 import { normalize } from './energyScope'
 import { findDefinitions } from './glossary'
-import { searchQuery } from './crossLingual'
+import { productsIn, searchQuery } from './crossLingual'
 import { searchKnowledge, type Passage } from './knowledge'
 
 /**
@@ -181,6 +181,26 @@ const FLAG_NAMES: Record<string, string> = {
 }
 
 /** Finds sources and, when possible, a data slice for the question. Never throws. */
+// What kind of source a product is, from its SIEC code (Eurostat's product classification):
+// small models otherwise call natural gas "sustainable" or "renewable".
+const PRODUCT_NAMES: Record<string, string> = {
+  gas: 'Natural gas', oil: 'Oil', coal: 'Coal', lignite: 'Lignite', crude: 'Crude oil', diesel: 'Diesel', gasoline: 'Motor gasoline',
+  jet: 'Jet fuel', fossil: 'Fossil fuels', nuclear: 'Nuclear energy', renewables: 'Renewable energy', solar: 'Solar energy', wind: 'Wind energy',
+  hydro: 'Hydropower', geothermal: 'Geothermal energy', biogas: 'Biogas', bioenergy: 'Bioenergy',
+}
+function productFacts(question: string): string[] {
+  return productsIn(question)
+    .map(({ id, siec }) => {
+      const name = PRODUCT_NAMES[id]
+      if (!name) return null
+      if (/^(C|O|G|P|S|FE)/.test(siec)) return `${name} is a fossil fuel: it is not renewable and its combustion emits CO2 (SIEC ${siec}).`
+      if (/^N/.test(siec)) return `${name} is not renewable and not a fossil fuel; it emits almost no CO2 when producing electricity (SIEC ${siec}).`
+      if (/^(R|BIOE)/.test(siec)) return `${name} is a renewable energy source (SIEC ${siec}).`
+      return null
+    })
+    .filter((x): x is string => !!x)
+}
+
 export async function groundQuestion(
   question: string,
   dict: EnergyDictionary | null,
@@ -196,7 +216,7 @@ export async function groundQuestion(
   // Verified definitions for concepts in the question ("SIEC", "ktoe", "energy intensity"…).
   // German and French questions also search with their English terms (the documents are English).
   const english = searchQuery(question)
-  const definitions = findDefinitions(english)
+  const definitions = [...productFacts(question), ...findDefinitions(english)]
   const glossary = definitions.length ? `Definitions:\n${definitions.map((d) => `- ${d}`).join('\n')}` : null
   if (!dict || !codelists) return { context: glossary, sources: [] }
 

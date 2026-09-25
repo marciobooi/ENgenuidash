@@ -9,6 +9,7 @@ import {
   REMOVE_WORDS,
   TREND_WORDS,
   ALL_TIME_WORDS,
+  CAUSAL_WORDS,
   ELECTRICITY_MIX,
   ENERGY_MIX,
   EU27,
@@ -282,6 +283,7 @@ export function planQuestion(
   const explain = any(p, EXPLAIN_WORDS)
   const concrete = geo.codes.length > 0 || geo.eu || time.years.length > 0 || time.range !== null || allCountries
   if (explain && !concrete && !metrics.has('price')) return { kind: 'explain' }
+  if (any(p, CAUSAL_WORDS) && !time.years.length && !time.range && !allCountries) return { kind: 'explain' }
 
   const productIds = products.map((x) => x.id)
   const isElectricity = productIds.includes('electricity')

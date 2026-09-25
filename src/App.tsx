@@ -33,14 +33,14 @@ import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
 import { planQuestion } from './genui/planner'
 import { routeMessage } from './genui/route'
 import { answerFromHits, smallTalkReply } from './llm/answers'
-import { questionLanguage, searchQuery } from './llm/crossLingual'
+import { searchQuery } from './llm/crossLingual'
+import { modelPrompt } from './llm/prompt'
 import type { DashboardSpec, Plan, Suggestion } from './genui/types'
 import { GENERATION, SYSTEM_PROMPT } from './llm/config'
 import { createScopeChecker } from './llm/energyScope'
-import { directDefinition, loadGlossary } from './llm/glossary'
+import { definitionText, directDefinition, loadGlossary } from './llm/glossary'
 import { datasetDescription, knowledgeDocFreq, loadKnowledge, searchKnowledge } from './llm/knowledge'
 import { buildVocabulary } from './llm/vocabulary'
-import { groundQuestion } from './llm/grounding'
 import { useLocalLLM, type UIMessage } from './llm/useLocalLLM'
 import { APP_ABBR, STRINGS, type Lang, type Strings } from './i18n'
 import './App.css'
@@ -333,15 +333,8 @@ export default function App() {
           ? undefined
           : async (signal) => {
               // Follow-ups ("and in Germany?") reuse the previous question to find the dataset.
-              const query = verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text
-              const g = await groundQuestion(query, dict, codelists, lang, signal, { includeData: !conceptual })
-              // The background is English; say which language to answer in, every time (the history
-              // may hold an earlier "Answer in German.").
-              const answerIn = { en: 'Answer in English.', de: 'Answer in German.', fr: 'Answer in French.' }[questionLanguage(text, lang)]
-              return {
-                prompt: [text, g.context, answerIn].filter(Boolean).join('\n\n'),
-                sources: g.sources,
-              }
+              const searchWith = verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text
+              return modelPrompt(text, dict, codelists, lang, { conceptual, signal, searchWith })
             },
     })
   }
@@ -412,8 +405,9 @@ export default function App() {
     // 3. "What is X?" for a known concept → the verified glossary definition, word for word.
     const definition = verdict !== 'small-talk' ? directDefinition(text) : null
     if (definition) {
-      llm.reply(text, definition.summary, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined)
-      setAnnouncement(definition.summary)
+      const answer = definitionText(definition)
+      llm.reply(text, answer, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined)
+      setAnnouncement(answer)
       if (hasDashboard) openChat()
       return
     }
@@ -614,6 +608,7 @@ export default function App() {
       {m.kind === 'refusal' && <ShieldAlert className="msg__icon" size={16} aria-hidden="true" />}
       {m.kind === 'error' && <CircleAlert className="msg__icon msg__icon--error" size={16} aria-hidden="true" />}
       {m.kind === 'quote' && <span className="msg__quote-label">{t.fromEurostat}</span>}
+      {m.kind === 'generated' && <span className="msg__quote-label msg__quote-label--generated">{t.writtenByAssistant}</span>}
       {m.pending && <Database size={15} aria-hidden="true" />}
       {m.content ||
         (llm.generating && i === llm.messages.length - 1 ? (
@@ -704,7 +699,7 @@ export default function App() {
   } else if (EvalPage && route === '#/eval') {
     page = (
       <Suspense>
-        <EvalPage dict={dict} codelists={codelists} choose={llm.choose} ready={ready} model={llm.runtime?.model} />
+        <EvalPage dict={dict} codelists={codelists} choose={llm.choose} complete={llm.complete} ready={ready} model={llm.runtime?.model} />
       </Suspense>
     )
   } else if (current) {

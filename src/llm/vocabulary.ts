@@ -65,6 +65,9 @@ const QUESTION_WORDS = new Set(
         // Words used to steer a dashboard ("I prefer columns", "Germany alone", "go back to 2015",
         // "wie hat sich das entwickelt", "lieber als Balken", "s'il te plaît")
         'ones prefer rather draw plot alone back raw instead instead ' +
+        // Analysis words: "what drives prices?", "main factors", "was beeinflusst", "facteurs"
+        'drive drives driven driver drivers factor factors influence influences influenced determine determines behind reason why cause caused ' +
+        'treiber faktor faktoren beeinflusst beeinflussen einfluss ursache ursachen facteur facteurs influence influencent cause causes raison ' +
         'hat sich lieber zuruck allein ' +
         'plait prefere plutot retour seul seule produire produit produite produisent erzeugen erzeugt',
     )

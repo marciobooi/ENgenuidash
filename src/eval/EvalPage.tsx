@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { loadKnowledge } from '../llm/knowledge'
+import { AnswerEval } from './AnswerEval'
 import { EVAL_CASES } from './cases'
 import { runEval, summarize, type CaseResult, type Choose } from './runEval'
 
@@ -12,12 +13,14 @@ export default function EvalPage({
   dict,
   codelists,
   choose,
+  complete,
   ready,
   model,
 }: {
   dict: EnergyDictionary | null
   codelists: EnergyCodelists | null
   choose: Choose
+  complete: Parameters<typeof AnswerEval>[0]['complete']
   ready: boolean
   /** Model loaded on this device. */
   model?: string
@@ -97,6 +100,7 @@ export default function EvalPage({
           </tbody>
         </table>
       )}
+      <AnswerEval dict={dict} codelists={codelists} complete={complete} ready={ready} />
     </main>
   )
 }

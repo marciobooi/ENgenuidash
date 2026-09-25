@@ -95,3 +95,10 @@ export function questionLanguage(question: string, fallback: string): 'en' | 'de
   if (scores[best] > 0 && !tied) return best
   return fallback === 'de' || fallback === 'fr' ? fallback : 'en'
 }
+
+/** Energy products the question names (planner concepts, EN/DE/FR), e.g. [{ id: 'gas', siec: 'G3000' }]. */
+export function productsIn(question: string): { id: string; siec: string }[] {
+  const words = normalize(question).replace(/[’']/g, ' ').split(/[^a-z0-9]+/).filter(Boolean)
+  const text = ` ${words.join(' ')} `
+  return PRODUCTS.filter((c) => c.stems.some((st) => matches(words, text, st))).map(({ id, siec }) => ({ id, siec }))
+}

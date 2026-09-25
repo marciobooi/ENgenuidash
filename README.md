@@ -139,6 +139,19 @@ With a dashboard on screen, a message goes through these steps:
 "Explain these figures" never uses free generation: it quotes Eurostat's own description of the
 dataset (from the knowledge base) followed by the computed summary and key insights.
 
+### Answer quality
+
+`src/eval/answerCases.ts` lists questions (EN/DE/FR) with what a correct answer must be: the route
+(dashboard, definition, quote, refusal…), the facts the text must contain, and for the model's
+written answers the claims it must not make. `npm test` checks everything that needs no model;
+`#/eval` → "Run answer evaluation" also measures the model's answers. Current state: 38/38
+without the model; the model's written answers pass about half of the checks (it still calls
+natural gas renewable or invents shares), which is why the model is optional and its answers are
+labelled "Written by the assistant — check the sources".
+
+Quotes come from the passage whose sentences cover the question best; legal references
+("Article 29 …") and publication boilerplate ("Data are comparable…") are never quoted.
+
 ### Measuring it
 
 `src/eval/cases.ts` holds labelled follow-up messages (EN/DE/FR). Add one whenever a real message

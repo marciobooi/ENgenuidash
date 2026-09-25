@@ -1,4 +1,4 @@
-import { bestSentences, CONFIDENT_SCORE, MODEL_MIN_SCORE, type Hit } from './knowledge'
+import { bestSentences, CONFIDENT_SCORE, MODEL_MIN_SCORE, quoteCoverage, type Hit } from './knowledge'
 
 /**
  * Written answers that need no language model. The model is optional (a one-time download):
@@ -25,12 +25,20 @@ const sourceOf = (h: Hit): Source | null => (h.url ? { code: 'Eurostat', title: 
 
 /** Decides how to answer from the best knowledge-base passages for `query`. */
 export function answerFromHits(hits: Hit[], query: string): DocumentAnswer {
-  const best = hits[0]
-  if (!best || best.score < MODEL_MIN_SCORE) return { kind: 'unclear' }
-  const quote = bestSentences(best, query)
-  const sources = hits.filter((h) => h === best || h.score >= CONFIDENT_SCORE / 2).map(sourceOf).filter((s): s is Source => !!s)
-  if (best.score >= CONFIDENT_SCORE && quote) return { kind: 'quote', text: quote, sources }
-  return { kind: 'model', ...(quote ? { quote: { text: quote, sources } } : {}) }
+  const top = hits[0]
+  if (!top || top.score < MODEL_MIN_SCORE) return { kind: 'unclear' }
+  // The quote comes from the passage whose best sentences cover the question best (among those
+  // close to the top score), not blindly from the first one.
+  const candidates = hits
+    .filter((h) => h.score >= top.score * 0.8)
+    .map((h) => ({ h, quote: bestSentences(h, query) }))
+    .map((c) => ({ ...c, coverage: quoteCoverage(c.quote, query) }))
+    .sort((a, b) => b.coverage - a.coverage || b.h.score - a.h.score)
+  const { h: best, quote, coverage } = candidates[0]
+  const sources = [best, ...hits.filter((h) => h !== best && h.score >= CONFIDENT_SCORE / 2)].map(sourceOf).filter((s): s is Source => !!s)
+  // A confident quote must also cover most of the question.
+  if (best.score >= CONFIDENT_SCORE && quote && coverage >= 0.5) return { kind: 'quote', text: quote, sources }
+  return { kind: 'model', ...(quote && coverage > 0 ? { quote: { text: quote, sources } } : {}) }
 }
 
 export interface SmallTalkStrings {

@@ -20,7 +20,7 @@ export interface GlossaryEntry {
   official: boolean
 }
 
-interface GlossaryFile {
+export interface GlossaryFile {
   entries: Omit<GlossaryEntry, 'official'>[]
 }
 
@@ -81,9 +81,11 @@ const SYNONYMS: Record<string, string> = {
   'combined heat and power': 'co-generation',
   cogeneration: 'co-generation',
   'import dependency': 'energy dependency rate',
+  'energy dependency': 'energy dependency rate',
+  energieabhangigkeit: 'energy dependency rate',
+  importabhangigkeit: 'energy dependency rate',
   'energy import dependency': 'energy dependency rate',
   'dependency rate': 'energy dependency rate',
-  importabhangigkeit: 'energy dependency rate',
   'dependance energetique': 'energy dependency rate',
   'gross inland consumption': 'gross inland energy consumption',
   'primary energy': 'primary energy consumption',
@@ -117,6 +119,12 @@ export function loadGlossary(): Promise<void> {
       loading = null
     })
   return loading ?? Promise.resolve()
+}
+
+/** Uses an already loaded glossary file (Node tests and scripts, which cannot fetch). */
+export function setGlossaryFile(file: GlossaryFile) {
+  official = file.entries.map((e) => ({ ...e, official: true }))
+  loading = Promise.resolve()
 }
 
 const key = (s: string) => ` ${normalize(s).replace(/[^a-z0-9_-]+/g, ' ').trim()} `
@@ -161,4 +169,19 @@ export function directDefinition(question: string): GlossaryEntry | null {
   // Only when the question is essentially "what is <concept>", not a data question.
   if (q.split(' ').length > 9 || /\b(19|20)\d\d\b/.test(q)) return null
   return findEntries(question, 1)[0] ?? null
+}
+
+/**
+ * The text of a direct definition: the glossary summary plus, when the summary does not say how
+ * the concept is measured, the sentence of the full text that does ("Energy intensity is
+ * calculated as units of energy per unit of GDP").
+ */
+export function definitionText(entry: GlossaryEntry): string {
+  const summary = entry.summary.trim()
+  if (/\b(calculated|defined as|divided by|ratio|expressed as|measured)\b/i.test(summary) || !entry.text) return summary
+  const sentence = entry.text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((x) => x.trim())
+    .find((x) => /\b(calculated|defined as|divided by|ratio|expressed as|measured)\b/i.test(x) && x.length < 300 && !summary.includes(x))
+  return sentence ? `${summary} ${sentence}` : summary
 }

@@ -73,6 +73,12 @@ export function buildKnowledgeIndex(passages: Passage[]): Index {
   return { passages, terms, lengths, avgLength: lengths.reduce((a, b) => a + b, 0) / lengths.length, docFreq }
 }
 
+/** Uses already loaded passages (Node tests and scripts, which cannot fetch). */
+export function setKnowledgePassages(passages: Passage[]) {
+  loadedIndex = buildKnowledgeIndex(passages)
+  indexPromise = Promise.resolve(loadedIndex)
+}
+
 /** Loads and indexes the knowledge base once (lazily, the first time the model needs it). */
 export function loadKnowledge(): Promise<Index> {
   indexPromise ??= fetch(`${import.meta.env.BASE_URL}data/eurostat/energy/knowledge.json`)
@@ -93,6 +99,14 @@ export interface Hit extends Passage {
   /** Distinct single words of the question found in the passage. */
   matched: number
 }
+
+// Metadata sections about the publication process, not the statistics: they never answer a
+// question ("Data are comparable between all EU Member States").
+const BOILERPLATE =
+  /comparability|accessibility|dissemination|contact|release calendar|release policy|revision|confidentiality|quality management|quality assessment|cost and burden|accuracy|timeliness|punctuality|coherence|metadata update|news release|publications|online database|micro-data|documentation on methodology|user needs|user satisfaction|completeness|institutional mandate|data compilation|data validation|source data|frequency of data collection/i
+
+// Sentences that cite legislation rather than explain ("Compliance with Article 29 …").
+const LEGAL = /\b(article \d+|regulation \(|regulation \d|directive \(|directive \d|communication from|decision \(|decision \d|oj l)\b/i
 
 /**
  * Top passages for a question. `datasets` boosts documentation of the dataset being discussed;
@@ -126,7 +140,7 @@ export async function searchKnowledge(
 
   const seen = new Set<string>()
   return scored
-    .filter((s) => s.score >= minScore && s.matched >= minMatched)
+    .filter((s) => s.score >= minScore && s.matched >= minMatched && !BOILERPLATE.test(s.p.section ?? ''))
     .sort((a, b) => b.score - a.score)
     .filter((s) => {
       const doc = s.p.url ?? s.p.title
@@ -151,10 +165,11 @@ export function bestSentences(passage: Passage, question: string, max = 3): stri
     // Real sentences only: headings ("Largest increase in prices in Romania") have no final stop.
     .filter((s) => s.length > 30 && (/[.!?:;]$/.test(s) || s.startsWith('•')))
   const ranked = sentences
-    .map((s, i) => ({ s, i, score: words(s).filter((w) => q.has(w)).length }))
+    // Legal references go last: they cite a text instead of explaining.
+    .map((s, i) => ({ s, i, score: words(s).filter((w) => q.has(w)).length - (LEGAL.test(s) ? 10 : 0) }))
     .sort((a, b) => b.score - a.score || a.i - b.i)
     .slice(0, max)
-    .filter((x, k) => k === 0 || x.score > 0)
+    .filter((x, k) => (k === 0 && x.score > -5) || x.score > 0)
     .sort((a, b) => a.i - b.i)
   return ranked.map((x) => x.s).join(' ')
 }
@@ -183,4 +198,15 @@ export async function datasetDescription(code: string, maxSentences = 2): Promis
   const text = p.text.replace(/\s+/g, ' ').trim()
   const sentences = text.match(/[^.!?]+[.!?]+(?=\s|$)/g) ?? [text]
   return { ...p, text: sentences.slice(0, maxSentences).join(' ').replace(/\s+/g, ' ').trim() }
+}
+
+/**
+ * How well a quote covers the question: the share of the question's key words it contains
+ * (0–1). Used to pick the passage whose sentences answer best, not only the best-ranked one.
+ */
+export function quoteCoverage(quote: string, question: string): number {
+  const q = new Set(words(question))
+  if (!q.size) return 0
+  const inQuote = new Set(words(quote))
+  return [...q].filter((w) => inQuote.has(w)).length / q.size
 }

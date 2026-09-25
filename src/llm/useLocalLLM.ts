@@ -19,7 +19,8 @@ export interface UIMessage extends ChatMessage {
   /** Eurostat datasets the answer was based on. */
   sources?: Source[]
   /** Set on canned replies that never reached the model (e.g. off-topic refusals). */
-  kind?: 'refusal' | 'error' | 'quote'
+  /** 'generated': written by the language model (labelled as such in the chat). */
+  kind?: 'refusal' | 'error' | 'quote' | 'generated'
   /** Link to a dashboard built for this message. */
   card?: { index: number; title: string }
   /** One-click answers to a clarifying question. */
@@ -56,7 +57,11 @@ export type LLMEvent =
 
 /** Drops a "(…)" of a few words without digits after the last sentence: "…grids. (Energy security)" → "…grids." */
 export function withoutSourceTag(text: string): string {
-  return text.replace(/([.!?])\s*\((?=[^()]*[a-z])[^()\d]{2,60}\)\s*\.?$/i, '$1').trim()
+  return text
+    .replace(/([.!?])\s*\((?=[^()]*[a-z])[^()\d]{2,60}\)\s*\.?$/i, '$1')
+    // …or a made-up citation with a date or dataset code: "(Energieproduktionsdaten: 2026-06-29, NRG Stk Gas.)"
+    .replace(/([.!?])\s*\((?=[^()]*(\b(nrg|sdg|ten\d|dataset|daten|data|source|quelle)\b|\d{4}-\d{2}))[^()]{2,120}\)\s*\.?$/i, '$1')
+    .trim()
 }
 
 /**
@@ -87,6 +92,8 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
   // Pending multiple-choice requests, by id.
   const choicesRef = useRef(new Map<number, { resolve: (p: number[]) => void; reject: (e: Error) => void }>())
   const choiceIdRef = useRef(0)
+  // A completion outside the chat (evaluation): its tokens are collected here, not shown.
+  const completeRef = useRef<{ text: string; resolve: (text: string) => void } | null>(null)
 
   useEffect(() => {
     onEventRef.current = onEvent
@@ -126,14 +133,19 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
           emit({ type: 'ready' })
           break
         case 'start':
+          if (completeRef.current) break
           setGenerating(true)
           setTps(null)
           setPhase('generating')
-          setMessages((m) => [...m, { role: 'assistant', content: '', sources: sourcesRef.current }])
+          setMessages((m) => [...m, { role: 'assistant', content: '', sources: sourcesRef.current, kind: 'generated' }])
           replyRef.current = ''
           emit({ type: 'start' })
           break
         case 'token':
+          if (completeRef.current) {
+            completeRef.current.text += msg.text
+            break
+          }
           replyRef.current += msg.text
           pendingTextRef.current += msg.text
           if (!frameRef.current) {
@@ -145,6 +157,12 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
           }
           break
         case 'done':
+          if (completeRef.current) {
+            const { text, resolve } = completeRef.current
+            completeRef.current = null
+            resolve(withoutSourceTag(text.trim()))
+            break
+          }
           cancelAnimationFrame(frameRef.current)
           frameRef.current = 0
           flush()
@@ -240,6 +258,16 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     [messages, send],
   )
 
+  /** Generates a reply outside the chat (for the evaluation page). */
+  const complete = useCallback(
+    (messages: ChatMessage[], options: GenerationOptions) =>
+      new Promise<string>((resolve) => {
+        completeRef.current = { text: '', resolve }
+        send({ type: 'generate', messages, options })
+      }),
+    [send],
+  )
+
   /**
    * Asks the model to pick one of `count` numbered options (see the worker's `choose`).
    * Resolves with one probability per option; never adds anything to the chat.
@@ -291,5 +319,5 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     send({ type: 'reset' })
   }, [send])
 
-  return { status, error, progress, runtime, stats, messages, generating, phase, tps, load, ask, choose, reply, append, updateLast, stop, clear }
+  return { status, error, progress, runtime, stats, messages, generating, phase, tps, load, ask, complete, choose, reply, append, updateLast, stop, clear }
 }

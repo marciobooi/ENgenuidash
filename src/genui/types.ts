@@ -41,6 +41,12 @@ export interface Clarification {
 /** Layout hint: 'full' spans the whole dashboard width, 'half' sits next to another chart. */
 export type WidgetSize = 'full' | 'half'
 
+/** The dataset a chart comes from, when it is not the dashboard's own. */
+export interface WidgetSource {
+  code: string
+  url: string
+}
+
 export type WidgetSpec =
   | { type: 'kpis'; items: KpiSpec[] }
   | {
@@ -72,8 +78,20 @@ export type WidgetSpec =
       signed?: boolean
       unit?: string
       decimals?: number
+      /** A chart from another dataset than the dashboard's (see companions.ts). */
+      source?: WidgetSource
     }
-  | { type: 'pie'; title: string; subtitle?: string; slices: { name: string; y: number }[]; size?: WidgetSize; centerLabel?: string }
+  | {
+      type: 'pie'
+      title: string
+      subtitle?: string
+      slices: { name: string; y: number }[]
+      size?: WidgetSize
+      centerLabel?: string
+      unit?: string
+      /** A chart from another dataset than the dashboard's (see companions.ts). */
+      source?: WidgetSource
+    }
   | {
       type: 'hero'
       title: string

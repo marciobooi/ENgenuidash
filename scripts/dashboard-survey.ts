@@ -14,7 +14,7 @@ const codelists = read('codelists.json')
 const t = STRINGS.en as unknown as Record<string, unknown>
 // DashStrings from the English UI strings (dLatest → latest…), insights from dInsights.
 const s = new Proxy({} as DashStrings, {
-  get: (_, k: string) => (k === 'insights' ? t.dInsights : (t[`d${k[0].toUpperCase()}${k.slice(1)}`] ?? t[k] ?? `{${k}}`)),
+  get: (_, k: string) => (k === 'insights' ? t.dInsights : k === 'companions' ? t.dCompanions : (t[`d${k[0].toUpperCase()}${k.slice(1)}`] ?? t[k] ?? `{${k}}`)),
 })
 
 const DEFAULT = [

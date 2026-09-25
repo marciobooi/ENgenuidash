@@ -98,6 +98,7 @@ function dashStrings(t: Strings): DashStrings {
     noteTop: t.dNoteTop,
     noteBottom: t.dNoteBottom,
     insights: t.dInsights,
+    companions: t.dCompanions,
   }
 }
 

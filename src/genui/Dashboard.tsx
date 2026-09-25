@@ -72,7 +72,7 @@ export function Dashboard({
       title: 'title' in w ? w.title : '',
       subtitle: 'subtitle' in w ? w.subtitle : undefined,
       description: spec.summary.join(' '),
-      source: <SourceLine spec={spec} labels={labels} />,
+      source: <SourceLine source={'source' in w && w.source ? w.source : spec.source} labels={labels} />,
       labels: chartLabels,
       lang,
       decimals: w.type === 'bar' && w.decimals != null ? w.decimals : decimals,
@@ -316,11 +316,11 @@ function Toolbar({
   )
 }
 
-function SourceLine({ spec, labels }: { spec: DashboardSpec; labels: DashboardLabels }) {
+function SourceLine({ source, labels }: { source: { code: string; url: string }; labels: DashboardLabels }) {
   return (
-    <a className="dash__source" href={spec.source.url} target="_blank" rel="noreferrer">
+    <a className="dash__source" href={source.url} target="_blank" rel="noreferrer">
       <Database size={12} aria-hidden="true" />
-      {labels.source}: Eurostat · {spec.source.code}
+      {labels.source}: Eurostat · {source.code}
       <ExternalLink size={11} aria-hidden="true" />
       <span className="sr-only"> ({labels.opensNewTab})</span>
     </a>

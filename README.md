@@ -82,6 +82,16 @@ the units and codes listed there.
 
 `npm test` checks these routes (`src/genui/planner.test.ts`).
 
+**Related data** (`src/genui/companions.ts`): a dashboard about one country also shows the data
+that answers the natural next question, from the same or another dataset, fetched in parallel:
+use by sector for a product in the balances, dependency by fuel and natural gas import origins
+for import dependency, the sector shares for the renewable share, and what a price is made of
+(energy, network, other taxes, VAT — Eurostat's "taxes" component includes VAT, so it is split).
+
+**Toolbar filters** (`src/genui/filters.ts`, `src/components/filters`, ECL Select): countries,
+partner countries and products (multiple choice), flow, consumption band, taxes, currency and
+other small dimensions (single choice), so a dashboard can be changed without the chat.
+
 ## Energy knowledge base (our own, built from Eurostat documents)
 
 Everything is downloaded once at build time and stored in our own files; the app never calls these

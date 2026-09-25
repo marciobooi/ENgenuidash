@@ -5,6 +5,7 @@ import {
   type EurostatResult,
 } from '../data/eurostat'
 import { ELECTRICITY_MIX, ENERGY_MIX, EU27 } from './concepts'
+import { buildCompanions, type CompanionStrings } from './companions'
 import { computeInsights, type InsightStrings } from './insights'
 import { monthlyFilters } from './planner'
 import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeRange, WidgetSpec } from './types'
@@ -57,6 +58,7 @@ export interface DashStrings {
   noteTop: string
   noteBottom: string
   insights: InsightStrings
+  companions: CompanionStrings
 }
 
 const MAX_SERIES = 6
@@ -91,6 +93,17 @@ export async function buildDashboard(
   if (withEuReference && !(filters.geo as string[]).includes('EU27_2020')) {
     filters.geo = [...(filters.geo as string[]), 'EU27_2020']
   }
+
+  // Related data (companions.ts), fetched while the main data loads.
+  const companions = buildCompanions(
+    plan,
+    dict,
+    lang,
+    s.companions,
+    plan.focusPeriod && /^\d{4}$/.test(plan.focusPeriod) ? plan.focusPeriod : undefined,
+    (v) => new Intl.NumberFormat(lang, { notation: 'compact', maximumFractionDigits: 2 }).format(v),
+    signal,
+  ).catch(() => [] as WidgetSpec[])
 
   const fetchWith = (f: typeof filters) =>
     fetchEurostatData(plan.dataset, {
@@ -593,6 +606,7 @@ export async function buildDashboard(
   }
 
   if (plan.chart) applyChartOverride(widgets, plan.chart)
+  widgets.push(...(await companions))
 
   // Data table: every series; for a single-year comparison or mix only that year's column,
   // otherwise every period.

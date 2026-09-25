@@ -117,6 +117,14 @@ const en = {
   },
   ctlPeriod: 'Period',
   ctlPeriodTo: 'Period to {year}',
+  dCompanions: {
+    bySector: 'Use by sector, {period}',
+    byFuel: 'Import dependency by fuel, {period}',
+    gasOrigins: 'Where natural gas imports come from, {period}',
+    renBySector: 'Renewable share by sector, {period}',
+    priceParts: 'What the price is made of, {period}',
+    otherTaxes: 'Other taxes and levies',
+  },
   filters: {
     geo: 'Countries',
     partner: 'Partner countries',
@@ -335,6 +343,14 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     ctlPeriod: 'Zeitraum',
     ctlPeriodTo: 'Zeitraum bis {year}',
+    dCompanions: {
+      bySector: 'Verbrauch nach Sektor, {period}',
+      byFuel: 'Importabhängigkeit nach Energieträger, {period}',
+      gasOrigins: 'Herkunft der Erdgasimporte, {period}',
+      renBySector: 'Anteil erneuerbarer Energien nach Sektor, {period}',
+      priceParts: 'Zusammensetzung des Preises, {period}',
+      otherTaxes: 'Sonstige Steuern und Abgaben',
+    },
     filters: {
       geo: 'Länder',
       partner: 'Partnerländer',
@@ -548,6 +564,14 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     ctlPeriod: 'Période',
     ctlPeriodTo: 'Période jusqu’à {year}',
+    dCompanions: {
+      bySector: 'Utilisation par secteur, {period}',
+      byFuel: 'Dépendance aux importations par combustible, {period}',
+      gasOrigins: 'Origine des importations de gaz naturel, {period}',
+      renBySector: 'Part des renouvelables par secteur, {period}',
+      priceParts: 'Composition du prix, {period}',
+      otherTaxes: 'Autres taxes et prélèvements',
+    },
     filters: {
       geo: 'Pays',
       partner: 'Pays partenaires',

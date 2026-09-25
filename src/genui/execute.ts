@@ -715,7 +715,7 @@ export async function buildDashboard(
       url: `https://ec.europa.eu/eurostat/databrowser/view/${ds.code}/default/table?lang=${lang}`,
     },
     suggestions: suggest(plan, dict, s),
-    controls: controlsFor(plan, dict, s, lang),
+    controls: controlsFor(plan, dict, s, lang, view === 'compare' ? periods[focusIndex]?.code : undefined),
     context: toContext(title, subtitle, unit, periodLabels, tableSeries),
     plan,
   })
@@ -793,7 +793,14 @@ function toContext(title: string, subtitle: string, unit: string | undefined, pe
  * Period, year and unit controls for the dashboard toolbar. Each option carries the plan it
  * switches to, so the toolbar and the chat change the dashboard the same way.
  */
-export function controlsFor(plan: Plan, dict: EnergyDictionary, s: DashStrings, lang: string): DashboardControls {
+export function controlsFor(
+  plan: Plan,
+  dict: EnergyDictionary,
+  s: DashStrings,
+  lang: string,
+  /** The year a comparison ranks when none was asked for (its latest year with data). */
+  shownYear?: string,
+): DashboardControls {
   const ds = dict.datasets[plan.dataset]
   const freq = ds.defaults.freq ?? 'A'
   const controls: DashboardControls = {}
@@ -850,7 +857,8 @@ export function controlsFor(plan: Plan, dict: EnergyDictionary, s: DashStrings, 
           chart: plan.chart === 'line' || plan.chart === 'area' ? undefined : plan.chart,
           notes: [],
         },
-        active: plan.focusPeriod === String(y),
+        // A comparison without a year ranks the latest one: that year is the one selected.
+        active: plan.focusPeriod ? plan.focusPeriod === String(y) : plan.intent === 'compare' && shownYear === String(y),
       }
     })
   }

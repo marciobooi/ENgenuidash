@@ -65,8 +65,18 @@ export function EclMultiSelect({
       if (codes.length && codes.join() !== initial) onApplyRef.current(codes)
     })
     if (select.input) observer.observe(select.input, { attributes: true, attributeFilter: ['aria-expanded'] })
+    // ECL writes the chosen options into the toggle joined by "|" ("Cyprus|Greece"): show (and
+    // have screen readers read) a plain list instead, "Cyprus, Greece". The toggle holds text only.
+    const tidy = () => {
+      const toggle = select.input
+      if (toggle?.textContent?.includes('|')) toggle.textContent = toggle.textContent.split('|').join(', ')
+    }
+    tidy()
+    const labelObserver = new MutationObserver(tidy)
+    if (select.input) labelObserver.observe(select.input, { childList: true, characterData: true, subtree: true })
     return () => {
       observer.disconnect()
+      labelObserver.disconnect()
       select.destroy()
     }
     // Mounted once per key (options and selection): see the component comment.

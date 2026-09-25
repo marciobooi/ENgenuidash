@@ -163,3 +163,13 @@ test('comparing all countries shows the map, next to the ranking', async () => {
   const i = charts(d).indexOf(map)
   assert.ok(i <= 1 && ['map', 'ranking'].includes(charts(d)[i === 0 ? 1 : 0].role ?? ''))
 })
+
+test('toolbar: a comparison without a year shows the year it ranks as selected, not "Over time"', async () => {
+  const d = await dash('Compare renewable energy share of all EU countries')
+  const ranking = charts(d).find((w): w is Extract<WidgetSpec, { type: 'bar' }> => w.role === 'ranking')!
+  const active = d.controls?.years?.filter((y) => y.active).map((y) => y.label)
+  assert.deepEqual(active, [ranking.title.match(/\d{4}/)?.[0]])
+  // A trend has no single year: "Over time" stays.
+  const trend = await dash('Renewable energy share in Spain, France and Germany since 2010')
+  assert.ok(!trend.controls?.years?.some((y) => y.active))
+})

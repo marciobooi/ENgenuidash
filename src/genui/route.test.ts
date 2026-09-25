@@ -114,3 +114,50 @@ test('questions about any energy dataset pass the guards and build a dashboard',
   }
   assert.deepEqual(blocked, [])
 })
+
+// ---------- follow-ups on a dashboard ----------
+
+const onDependency = (text: string) => route(text, planOf('What is the energy import dependency of the EU?'), ['What is the energy import dependency of the EU?'])
+const refined = (text: string) => {
+  const r = onDependency(text)
+  assert.equal(r.kind, 'refine', `${text} → ${r.kind}`)
+  return (r as Extract<Route, { kind: 'refine' }>).plan
+}
+
+test('"what about oil?" keeps the indicator and switches the product', () => {
+  const p = refined('what about oil?')
+  assert.equal(p.dataset, 'nrg_ind_id')
+  assert.equal(p.filters.siec, 'O4000XBIO')
+  assert.equal(refined('et pour le gaz ?').filters.siec, 'G3000')
+})
+
+test('"oil consumption in Spain" on the dependency dashboard is a new question', () => {
+  assert.equal(onDependency('oil consumption in Spain').kind, 'plan')
+})
+
+test('go back / undo / zurück / retour return to the previous dashboard', () => {
+  for (const t of ['go back', 'undo', 'zurück', 'retour', 'previous dashboard']) assert.equal(onDependency(t).kind, 'back', t)
+})
+
+test('questions about the figures on screen are explained; general questions are answered', () => {
+  for (const t of ['is that good?', 'why did it rise?', 'why is it so high?', 'ist das viel?', 'pourquoi ça a baissé ?']) assert.equal(onDependency(t).kind, 'explain', t)
+  assert.equal(onDependency('Why is gas important for electricity?').kind, 'answer')
+})
+
+test('more years, all years and the latest year change the period', () => {
+  assert.deepEqual(refined('more years').time, { kind: 'all' })
+  const latest = refined('the latest year')
+  assert.ok(latest.focusPeriod && Number(latest.focusPeriod) >= 2023, latest.focusPeriod)
+})
+
+test('"I want a map" shows all countries (the comparison has the map)', () => {
+  const p = refined('I want a map')
+  assert.ok(Array.isArray(p.filters.geo) && p.filters.geo.length === 27)
+})
+
+test('thanks with a compliment is small talk, not off-topic', () => {
+  for (const t of ['thanks, that is great', 'Danke, super', 'merci, c’est parfait']) {
+    const r = onDependency(t)
+    assert.ok(r.kind === 'answer' && r.smallTalk, `${t} → ${r.kind}`)
+  }
+})

@@ -4,7 +4,8 @@ import type { Lang } from '../i18n'
 /**
  * Follow-up messages with the action they should map to, on a fixed dashboard (EU energy import
  * dependency, 2018). Expected ids are those of dashboardActions: 'top', 'bottom', 'all', 'trend',
- * 'explain', 'bar', 'line', 'table', 'year-2015', 'add-DE', 'only-DE', 'other' (a valid change that is
+ * 'explain', 'bar', 'line', 'table', 'year-2015', 'add-DE', 'only-DE', 'back' (previous dashboard),
+ * 'other' (a valid change that is
  * not in the menu, e.g. "since 2015") or 'none' (nothing to change: off-topic, thanks, nonsense).
  * Add cases here whenever a real message is misunderstood.
  */
@@ -101,4 +102,41 @@ export const EVAL_CASES: { text: string; lang: Lang; expect: string }[] = [
   { lang: 'de', text: 'erzähl mir einen Witz', expect: 'none' },
   { lang: 'fr', text: 'merci beaucoup', expect: 'none' },
   { lang: 'fr', text: 'quelle est la capitale de la France', expect: 'none' },
+
+  // ---------- more follow-ups ----------
+  // Adding countries on a single year: a comparison for that year
+  { lang: 'en', text: 'add Italy and Spain', expect: 'other' },
+  { lang: 'de', text: 'und Frankreich?', expect: 'add-FR' },
+  { lang: 'fr', text: 'et l’Espagne ?', expect: 'add-ES' },
+  { lang: 'en', text: 'compare with Italy', expect: 'add-IT' },
+  { lang: 'en', text: 'only Germany and France', expect: 'other' },
+  // Another product, same indicator
+  { lang: 'en', text: 'what about oil?', expect: 'other' },
+  { lang: 'en', text: 'and for natural gas', expect: 'other' },
+  { lang: 'fr', text: 'et pour le pétrole ?', expect: 'other' },
+  // Time
+  { lang: 'en', text: 'more years', expect: 'trend' },
+  { lang: 'en', text: 'all years', expect: 'trend' },
+  { lang: 'en', text: 'the latest year', expect: 'other' },
+  { lang: 'en', text: 'from 2010 to 2015', expect: 'other' },
+  { lang: 'de', text: 'nur Polen seit 2010', expect: 'other' },
+  // Rankings and views
+  { lang: 'en', text: 'top 10', expect: 'top' },
+  { lang: 'en', text: 'the 3 lowest', expect: 'bottom' },
+  { lang: 'en', text: 'I want a map', expect: 'all' },
+  { lang: 'en', text: 'show it as a pie', expect: 'other' }, // applied; the pie is not among the 8 menu options
+  // Back to the previous dashboard
+  { lang: 'en', text: 'go back', expect: 'back' },
+  { lang: 'en', text: 'undo', expect: 'back' },
+  { lang: 'de', text: 'zurück', expect: 'back' },
+  { lang: 'fr', text: 'retour', expect: 'back' },
+  // Questions about the figures on screen: explained
+  { lang: 'en', text: 'is that good?', expect: 'explain' },
+  { lang: 'en', text: 'why did it rise in 2022?', expect: 'explain' },
+  { lang: 'de', text: 'ist das viel?', expect: 'explain' },
+  { lang: 'fr', text: 'pourquoi est-ce que ça a baissé ?', expect: 'explain' },
+  // Nothing to change
+  { lang: 'en', text: 'thanks, that is great', expect: 'none' },
+  { lang: 'de', text: 'Danke, super', expect: 'none' },
+  { lang: 'en', text: 'Why is gas important for electricity?', expect: 'none' },
 ]

@@ -1,5 +1,6 @@
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import type { ScopeVerdict } from '../llm/energyScope'
+import { normalize } from '../llm/energyScope'
 import { isExplainRequest } from './actions'
 import { planQuestion, refinePlan } from './planner'
 import type { Clarification, Plan } from './types'
@@ -8,7 +9,8 @@ import type { Clarification, Plan } from './types'
  * What to do with a chat message: the decision the app takes before any answer is written.
  * Pure (no UI, no model), so the app and the evaluation (src/eval) run exactly the same steps.
  *
- *   explain    "Explain these figures" for the dashboard on screen
+ *   explain    "Explain these figures", or a "why…?" about the dashboard on screen
+ *   back       "go back", "undo": the previous dashboard
  *   off-topic  not about energy: offer the action menu if a dashboard is on screen and every word
  *              is understood (`tryActions`), otherwise refuse
  *   rephrase   energy words, but asking about something unknown ("the date of oil")
@@ -20,6 +22,7 @@ import type { Clarification, Plan } from './types'
  */
 export type Route =
   | { kind: 'explain' }
+  | { kind: 'back' }
   | { kind: 'off-topic'; tryActions: boolean }
   | { kind: 'rephrase'; unknown: string[] }
   | { kind: 'refine'; plan: Plan }
@@ -27,6 +30,12 @@ export type Route =
   | { kind: 'actions' }
   | { kind: 'clarify'; clarification: Clarification }
   | { kind: 'answer'; conceptual: boolean; smallTalk: boolean }
+
+const BACK = /^(go back|back|undo|previous|previous dashboard|zuruck|ruckgangig|vorheriges|retour|annuler|precedent)$/
+const WHY = /\b(why|warum|wieso|weshalb|pourquoi)\b/
+// Words that point at the dashboard ("it", "this", "das", "ça"…).
+const REFERS = /\b(it|this|that|these|they|es|das|dies|sie|ca|cela|ce|il|elle|ils)\b/
+const JUDGE = /^(is (that|this|it) (good|bad|high|low|normal|a lot|much)|ist (das|es) (gut|schlecht|hoch|niedrig|viel)|est ce (bien|bon|eleve|beaucoup|normal)|c est (bien|bon|eleve|beaucoup|normal))\b/
 
 export interface RouteContext {
   current: Plan | null
@@ -40,6 +49,10 @@ export interface RouteContext {
 export function routeMessage(text: string, ctx: RouteContext): Route {
   const { current, dict, codelists } = ctx
   if (current && isExplainRequest(text)) return { kind: 'explain' }
+  const q = normalize(text).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (current && BACK.test(q)) return { kind: 'back' }
+  // "Why did it rise in 2022?", "is that good?": about the figures on screen.
+  if (current && ((WHY.test(q) && REFERS.test(q)) || JUDGE.test(q))) return { kind: 'explain' }
 
   const verdict = ctx.classify(text, ctx.previous)
   // Content words ENgenuidash does not know ("date" in "what is the date of oil?").

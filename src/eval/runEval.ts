@@ -61,7 +61,7 @@ export async function runEval(
     })
     const menu = (route.kind === 'off-topic' && route.tryActions) || route.kind === 'actions'
     const rules =
-      route.kind === 'explain' ? 'explain' : route.kind === 'refine' ? idOf(route.plan) : route.kind === 'plan' ? 'other' : null
+      route.kind === 'explain' ? 'explain' : route.kind === 'back' ? 'back' : route.kind === 'refine' ? idOf(route.plan) : route.kind === 'plan' ? 'other' : null
     const fallback = rankByOverlap(actions, c.text)[0]?.id ?? 'none'
 
     let model: string | undefined

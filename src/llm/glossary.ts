@@ -82,6 +82,13 @@ const SYNONYMS: Record<string, string> = {
   cogeneration: 'co-generation',
   'import dependency': 'energy dependency rate',
   'energy dependency': 'energy dependency rate',
+  'kraft-warme-kopplung': 'co-generation',
+  'kraft warme kopplung': 'co-generation',
+  'pompe a chaleur': 'heat pump',
+  'pompes a chaleur': 'heat pump',
+  tep: 'toe',
+  ktep: 'toe',
+  mtep: 'toe',
   energieabhangigkeit: 'energy dependency rate',
   importabhangigkeit: 'energy dependency rate',
   'energy import dependency': 'energy dependency rate',
@@ -157,7 +164,8 @@ export function findDefinitions(text: string, limit = 2): string[] {
   })
 }
 
-const DEFINITION_QUESTION = /^(what|whats|define|definition|meaning|explain|was ist|was sind|was bedeutet|erklar|qu est|c est quoi|explique|definis|que signifie)\b/
+// "What is X?", not any question starting with "what" ("what drives prices?" is not a definition).
+const DEFINITION_QUESTION = /^(what is|what are|whats|what s|what does \S+( \S+)? mean|define|definition|meaning|explain|was ist|was sind|was bedeutet|erklar|qu est[ -]ce|c est quoi|explique|definis|que signifie|que veut dire)\b/
 
 /**
  * For "what is X?" questions about a glossary concept, the definition itself: answering with the

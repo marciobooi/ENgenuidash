@@ -69,7 +69,7 @@ const QUESTION_WORDS = new Set(
         'drive drives driven driver drivers factor factors influence influences influenced determine determines behind reason why cause caused ' +
         'treiber faktor faktoren beeinflusst beeinflussen einfluss ursache ursachen facteur facteurs influence influencent cause causes raison ' +
         'hat sich lieber zuruck allein ' +
-        'plait prefere plutot retour seul seule produire produit produite produisent erzeugen erzeugt',
+        'plait prefere plutot retour seul seule produire produit produite produisent erzeugen erzeugt pompe pompes veut signifie',
     )
     .split(/\s+/),
 )

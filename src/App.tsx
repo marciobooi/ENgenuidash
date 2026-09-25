@@ -29,11 +29,12 @@ import {
 } from './data/eurostat'
 import { dashboardActions, rankByOverlap, type DashboardAction } from './genui/actions'
 import { Dashboard } from './genui/Dashboard'
-import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
+import { buildDashboard, NoDataError } from './genui/execute'
 import { recordMiss } from './eval/missLog'
 import type { FilterControl } from './components/filters'
 import { applyFilter, filterControls } from './genui/filters'
 import { planQuestion } from './genui/planner'
+import { dashStrings } from './genui/strings'
 import { routeMessage } from './genui/route'
 import { answerFromHits, smallTalkReply } from './llm/answers'
 import { searchQuery } from './llm/crossLingual'
@@ -45,7 +46,7 @@ import { definitionText, directDefinition, loadGlossary } from './llm/glossary'
 import { datasetDescription, knowledgeDocFreq, loadKnowledge, searchKnowledge } from './llm/knowledge'
 import { buildVocabulary } from './llm/vocabulary'
 import { useLocalLLM, type UIMessage } from './llm/useLocalLLM'
-import { APP_ABBR, STRINGS, type Lang, type Strings } from './i18n'
+import { APP_ABBR, STRINGS, type Lang } from './i18n'
 import './App.css'
 
 // Development-only evaluation page (#/eval); the import is dropped from production builds.
@@ -54,56 +55,8 @@ const EvalPage = import.meta.env.DEV ? lazy(() => import('./eval/EvalPage')) : n
 const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')
 
-function dashStrings(t: Strings): DashStrings {
-  return {
-    latest: t.dLatest,
-    highest: t.dHighest,
-    lowest: t.dLowest,
-    total: t.dTotal,
-    vs: t.dVs,
-    dataTable: t.dDataTable,
-    summaryLatest: t.dSummaryLatest,
-    summaryChange: t.dSummaryChange,
-    summaryRange: t.dSummaryRange,
-    summaryCompare: t.dSummaryCompare,
-    summaryMix: t.dSummaryMix,
-    noData: t.dNoData,
-    noteNoMonthly: t.dNoteNoMonthly,
-    noteAssumedHouseholds: t.dNoteAssumedHouseholds,
-    noteAssumedEu: t.dNoteAssumedEu,
-    sugAllCountries: t.dSugAllCountries,
-    sugWithEu: t.dSugWithEu,
-    sugHistory: t.dSugHistory,
-    sugMonthly: t.dSugMonthly,
-    sugMix: t.dSugMix,
-    sugExplain: t.dSugExplain,
-    sugUnit: t.dSugUnit,
-    noteCached: t.dNoteCached,
-    evolution: t.dEvolution,
-    rankingIn: t.dRankingIn,
-    changeVs: t.dChangeVs,
-    changeSince: t.dChangeSince,
-    shareOfTotal: t.dShareOfTotal,
-    yearOnYear: t.dYearOnYear,
-    yearEarlier: t.dYearEarlier,
-    monthByYear: t.dMonthByYear,
-    average: t.dAverage,
-    selectionAverage: t.dSelectionAverage,
-    sharesOverTime: t.dSharesOverTime,
-    mixRanking: t.dMixRanking,
-    heatmapTitle: t.dHeatmapTitle,
-    yearsShort: t.dYearsShort,
-    monthsShort: t.dMonthsShort,
-    allYears: t.dAllYears,
-    noteTop: t.dNoteTop,
-    noteBottom: t.dNoteBottom,
-    insights: t.dInsights,
-    companions: t.dCompanions,
-  }
-}
-
-// Phones and tablets ask before downloading the language model (hundreds of MB); computers
-// download it silently. The answer "Download now" is remembered on the device.
+// The language model is downloaded only after the user agrees (DownloadNotice); the answer
+// "Download now" is remembered on the device, and the model then loads on each visit.
 const DOWNLOAD_CONSENT_KEY = 'engenuidash.modelDownload'
 function hasDownloadConsent(): boolean {
   try {
@@ -372,6 +325,15 @@ export default function App() {
       // "Explain these figures" (typed or clicked) explains the dashboard on screen.
       case 'explain':
         return void explainDashboard(text)
+      case 'back': {
+        // The previous dashboard of this conversation (they are kept in order).
+        const target = Math.max(0, active - 1)
+        const message = active > 0 ? fill(t.backTo, { title: dashboards[target].title }) : t.noPrevious
+        llm.reply(text, message, active > 0 ? undefined : 'refusal')
+        setAnnouncement(message)
+        if (active > 0) setActive(target)
+        return
+      }
       case 'off-topic': {
         // With a dashboard on screen, a message made of known words is most likely a change we
         // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.

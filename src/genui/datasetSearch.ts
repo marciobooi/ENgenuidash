@@ -1,5 +1,6 @@
 import type { DatasetInfo, EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { normalize } from '../llm/energyScope'
+import { englishTerms } from '../llm/crossLingual'
 import { isFunctionWord } from '../llm/vocabulary'
 
 /**
@@ -29,12 +30,23 @@ const SYNONYMS: Record<string, string> = {
 // Abbreviations → the words of the product's label. They name a product (a code label), so they
 // never count as title words ("LNG imports" is about imports of liquefied natural gas, not
 // "stock levels for … liquefied gas").
+// Words replaced before matching: "wind power" is wind electricity (not "Batteries power capacities").
+const REPLACE: Record<string, string> = { power: 'electricity', strom: 'electricity' }
+
 // "Power plants" in these statistics means electricity production capacity.
 const CAPACITY = ['electricity', 'production', 'capacity']
 const EXPANSIONS: Record<string, string[]> = {
   kraftwerk: CAPACITY, kraftwerke: CAPACITY, centrale: CAPACITY, centrales: CAPACITY,
   kernkraftwerk: ['nuclear', ...CAPACITY], kernkraftwerke: ['nuclear', ...CAPACITY],
+  // "Capacity" alone is electrical capacity here (MW), not a collector surface.
+  capacity: ['capacity', 'electricity'], capacities: ['capacity', 'electricity'], capacite: ['capacite', 'electricite'],
+  capacites: ['capacite', 'electricite'], kapazitat: ['kapazitat', 'strom'], kapazitaten: ['kapazitat', 'strom'],
+  // "Anlagen" (installations) alone names no topic: "Solaranlagen" is solar, "Windanlagen" wind.
+  solaranlagen: ['solar'], windanlagen: ['wind'], windkraftanlagen: ['wind'], anlagen: [],
 }
+
+// Words the expansions add only to choose the dataset ("capacity" → electricity), never a code.
+const HINTS = new Set(['electrici', 'strom']) // matching keys of electricity / électricité / Strom
 
 const PRODUCT_SYNONYMS: Record<string, string[]> = {
   lng: ['liquefied', 'natural', 'gas'],
@@ -156,6 +168,8 @@ export interface TopicMatch {
   filters: Record<string, string>
   /** Matching keys of the question's topic words. */
   keys: string[]
+  /** The topic words after splitting compounds and expanding abbreviations. */
+  words: string[]
   partner?: string
   /** Next best datasets (for tests and debugging). */
   runnersUp: { code: string; score: number }[]
@@ -183,7 +197,12 @@ export function matchTopic(
   // Abbreviations become their label words; German compounds the dictionary does not know as a
   // whole are split: "gasimporte" → gas + importe.
   const productKeys = new Set(qWords.filter((w) => PRODUCT_SYNONYMS[w] && w !== 'chp').map((w) => key(PRODUCT_SYNONYMS[w][0])))
-  const expanded = qWords.flatMap((w) => EXPANSIONS[w] ?? PRODUCT_SYNONYMS[w] ?? (index.all.has(key(w)) ? [w] : splitCompound(w, index.all) ?? [w]))
+  const expanded = qWords
+    .map((w) => REPLACE[w] ?? w)
+    .flatMap((w) => EXPANSIONS[w] ?? PRODUCT_SYNONYMS[w] ?? (index.all.has(key(w)) ? [w] : splitCompound(w, index.all) ?? [w]))
+  // German and French questions: their English equivalents ("Erdöl" → oil, "gaz" → natural gas)
+  // count as covering the English title below, but do not score as matches of their own.
+  const english = new Set(englishTerms(question).flatMap(words).map(key))
   // Each question word matches as itself or as its synonym ("storage" → storage | stock).
   const groups = [...new Map(expanded.map((w) => [key(w), [...new Set([key(w), ...(SYNONYMS[w] ? [key(SYNONYMS[w])] : [])])]])).values()]
   const keys = [...new Set(groups.flat())]
@@ -211,7 +230,7 @@ export function matchTopic(
     // Prefer titles the question covers: every English title word it does not use costs a little
     // ("Imports of natural gas by partner country" beats "Natural gas import dependency by
     // country of origin" for "imports of natural gas from Norway").
-    for (const t of d.titleEn) if (!keys.includes(t)) score -= 0.4 * (index.idfTitle.get(t) ?? 0)
+    for (const t of d.titleEn) if (!keys.includes(t) && !english.has(t)) score -= 0.4 * (index.idfTitle.get(t) ?? 0)
     if (partner && d.ds.dimensions.some((x) => x.id === 'partner')) score += 3
     const isMonthly = /monthly|_m$|m$/.test(code) && d.ds.defaults.freq === 'M'
     if (isMonthly !== monthly) score -= 8
@@ -233,8 +252,14 @@ export function matchTopic(
     titleWords: best.titleWords,
     unmatched,
     // Words in the dataset title name the dataset, not a code ("gas" in "gas storage").
-    filters: codesFor(index, best.d.ds, keys.filter((k) => !best.d.title.has(k) || productKeys.has(k))).codes,
+    filters: codesFor(
+      index,
+      best.d.ds,
+      keys.filter((k) => (!best.d.title.has(k) || productKeys.has(k)) && !(HINTS.has(k) && !qWords.map(key).includes(k))),
+      keys,
+    ).codes,
     keys,
+    words: expanded,
     partner,
     runnersUp: ranking.sort((a, b) => b.score - a.score).slice(1, 3),
   }
@@ -245,7 +270,14 @@ export function matchTopic(
  * ("wood pellets" → R5111 Wood pellets, not R5110 Fuelwood, wood residues…). Dimensions with no
  * match are left to the dataset defaults.
  */
-export function codesFor(index: TopicIndex, ds: DatasetInfo, keys: string[]): { codes: Record<string, string>; used: Set<string> } {
+export function codesFor(
+  index: TopicIndex,
+  ds: DatasetInfo,
+  keys: string[],
+  /** All of the question's keys (title words too): a code whose label they cover entirely is
+   * chosen for a dimension still open ("batteries storage capacity" → "Capacity of battery storage"). */
+  allKeys: string[] = [],
+): { codes: Record<string, string>; used: Set<string> } {
   const remaining = new Set(keys)
   const used = new Set<string>()
   const out: Record<string, string> = {}
@@ -276,6 +308,18 @@ export function codesFor(index: TopicIndex, ds: DatasetInfo, keys: string[]): { 
       remaining.delete(w)
       used.add(w)
     }
+  }
+  const all = new Set(allKeys)
+  for (const dim of dims) {
+    if (out[dim.id] || !all.size) continue
+    let best: { code: string; n: number } | null = null
+    for (const code of dim.codes) {
+      const label = index.codelists.codelists[dim.codelist!]?.codes[code]?.en
+      if (!label || /^(other|total)/i.test(label)) continue
+      const lw = [...new Set(words(label).filter((w) => !isFunctionWord(w)).map(key))]
+      if (lw.length >= 2 && lw.every((w) => all.has(w)) && (!best || lw.length > best.n)) best = { code, n: lw.length }
+    }
+    if (best) out[dim.id] = best.code
   }
   return { codes: out, used }
 }

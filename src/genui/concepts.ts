@@ -18,13 +18,14 @@ export const PRODUCTS: (Concept & { siec: string })[] = [
   { id: 'lignite', siec: 'C0220', stems: ['lignite', 'braunkohle'] },
   { id: 'solar', siec: 'RA420', stems: ['solar', 'photovolta', 'solaire', 'pv'] },
   { id: 'wind', siec: 'RA300', stems: ['wind', 'eolien', 'windkraft', 'windenergie'] },
-  { id: 'hydro', siec: 'RA100', stems: ['hydro', 'wasserkraft', 'hydraul'] },
+  // "hydro$": the exact word, so "hydrogen" is not hydropower.
+  { id: 'hydro', siec: 'RA100', stems: ['hydro$', 'hydropower', 'hydroelectric', 'hydro power', 'wasserkraft', 'hydraul', 'hydroelectrique'] },
   { id: 'geothermal', siec: 'RA200', stems: ['geotherm'] },
   { id: 'biogas', siec: 'R5300', stems: ['biogas', 'biogaz'] },
   { id: 'bioenergy', siec: 'BIOE', stems: ['bioenerg', 'biomass', 'biomasse'] },
   { id: 'renewables', siec: 'RA000', stems: ['renewabl', 'erneuerbar', 'renouvelable', 'green energy', 'grune energie'] },
   { id: 'nuclear', siec: 'N900H', stems: ['nuclear', 'nuklear', 'kernkraft', 'kernenergie', 'atom', 'nucleaire'] },
-  { id: 'gas', siec: 'G3000', stems: ['natural gas', 'gas', 'erdgas', 'gaz', 'gaspreis', 'gasverbrauch', 'gasversorgung', 'gasimport', 'gasspeicher', 'gaskraftwerk'] },
+  { id: 'gas', siec: 'G3000', stems: ['natural gas', 'gaz naturel', 'gas', 'erdgas', 'gaz', 'gaspreis', 'gasverbrauch', 'gasversorgung', 'gasimport', 'gasspeicher', 'gaskraftwerk'] },
   { id: 'oil', siec: 'O4000XBIO', stems: ['oil', 'petroleum', 'erdol', 'mineralol', 'ol', 'petrole', 'petrolier'] },
   { id: 'coal', siec: 'C0000X0350-0370', stems: ['coal', 'kohle', 'charbon', 'solid fossil'] },
   { id: 'fossil', siec: 'FE', stems: ['fossil'] },
@@ -42,7 +43,7 @@ export const FLOWS: (Concept & { nrgBal: string })[] = [
   { id: 'imports', nrgBal: 'IMP', stems: ['import$', 'imports', 'imported', 'importing', 'importe', 'importiert', 'einfuhr', 'importat'] },
   { id: 'exports', nrgBal: 'EXP', stems: ['export', 'ausfuhr'] },
   // Whole forms, not "produc": that also matched "productivity" and "products".
-  { id: 'production', nrgBal: 'PPRD', stems: ['production', 'produced', 'produce', 'producing', 'producer', 'produktion', 'produzier', 'produire', 'produite', 'erzeug', 'forder', 'generat', 'gewinn'] },
+  { id: 'production', nrgBal: 'PPRD', stems: ['production', 'produced', 'produce', 'producing', 'producer', 'produktion', 'produzier', 'produire', 'produite', 'erzeugung', 'erzeug', 'forder', 'generat', 'gewinn'] },
   { id: 'grossConsumption', nrgBal: 'GIC', stems: ['gross inland', 'bruttoinlands', 'consommation interieure brute'] },
   { id: 'supply', nrgBal: 'NRGSUP', stems: ['supply', 'versorgung', 'approvisionnement'] },
   { id: 'consumption', nrgBal: 'FC_E', stems: ['consum', 'consumption', 'verbrauch', 'consomm', 'demand', 'nachfrage', 'use', 'usage'] },
@@ -84,9 +85,9 @@ export const INDUSTRY_WORDS = ['industr', 'business', 'compan', 'non-household',
 export const TAX_EXCLUDED_WORDS = ['without tax', 'excluding tax', 'before tax', 'net of tax', 'ohne steuer', 'hors taxe', 'ht']
 export const MIX_WORDS = ['mix', 'breakdown', 'by source', 'by fuel', 'by product', 'sources', 'composition', 'split', 'nach quelle', 'nach energietrager', 'aufteilung', 'par source', 'repartition', 'which fuels']
 export const MONTHLY_WORDS = ['monthly', 'per month', 'each month', 'by month', 'month', 'monat', 'monatlich', 'mensuel', 'par mois', 'mois']
-export const ALL_TIME_WORDS = ['all time', 'all-time', 'ever', 'history', 'historic', 'until today', 'up to today', 'to date', 'full', 'since the beginning', 'alle zeit', 'bis heute', 'gesamte', 'seit beginn', 'jusqu a aujourd hui', 'depuis toujours', 'historique', 'toute']
+export const ALL_TIME_WORDS = ['all time', 'all-time', 'all years', 'more years', 'longer period', 'every year', 'ever', 'history', 'historic', 'until today', 'up to today', 'to date', 'full', 'since the beginning', 'alle jahre', 'mehr jahre', 'toutes les annees', 'plus d annees', 'alle zeit', 'bis heute', 'gesamte', 'seit beginn', 'jusqu a aujourd hui', 'depuis toujours', 'historique', 'toute']
 export const ALL_COUNTRIES_WORDS = ['all countries', 'all the countries', 'every country', 'each country', 'by country', 'per country', 'member states', 'member state', 'every member', 'each member', 'all states', 'alle staaten', 'alle eu lander', 'tous les etats', 'all member', 'eu countries', 'european countries', 'compare countries', 'ranking', 'alle lander', 'jedes land', 'mitgliedstaaten', 'nach land', 'tous les pays', 'chaque pays', 'etats membres', 'par pays', 'classement']
-export const EXPLAIN_WORDS = ['what is', 'what are', 'what does', 'explain', 'why', 'how does', 'how do', 'how is', 'define', 'definition', 'meaning', 'was ist', 'was sind', 'erklar', 'warum', 'wieso', 'wie funktioniert', 'qu est-ce', 'qu est ce', 'explique', 'pourquoi', 'comment fonctionne', 'c est quoi']
+export const EXPLAIN_WORDS = ['what is', 'what are', 'what does', 'explain', 'why', 'how does', 'how do', 'how is', 'define', 'definition', 'meaning', 'was ist', 'was sind', 'was bedeutet', 'erklar', 'que signifie', 'que veut dire', 'warum', 'wieso', 'wie funktioniert', 'qu est-ce', 'qu est ce', 'explique', 'pourquoi', 'comment fonctionne', 'c est quoi']
 /** Questions about causes ("what drives prices?"): conceptual, even with a place, unless a period is named. */
 export const CAUSAL_WORDS = ['drive', 'drives', 'driven', 'driver', 'drivers', 'factor', 'factors', 'influenc', 'determin', 'treiber', 'faktor', 'beeinfluss', 'einfluss', 'ursache', 'facteur', 'influen']
 export const EU_ALIASES = ['eu', 'eu27', 'eu-27', 'ue', 'ue27', 'ue-27', 'european union', 'europaische union', 'union europeenne', 'uniao europeia', 'union europea', 'unione europea', 'europe', 'europa']

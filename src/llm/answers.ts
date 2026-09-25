@@ -46,7 +46,8 @@ export interface SmallTalkStrings {
   thanks: string
 }
 
-const THANKS = /^(thanks?( you)?|thank you|danke( schön| schon)?|merci( beaucoup)?|ok(ay)?)[!.?\s]*$/i
+// Thanks, alone or with a compliment ("thanks, that is great", "Danke, super"), and "ok".
+const THANKS = /^(thanks?|thank you|many thanks|danke|vielen dank|merci|ok(ay)?)\b/i
 
 /** Fixed replies to greetings and thanks (no model needed). */
 export function smallTalkReply(text: string, s: SmallTalkStrings): string {

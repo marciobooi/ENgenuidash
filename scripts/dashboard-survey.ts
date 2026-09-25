@@ -4,18 +4,15 @@
 //   npm run survey
 //   npm run survey -- "gas storage in Germany" "monthly gas imports of Germany"
 import { readFileSync } from 'node:fs'
-import { buildDashboard, type DashStrings } from '../src/genui/execute'
+import { buildDashboard } from '../src/genui/execute'
 import { planQuestion } from '../src/genui/planner'
+import { dashStrings } from '../src/genui/strings'
 import { STRINGS } from '../src/i18n'
 
 const read = (f: string) => JSON.parse(readFileSync(`public/data/eurostat/energy/${f}`, 'utf8'))
 const dict = read('dictionary.json')
 const codelists = read('codelists.json')
-const t = STRINGS.en as unknown as Record<string, unknown>
-// DashStrings from the English UI strings (dLatest → latest…), insights from dInsights.
-const s = new Proxy({} as DashStrings, {
-  get: (_, k: string) => (k === 'insights' ? t.dInsights : k === 'companions' ? t.dCompanions : (t[`d${k[0].toUpperCase()}${k.slice(1)}`] ?? t[k] ?? `{${k}}`)),
-})
+const s = dashStrings(STRINGS.en)
 
 const DEFAULT = [
   'What is the energy import dependency of the EU?',

@@ -17,7 +17,7 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 const STEMS = [
   // energy / power
   'energ', 'énerg', 'power', 'strom', 'electric', 'elektri', 'électri', 'watt', 'kwh', 'mwh', 'gwh', 'twh',
-  'joule', 'terajoule', 'toe', 'ktoe', 'mtoe', 'kilowatt', 'megawatt', 'gigawatt',
+  'joule', 'terajoule', 'toe', 'ktoe', 'mtoe', 'tep', 'ktep', 'mtep', 'kilowatt', 'megawatt', 'gigawatt',
   // fossil fuels
   'fossil', 'fossile', 'coal', 'kohle', 'charbon', 'lignite', 'braunkohle', 'anthracite', 'coke', 'koks',
   'peat', 'torf', 'tourbe', 'oil', 'erdöl', 'petrol', 'pétrol', 'diesel', 'gasoline', 'benzin', 'kerosene',
@@ -44,6 +44,8 @@ const STEMS = [
 
 // Greetings and thanks are allowed through; the system prompt steers the reply back to energy.
 const SMALL_TALK = /^(hi|hello|hey|hallo|guten (tag|morgen|abend)|bonjour|bonsoir|salut|thanks?( you)?|thank you|danke( schön)?|merci( beaucoup)?|ok(ay)?|help|hilfe|aide)[!.?\s]*$/i
+// Thanks followed by a compliment ("thanks, that is great", "merci, c'est parfait").
+const THANKS_LEAD = /^(thanks?|thank you|many thanks|danke|vielen dank|merci)\b[\s,!.]*(that|this|it|das|c|super|great|perfect|parfait|genial|toll|nice|cool|very|much|so)?[^?]{0,40}$/i
 
 const CODE_PATTERN = /\b(nrg_[a-z0-9_]+|ten\d{5}|sdg_07_\d{2}|tai\d{2})\b/i
 
@@ -111,7 +113,7 @@ export function hasEnergySignal(text: string, lexicon?: EnergyLexicon): boolean 
 // Tasks outside the tool's purpose, blocked even when they mention energy ("a poem about oil"):
 // ENgenuidash answers questions about energy statistics, it does not write creative or other content.
 const OUT_OF_SCOPE_TASK =
-  /\b(poem|poems|poetry|haiku|limerick|sonnet|rhymes?|short story|bedtime story|fairy tale|novel|jokes?|pun|riddle|songs?|lyrics|rap|essay|love letter|cover letter|tweet|slogan|recipe|write (a |some )?(code|program|script)|in python|in javascript|translate|translation|horoscope|gedichte?|reim|erzahl (mir )?eine geschichte|marchen|witze?|lied|songtext|aufsatz|rezept|ubersetze|ubersetzung|poemes?|poesie|raconte (moi )?une histoire|conte|blagues?|chanson|paroles|dissertation|recette|traduis|traduction)\b/
+  /\b(poem|poems|poetry|haiku|limerick|sonnet|rhymes?|short story|bedtime story|fairy tale|novel|jokes?|pun|riddle|songs?|lyrics|rap|essay|love letter|cover letter|tweet|slogan|recipe|write (a |some )?(code|program|script)|\w* ?script|python|javascript|sql query|translate|translation|horoscope|gedichte?|reim|erzahl (mir )?eine geschichte|marchen|witze?|lied|songtext|aufsatz|rezept|ubersetze|ubersetzung|poemes?|poesie|raconte (moi )?une histoire|conte|blagues?|chanson|paroles|dissertation|recette|traduis|traduction)\b/
 
 // A follow-up may contain only places, years, numbers and these connecting/time words
 // ("and in Germany?", "what about 2020?", "only France", "since 2015", "und Österreich?").
@@ -137,7 +139,7 @@ export function classifyScope(
 ): ScopeVerdict {
   if (OUT_OF_SCOPE_TASK.test(normalize(text))) return 'off-topic'
   if (hasEnergySignal(text, lexicon)) return 'energy'
-  if (SMALL_TALK.test(text.trim())) return 'small-talk'
+  if (SMALL_TALK.test(text.trim()) || THANKS_LEAD.test(text.trim())) return 'small-talk'
 
   const last = previousUserMessages.at(-1)
   let rest = ` ${normalize(text).replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim()} `

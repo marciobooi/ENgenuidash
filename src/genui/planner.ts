@@ -27,7 +27,7 @@ import {
   UNIT_WORDS,
   type Concept,
 } from './concepts'
-import { codesFor, key, matchTopic, topicIndex } from './datasetSearch'
+import { codesFor, key, matchTopic, partnerIn, topicIndex } from './datasetSearch'
 import type { ChartKind, Clarification, NoteKey, Plan, TimeRange } from './types'
 
 /**
@@ -217,8 +217,13 @@ function topicFromDictionary(question: string, dict: EnergyDictionary, codelists
   const match = matchTopic(index, question, { ignore: NON_TOPIC, monthly, noPlace: !places.codes.length && !places.eu, exclude })
   if (!match) return null
   // Keys the hand-written concepts explain ("gas", "imports", "consumption"…).
+  const concepts = [...PRODUCTS, ...FLOWS, ...METRICS]
+  // Words of multi-word concepts found in the question ("gaz naturel" → gaz, naturel).
+  const phraseWords = concepts.flatMap((c) => c.stems.filter((st) => st.includes(' ') && matches(p, st)).flatMap((st) => st.split(' ')))
   const explained = new Set([
-    ...p.words.filter((w) => [...PRODUCTS, ...FLOWS, ...METRICS].some((c) => c.stems.some((st) => matches(parse(w), st)))).map(key),
+    // The question's words and the parts of split compounds ("Kohleverbrauch" → kohle, verbrauch).
+    ...[...p.words, ...match.words].filter((w) => concepts.some((c) => c.stems.some((st) => matches(parse(w), st)))).map(key),
+    ...phraseWords.map((w) => key(normalize(w))),
     // "Energy" alone names no particular topic: it must not move a question off the balances.
     ...['energy', 'energie', 'energies'].map(key),
   ])
@@ -278,7 +283,7 @@ export function planQuestion(
   const geo = detectGeos(p, codelists)
   const top = detectTop(p)
   let allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
-  const mix = any(p, MIX_WORDS)
+  let mix = any(p, MIX_WORDS)
   const notes: NoteKey[] = []
 
   // Conceptual questions without a concrete place, period or data request go to the model.
@@ -309,15 +314,24 @@ export function planQuestion(
     if (!industry) notes.push('assumedHouseholds')
     // Currency, band and unit come from the dictionary's recommended selection.
     if (any(p, TAX_EXCLUDED_WORDS)) filters.tax = 'X_TAX'
+    // "in PPS" (purchasing power standards) or in national currency instead of euro.
+    if (any(p, ['pps', 'purchasing power', 'kaufkraft', 'pouvoir d achat', 'standard de pouvoir'])) filters.currency = 'PPS'
+    else if (any(p, ['national currency', 'landeswahrung', 'monnaie nationale'])) filters.currency = 'NAC'
   } else if (metrics.has('degreeDays')) {
     dataset = time.monthly ? 'nrg_chdd_m' : 'nrg_chdd_a'
     filters.indic_nrg = matches(p, 'cooling') || matches(p, 'kuhl') || matches(p, 'refroid') ? 'CDD' : 'HDD'
   } else if (metrics.has('dependency') || (flows.some((f) => f.id === 'imports') && matches(p, 'depend'))) {
     dataset = 'nrg_ind_id'
     seriesProducts = products.map((x) => x.siec)
+  } else if (metrics.has('share') && isElectricity && products.some((x) => x.id !== 'electricity' && x.id !== 'renewables')) {
+    // "Nuclear share of electricity": the electricity mix, where the asked fuel's share is shown.
+    dataset = 'nrg_bal_peh'
+    filters.nrg_bal = 'GEP'
+    seriesProducts = [...new Set([...products.filter((x) => x.id !== 'electricity').map((x) => x.siec), ...ELECTRICITY_MIX])]
+    mix = true
   } else if (metrics.has('share') && productIds.some((id) => ['renewables', 'solar', 'wind', 'hydro', 'bioenergy'].includes(id))) {
     dataset = 'nrg_ind_ren'
-    const sub = isElectricity ? 'REN_ELC' : flows.some((f) => f.id === 'transport') ? 'REN_TRA' : matches(p, 'heat') || matches(p, 'warme') || matches(p, 'chauffage') ? 'REN_HEAT_CL' : 'REN'
+    const sub = isElectricity ? 'REN_ELC' : flows.some((f) => f.id === 'transport') ? 'REN_TRA' : any(p, ['heat', 'heating', 'cooling', 'warme', 'heizen', 'kuhl', 'chauffage', 'refroid']) ? 'REN_HEAT_CL' : 'REN'
     filters.nrg_bal = sub
   } else if (metrics.has('intensity')) {
     dataset = 'nrg_ind_ei'
@@ -331,7 +345,9 @@ export function planQuestion(
 
   // 2. Monthly supply data.
   const monthlyKey = productIds.find((id) => MONTHLY[id])
-  if (!dataset && time.monthly) {
+  // (Not for "imports from Russia": the partner datasets have the origin, monthly too.)
+  const partnerAsked = !!partnerIn(question, topicIndex(dict, codelists))
+  if (!dataset && time.monthly && !partnerAsked) {
     if (monthlyKey) {
       const m = MONTHLY[monthlyKey]
       dataset = m.dataset
@@ -549,7 +565,14 @@ export function refinePlan(
   codelists: EnergyCodelists,
 ): Plan | null {
   const p = parse(question)
-  const hasTopic = find(p, PRODUCTS).length > 0 || find(p, METRICS).length > 0 || find(p, FLOWS).some((f) => f.id !== 'consumption')
+  // "Why did it rise in 2022?" asks for an explanation, not a change of the dashboard.
+  if (any(p, ['why', 'warum', 'wieso', 'weshalb', 'pourquoi'])) return null
+  const products = find(p, PRODUCTS)
+  const onlyProducts = products.length > 0 && !find(p, METRICS).length && !find(p, FLOWS).length
+  // "What about oil?" on the import dependency dashboard: the same indicator for that product.
+  const ownSiec = dict.datasets[current.dataset]?.dimensions.find((d) => d.id === 'siec')?.codes ?? []
+  const switchProduct = onlyProducts && !Array.isArray(current.filters.siec) && products.every((x) => ownSiec.includes(x.siec))
+  const hasTopic = !switchProduct && (products.length > 0 || find(p, METRICS).length > 0 || find(p, FLOWS).some((f) => f.id !== 'consumption'))
   // Naming the topic already on screen ("which countries are the most dependent?" on the import
   // dependency dashboard) is still a change of this dashboard, not a new question.
   if (hasTopic && !sameTopic(current, question, dict, codelists)) return null
@@ -565,11 +588,23 @@ export function refinePlan(
   const geo = detectGeos(p, codelists)
   const chart = detectChart(p)
   const top = detectTop(p)
-  const allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top
+  // "I want a map": the map comes with the comparison of all countries.
+  const allCountries = any(p, ALL_COUNTRIES_WORDS) || !!top || any(p, ['map', 'karte', 'carte'])
   const mix = any(p, MIX_WORDS)
 
   const next: Plan = { ...current, filters: { ...current.filters }, notes: [], retry: undefined }
   let changed = false
+
+  if (switchProduct) {
+    const codes = products.map((x) => x.siec)
+    next.filters.siec = codes.length === 1 ? codes[0] : codes
+    changed = true
+  }
+  // "The latest year": the last year of the dataset.
+  if (freq === 'A' && !time.years.length && !time.range && any(p, ['latest year', 'most recent year', 'last available year', 'neueste jahr', 'letzte verfugbare jahr', 'derniere annee', 'annee la plus recente'])) {
+    const y = Number(String(ds.dataEnd ?? '').slice(0, 4))
+    if (y) time.years.push(y)
+  }
 
   if (chart) {
     next.chart = chart
@@ -600,7 +635,12 @@ export function refinePlan(
       if (!allCountries) {
         next.allCountries = false
         next.top = undefined
-        if (next.intent === 'compare' && geos.length <= 6) next.intent = 'trend'
+        if (next.intent === 'compare' && geos.length <= 6 && !next.focusPeriod) next.intent = 'trend'
+        // "Add Italy" on a single year: the countries compared for that year.
+        if (next.focusPeriod && geos.length > 1 && next.intent === 'snapshot') {
+          next.intent = 'compare'
+          next.time = { kind: 'range', since: String(Number(next.focusPeriod) - 1), until: next.focusPeriod }
+        }
       }
       changed = true
     }

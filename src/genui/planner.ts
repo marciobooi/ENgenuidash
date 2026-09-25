@@ -217,9 +217,11 @@ function topicFromDictionary(question: string, dict: EnergyDictionary, codelists
   const match = matchTopic(index, question, { ignore: NON_TOPIC, monthly, noPlace: !places.codes.length && !places.eu, exclude })
   if (!match) return null
   // Keys the hand-written concepts explain ("gas", "imports", "consumption"…).
-  const explained = new Set(
-    p.words.filter((w) => [...PRODUCTS, ...FLOWS, ...METRICS].some((c) => c.stems.some((st) => matches(parse(w), st)))).map(key),
-  )
+  const explained = new Set([
+    ...p.words.filter((w) => [...PRODUCTS, ...FLOWS, ...METRICS].some((c) => c.stems.some((st) => matches(parse(w), st)))).map(key),
+    // "Energy" alone names no particular topic: it must not move a question off the balances.
+    ...['energy', 'energie', 'energies'].map(key),
+  ])
   const unknown = match.unmatched.some((w) => !explained.has(key(w)) && !NON_TOPIC.has(w))
   const found = dict.datasets[match.dataset]
   const hasPartner = found?.dimensions.some((d) => d.id === 'partner') ?? false

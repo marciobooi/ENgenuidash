@@ -31,6 +31,8 @@ import { dashboardActions, rankByOverlap, type DashboardAction } from './genui/a
 import { Dashboard } from './genui/Dashboard'
 import { buildDashboard, NoDataError, type DashStrings } from './genui/execute'
 import { recordMiss } from './eval/missLog'
+import type { FilterControl } from './components/filters'
+import { applyFilter, filterControls } from './genui/filters'
 import { planQuestion } from './genui/planner'
 import { routeMessage } from './genui/route'
 import { answerFromHits, smallTalkReply } from './llm/answers'
@@ -256,6 +258,11 @@ export default function App() {
   const ready = llm.status === 'ready'
   const busy = llm.generating || building
   const current = dashboards[active] as DashboardSpec | undefined
+  // Toolbar filters for the dashboard on screen (countries, products, flows…).
+  const filters = useMemo(
+    () => (current && dict && codelists ? filterControls(current.plan, dict, codelists, lang, t.filters) : []),
+    [current, dict, codelists, lang, t.filters],
+  )
   const hasDashboard = dashboards.length > 0
   const inConversation = llm.messages.length > 0
 
@@ -470,6 +477,13 @@ export default function App() {
       setAnnouncement(t.dlOffer)
     }
     return 'offered'
+  }
+
+  /** A toolbar filter changed: rebuild the dashboard, as if the change had been typed. */
+  const onFilter = (f: FilterControl, codes: string[]) => {
+    if (busy || !current || !dict) return
+    const names = codes.map((c) => f.options.find((o) => o.code === c)?.label ?? c)
+    void runPlan(applyFilter(current.plan, f.dim, codes, dict), `${f.label}: ${names.join(', ')}`)
   }
 
   const onSuggestion = (s: Suggestion) => {
@@ -736,6 +750,9 @@ export default function App() {
             }}
             chartLabels={chartLabels}
             onSuggestion={onSuggestion}
+            filters={filters}
+            onFilter={onFilter}
+            multiSelectLabels={t.multiSelect}
           />
         </div>
       </main>

@@ -1,6 +1,7 @@
 import { Database, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { AreaChart, BarChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
+import { Filters, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
 import { DataTable } from '../components/table'
 import { BreakdownCard } from './BreakdownCard'
@@ -33,6 +34,9 @@ export function Dashboard({
   labels,
   chartLabels,
   onSuggestion,
+  filters = [],
+  onFilter,
+  multiSelectLabels,
   busy,
 }: {
   spec: DashboardSpec
@@ -40,6 +44,10 @@ export function Dashboard({
   labels: DashboardLabels
   chartLabels: Partial<ChartActionLabels>
   onSuggestion: (s: Suggestion) => void
+  /** Countries, products, flows… for the dataset on screen (see filters.ts). */
+  filters?: FilterControl[]
+  onFilter?: (control: FilterControl, codes: string[]) => void
+  multiSelectLabels?: EclMultiSelectLabels
   busy?: boolean
 }) {
   const charts = spec.widgets.filter((w) => !['kpis', 'table'].includes(w.type))
@@ -148,7 +156,17 @@ export function Dashboard({
         ))}
       </header>
 
-      {spec.controls && <Toolbar controls={spec.controls} labels={labels} busy={busy} onSelect={onSuggestion} />}
+      {(spec.controls || filters.length > 0) && (
+        <Toolbar
+          controls={spec.controls ?? {}}
+          labels={labels}
+          busy={busy}
+          onSelect={onSuggestion}
+          filters={filters}
+          onFilter={onFilter}
+          multiSelectLabels={multiSelectLabels}
+        />
+      )}
 
       {spec.suggestions.length > 0 && (
         <nav className="dash__suggestions" aria-label={labels.suggestions}>
@@ -217,15 +235,21 @@ function Toolbar({
   labels,
   busy,
   onSelect,
+  filters,
+  onFilter,
+  multiSelectLabels,
 }: {
   controls: DashboardControls
   labels: DashboardLabels
   busy?: boolean
   onSelect: (s: Suggestion) => void
+  filters: FilterControl[]
+  onFilter?: (control: FilterControl, codes: string[]) => void
+  multiSelectLabels?: EclMultiSelectLabels
 }) {
   const activeYear = controls.years?.find((y) => y.active)
   return (
-    <div className="dash__toolbar" role="toolbar" aria-label={[labels.period, labels.year, labels.unit].join(', ')}>
+    <div className="dash__toolbar" role="toolbar" aria-label={[labels.period, labels.year, ...filters.map((f) => f.label), labels.unit].join(', ')}>
       {controls.periods && (
         <div className="dash__control">
           <span id="ctl-period">{controls.periodsTo ? labels.periodTo.replace('{year}', controls.periodsTo) : labels.period}</span>
@@ -267,6 +291,7 @@ function Toolbar({
           </select>
         </label>
       )}
+      {onFilter && multiSelectLabels && <Filters filters={filters} onChange={onFilter} labels={multiSelectLabels} disabled={busy} />}
       {controls.units && controls.units.length > 1 && (
         <label className="dash__control">
           {labels.unit}

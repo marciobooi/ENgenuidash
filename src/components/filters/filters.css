@@ -1,0 +1,47 @@
+/* ECL form groups laid out inline in the dashboard toolbar. */
+.filters__multi,
+.filters__single {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.filters__multi .ecl-form-label,
+.filters__single .ecl-form-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ecl-color-dark-80);
+  white-space: nowrap;
+}
+
+.filters__multi .ecl-select__multiple .ecl-select__container,
+.filters__single .ecl-select__container {
+  width: auto;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+/* The dropdown is wider than the toggle, so long names ("EU-27 (European Union…)") fit. */
+.filters__multi .ecl-select__multiple-dropdown {
+  min-width: 280px;
+}
+
+/* ECL keeps the original <select> in a container it marks as hidden: no space for it. */
+.filters__multi > .ecl-select__container--hidden {
+  display: none;
+}
+
+/* The chevron of a single select (ECL's icon slot, drawn with our icon set). */
+.filters__single .ecl-select__container {
+  position: relative;
+}
+
+.filters__single .ecl-select {
+  padding-right: 40px;
+}
+
+.filters__icon {
+  pointer-events: none;
+}

@@ -41,7 +41,8 @@ export const FLOWS: (Concept & { nrgBal: string })[] = [
   // 'import$' is the exact word: a prefix would also match "important".
   { id: 'imports', nrgBal: 'IMP', stems: ['import$', 'imports', 'imported', 'importing', 'importe', 'importiert', 'einfuhr', 'importat'] },
   { id: 'exports', nrgBal: 'EXP', stems: ['export', 'ausfuhr'] },
-  { id: 'production', nrgBal: 'PPRD', stems: ['produc', 'erzeug', 'forder', 'generat', 'gewinn'] },
+  // Whole forms, not "produc": that also matched "productivity" and "products".
+  { id: 'production', nrgBal: 'PPRD', stems: ['production', 'produced', 'produce', 'producing', 'producer', 'produktion', 'produzier', 'produire', 'produite', 'erzeug', 'forder', 'generat', 'gewinn'] },
   { id: 'grossConsumption', nrgBal: 'GIC', stems: ['gross inland', 'bruttoinlands', 'consommation interieure brute'] },
   { id: 'supply', nrgBal: 'NRGSUP', stems: ['supply', 'versorgung', 'approvisionnement'] },
   { id: 'consumption', nrgBal: 'FC_E', stems: ['consum', 'consumption', 'verbrauch', 'consomm', 'demand', 'nachfrage', 'use', 'usage'] },

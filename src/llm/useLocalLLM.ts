@@ -64,14 +64,16 @@ export function withoutSourceTag(text: string): string {
     .trim()
 }
 
-/** A model to test instead of the app's own (`?model=lfm`), if the URL asks for one. */
-function requestedModel(): string | undefined {
+/** A model (and format) to test instead of the app's own (`?model=<key>&dtype=q8`), if the URL asks. */
+function requested(name: 'model' | 'dtype'): string | undefined {
   try {
-    return new URLSearchParams(window.location.search).get('model') ?? undefined
+    return new URLSearchParams(window.location.search).get(name) ?? undefined
   } catch {
     return undefined
   }
 }
+const requestedModel = () => requested('model')
+const requestedDtype = () => requested('dtype')
 
 /**
  * A reply cut by the length limit ends mid-sentence ("…across these countries. O"): the
@@ -228,7 +230,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     }
 
     // Start downloading the model as soon as the page opens (after consent, see App).
-    if (autoLoadRef.current) startRef.current().postMessage({ type: 'load', mobile: isMobileDevice(), model: requestedModel() } satisfies WorkerRequest)
+    if (autoLoadRef.current) startRef.current().postMessage({ type: 'load', mobile: isMobileDevice(), model: requestedModel(), dtype: requestedDtype() } satisfies WorkerRequest)
 
     return () => {
       cancelAnimationFrame(frameRef.current)
@@ -243,7 +245,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     setError(null)
     setStatus('loading')
     loadingRef.current = true
-    startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice(), model: requestedModel() } satisfies WorkerRequest)
+    startRef.current?.().postMessage({ type: 'load', mobile: isMobileDevice(), model: requestedModel(), dtype: requestedDtype() } satisfies WorkerRequest)
   }, [])
 
   const ask = useCallback(

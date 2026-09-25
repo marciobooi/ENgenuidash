@@ -65,8 +65,8 @@ async function resetCache() {
 // scripts/ensure-model.mjs, listed in public/models/manifest.json). The browser never contacts
 // the Hugging Face Hub.
 
-/** 'small' is the app's model; others (e.g. 'lfm') are tried on request (?model=…). */
-type ModelKey = 'small' | 'lfm'
+/** 'small' is the app's model; any other key of models.json is tried on request (?model=…). */
+type ModelKey = string
 
 /** A downloaded model: its settings (from src/llm/models.json) and each format's part dtypes. */
 interface ModelEntry {
@@ -127,7 +127,7 @@ async function gpuSupport(): Promise<{ webgpu: boolean; f16: boolean }> {
  * (q4f16 fails without fp16). On CPU (WASM), computers use q8 (faster there) and phones q4 (half
  * the download).
  */
-function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, manifest: Manifest, preferred?: ModelKey): Candidate[] {
+function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, manifest: Manifest, preferred?: ModelKey, dtype?: string): Candidate[] {
   const has = (key: ModelKey, dtype: string) => !!manifest[key]?.dtypes[dtype]
   const forKey = (key: ModelKey): Candidate[] => {
     const out: Candidate[] = []
@@ -138,8 +138,16 @@ function candidates(mobile: boolean, gpu: { webgpu: boolean; f16: boolean }, man
     if (onCpu) out.push({ key, device: 'wasm', dtype: onCpu })
     return out
   }
-  // A model asked for (testing another model) first; the app's model stays the fallback.
-  return [...(preferred && preferred !== 'small' && manifest[preferred] ? forKey(preferred) : []), ...forKey('small')]
+  // A model (and format) asked for, to test it, first; the app's model stays the fallback.
+  const asked = preferred && manifest[preferred] ? preferred : undefined
+  const forced: Candidate[] =
+    asked && dtype && has(asked, dtype)
+      ? [
+          ...(gpu.webgpu ? [{ key: asked, device: 'webgpu' as Device, dtype: dtype as Candidate['dtype'] }] : []),
+          { key: asked, device: 'wasm', dtype: dtype as Candidate['dtype'] },
+        ]
+      : []
+  return [...forced, ...(asked && asked !== 'small' && !forced.length ? forKey(asked) : []), ...forKey('small')]
 }
 
 async function loadCandidate(c: Candidate, manifest: Manifest) {
@@ -167,7 +175,7 @@ async function loadCandidate(c: Candidate, manifest: Manifest) {
   await model.generate({ ...warm, max_new_tokens: 1 })
 }
 
-async function load(mobile: boolean, preferred?: ModelKey) {
+async function load(mobile: boolean, preferred?: ModelKey, dtype?: string) {
   const started = performance.now()
   const [manifest, gpu] = await Promise.all([readManifest(), gpuSupport()])
   if (!manifest) throw new Error('No language model in public/models (run npm run model:download).')
@@ -177,7 +185,7 @@ async function load(mobile: boolean, preferred?: ModelKey) {
   // URLs, and with remote models off it then treats tokenizer_config.json as missing.
   env.localModelPath = new URL(`${base}models/`).pathname
 
-  const list = candidates(mobile, gpu, manifest, preferred)
+  const list = candidates(mobile, gpu, manifest, preferred, dtype)
   if (!list.length) throw new Error('No downloaded model runs on this device.')
   let lastError: unknown
   for (const c of list) {
@@ -406,7 +414,7 @@ self.addEventListener('message', async (e: MessageEvent<WorkerRequest>) => {
   try {
     switch (msg.type) {
       case 'load':
-        loading ??= load(msg.mobile, msg.model as ModelKey | undefined)
+        loading ??= load(msg.mobile, msg.model as ModelKey | undefined, msg.dtype)
         await loading
         break
       case 'generate':

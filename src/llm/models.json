@@ -1,12 +1,20 @@
 {
-  "$comment": "Language models the app can run in the browser. scripts/download-model.mjs downloads them into public/models and copies these settings into public/models/manifest.json, which src/llm/worker.ts reads. 'small' runs on every device (Qwen3.5-0.8B was dropped: about 10× slower in the browser, with no better answers). chatTemplate: variables for the chat template (thinking stays off for option picking). thinking: reason before free-form answers, hidden from the user, at most thinkingBudget tokens. generation: overrides of src/llm/config.ts GENERATION for free-form answers.",
+  "$comment": "Language models the app can run in the browser. scripts/download-model.mjs downloads them into public/models and copies these settings into public/models/manifest.json, which src/llm/worker.ts reads. 'small' runs on every device (Qwen3.5-0.8B was dropped: about 10\u00d7 slower in the browser, with no better answers). chatTemplate: variables for the chat template (thinking stays off for option picking). thinking: reason before free-form answers, hidden from the user, at most thinkingBudget tokens. generation: overrides of src/llm/config.ts GENERATION for free-form answers. Also tried in the browser on the same six tasks (three dashboard explanations, three conceptual answers) and dropped: Gemma 3 1B (about twice as slow, invented facts) and LFM2.5-350M (q4 and q8: fast but wrong numbers and invented statistics; q8 was no better than q4, so the errors come from the model's size, not quantization). Another model can be tried by adding it here and opening the app with ?model=<key>&dtype=<q4f16|q4|q8>.",
   "small": {
     "id": "onnx-community/Qwen3-0.6B-ONNX",
-    "sessions": ["model"],
-    "dtypes": ["q4f16", "q4", "q8"],
+    "sessions": [
+      "model"
+    ],
+    "dtypes": [
+      "q4f16",
+      "q4",
+      "q8"
+    ],
     "maxInputTokens": 2048,
     "reuseCache": true,
-    "chatTemplate": { "enable_thinking": false },
+    "chatTemplate": {
+      "enable_thinking": false
+    },
     "thinking": false
   }
 }

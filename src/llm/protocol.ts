@@ -15,8 +15,8 @@ export interface GenerationOptions {
 
 export type WorkerRequest =
   /** `mobile`: phones and tablets load the small model (see device.ts and models.json). */
-  /** `model`: a model key of models.json to try first (testing: ?model=lfm), else 'small'. */
-  | { type: 'load'; mobile: boolean; model?: string }
+  /** `model`: a model key of models.json to try first (testing another model: ?model=<key>&dtype=<format>), else 'small'. */
+  | { type: 'load'; mobile: boolean; model?: string; dtype?: string }
   | { type: 'generate'; messages: ChatMessage[]; options: GenerationOptions }
   | { type: 'interrupt' }
   /** Clears the conversation KV cache (new chat). */

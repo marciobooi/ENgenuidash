@@ -112,5 +112,8 @@ test('words that look alike are not confused', () => {
 })
 
 test('a topic word nothing knows gives no dashboard instead of a guessed one', () => {
-  assert.equal(planQuestion('greenhouse gas emissions from energy', dict, codelists).kind, 'none')
+  assert.equal(planQuestion('noise from wind turbines', dict, codelists).kind, 'none')
+  assert.equal(planQuestion('jobs in the solar industry', dict, codelists).kind, 'none')
+  // Emissions from energy use are in the data now (env_air_gge, the energy sectors' combustion).
+  assert.equal((planQuestion('greenhouse gas emissions from energy', dict, codelists) as { plan: { dataset: string } }).plan.dataset, 'env_air_gge')
 })

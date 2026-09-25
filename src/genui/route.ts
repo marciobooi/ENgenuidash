@@ -3,6 +3,7 @@ import type { ScopeVerdict } from '../llm/energyScope'
 import { normalize } from '../llm/energyScope'
 import { isExplainRequest } from './actions'
 import { planQuestion, refinePlan } from './planner'
+import { presetPlan } from './presets'
 import type { Clarification, Plan } from './types'
 
 /**
@@ -58,6 +59,11 @@ export function routeMessage(text: string, ctx: RouteContext): Route {
   // Content words ENgenuidash does not know ("date" in "what is the date of oil?").
   const unknown = ctx.unknownWords(text)
   const refined = current && dict && codelists && unknown.length === 0 ? refinePlan(current, text, dict, codelists) : null
+
+  // A starter topic typed in any language ("Endenergieverbrauch nach Sektor in der EU", "final
+  // non-energy consumption by fuel in Germany"): its exact plan, with the places and period asked.
+  const preset = !refined && dict && codelists && verdict !== 'small-talk' ? presetPlan(text, dict, codelists) : null
+  if (preset) return { kind: 'plan', plan: preset }
 
   // Off-topic questions never reach the model or the planner. A dashboard change such as
   // "show as bar chart" has no energy word but is fine when every word is understood.

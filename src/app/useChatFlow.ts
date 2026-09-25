@@ -41,12 +41,13 @@ export function useChatFlow({
   announce: (text: string) => void
   openChat: () => void
   /** Example questions offered as buttons after "not understood" and small talk. */
-  ideas: string[]
+  ideas: { text: string; plan: Plan }[]
 }) {
   const { llm, ready } = assistant
   const { dict, codelists, scope, vocabulary } = data
   const { current, hasDashboard } = dash
-  const ideaChoices = ideas.map((text) => ({ label: text, query: text }))
+  // Offered after "not understood" and small talk; a click opens the topic's exact dashboard.
+  const ideaChoices = ideas.map(({ text, plan }) => ({ label: text, query: text, plan }))
 
   function askModel(text: string, verdict: string, previous: string[], conceptual = false, fuller = false) {
     if (!ready && !fuller) {

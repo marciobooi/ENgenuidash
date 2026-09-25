@@ -22,6 +22,11 @@ export interface Plan {
   monthlyDataset?: string
   /** Planner notes shown under the summary, e.g. "Monthly data is not available for this topic". */
   notes?: NoteKey[]
+  /**
+   * false: the series are separate measures, not parts of one total (primary and final energy
+   * consumption), so they are never shown as shares, even when they could be added up.
+   */
+  parts?: false
   /** Chart type the user asked for ("show as bar chart"); overrides the automatic choice. */
   chart?: ChartKind
   /**

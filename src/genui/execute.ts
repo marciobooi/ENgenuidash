@@ -254,7 +254,7 @@ export async function buildDashboard(
   const additive = !isPercent && ['energy', 'volume', 'mass', 'capacity'].includes(unitInfo?.kind ?? '')
   // Parts of one whole over time (capacity by technology, consumption by fuel): a composition view
   // (donut, stacked areas) fits better than separate lines. Countries are never parts of a whole here.
-  const composition = additive && !!seriesDim && !['geo', 'partner'].includes(seriesDim) && plan.intent === 'trend'
+  const composition = additive && plan.parts !== false && !!seriesDim && !['geo', 'partner'].includes(seriesDim) && plan.intent === 'trend'
   const changeUnit = isPercent ? 'pp' : '%'
   const changeBetween = (data: (number | null)[], from: number, to: number): number | null => {
     const a = data[from]

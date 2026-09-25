@@ -116,8 +116,10 @@ export const ANSWER_CASES: AnswerCase[] = [
   { q: 'Erzähl mir einen Witz', lang: 'de', expect: { route: 'refuse' } },
   { q: 'what is the date of oil', lang: 'en', expect: { route: 'rephrase' } },
   { q: 'what colour is natural gas', lang: 'en', expect: { route: 'rephrase' } },
-  // Emissions are not in the energy data: no dashboard; at most an on-topic quote from the documents.
-  { q: 'greenhouse gas emissions from energy', lang: 'en', expect: { route: ['rephrase', 'unclear', 'offer', 'passage', 'quote'], facts: ['greenhouse'] } },
+  // Emissions from energy use: the energy sectors' greenhouse gas emissions (env_air_gge).
+  { q: 'greenhouse gas emissions from energy', lang: 'en', expect: { route: 'plan', dataset: 'env_air_gge' } },
+  // A topic outside the data: no dashboard.
+  { q: 'noise from wind turbines', lang: 'en', expect: { route: ['rephrase', 'unclear', 'offer', 'passage', 'quote', 'refuse'] } },
   // Quotes never come from legal references or publication boilerplate.
   { q: 'What drives energy prices?', lang: 'en', expect: { route: ['passage', 'offer', 'unclear', 'quote'] } },
   { q: 'What are the main drivers of energy import dependency in Europe?', lang: 'en', expect: { route: ['passage', 'offer', 'quote', 'definition'] } },

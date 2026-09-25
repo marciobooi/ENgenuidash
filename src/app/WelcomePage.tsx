@@ -1,7 +1,15 @@
 import { ArrowUpRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { StarsMark } from '../Icons'
+import type { Plan } from '../genui/types'
 import type { Strings } from '../i18n'
+
+/** A starter question: its text, icon and the exact plan of its dashboard (genui/presets.ts). */
+export interface Idea {
+  icon: ReactNode
+  text: string
+  plan: Plan
+}
 
 /** The first screen: a welcome, the message box and example questions. */
 export function WelcomePage({
@@ -13,9 +21,9 @@ export function WelcomePage({
 }: {
   t: Strings
   composer: ReactNode
-  ideas: { icon: ReactNode; text: string }[]
+  ideas: Idea[]
   disabled: boolean
-  onIdea: (text: string) => void
+  onIdea: (idea: Idea) => void
 }) {
   return (
     <main className="welcome" id="main" tabIndex={-1}>
@@ -34,7 +42,7 @@ export function WelcomePage({
         <ul>
           {ideas.map((idea) => (
             <li key={idea.text}>
-              <button type="button" className="idea" disabled={disabled} onClick={() => onIdea(idea.text)}>
+              <button type="button" className="idea" disabled={disabled} onClick={() => onIdea(idea)}>
                 <span className="idea__icon">{idea.icon}</span>
                 <span className="idea__text">{idea.text}</span>
                 <ArrowUpRight className="idea__go" size={16} aria-hidden="true" />

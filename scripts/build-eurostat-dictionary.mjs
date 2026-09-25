@@ -148,6 +148,26 @@ for (const row of en.slice(start + 1)) {
     stack[level] = row.code
   }
 }
+// Energy tables Eurostat files outside the energy folder (e.g. under the SDG indicators), added
+// at the root of the tree: "Final energy consumption in households per capita" (SDG), and
+// "Greenhouse gas emissions by source sector" (environment: the energy sectors' emissions).
+const EXTRA_TABLES = ['sdg_07_20', 'env_air_gge']
+for (const code of EXTRA_TABLES) {
+  const row = en.find((r) => r.code === code && r.type !== 'folder')
+  if (!row || items.some((i) => i.code === code)) continue
+  items.push({
+    code,
+    type: row.type,
+    folder: ROOT_FOLDER,
+    title: titleByCode[code],
+    lastUpdate: row.lastUpdate,
+    lastStructureChange: row.lastStructureChange,
+    dataStart: row.dataStart,
+    dataEnd: row.dataEnd,
+    values: row.values,
+  })
+  folders[ROOT_FOLDER].children.push({ type: row.type, code })
+}
 console.log(`Found ${Object.keys(folders).length} folders and ${items.length} datasets/tables.`)
 
 // ---------- 2. Structures (dimensions + used codes) ----------
@@ -217,6 +237,8 @@ const UNIT_INFO = {
   KJ_M3_NCV: ['kJ/m³ (NCV)', 'calorific value'], MJ_T_GCV: ['MJ/t (GCV)', 'calorific value'],
   MJ_T_NCV: ['MJ/t (NCV)', 'calorific value'], TJ_TM3_NCV: ['TJ/thousand m³ (NCV)', 'calorific value'],
   PC: ['%', 'percentage'], I05: ['index 2005=100', 'index'], INX: ['index', 'index'],
+  // KGOE: sdg_07_20, "households per capita" (the per capita is in the title).
+  KGOE: ['kgoe', 'energy per capita'],
   TOE_HAB: ['toe/capita', 'energy per capita'], KGOE_HAB: ['kgoe/capita', 'energy per capita'],
   MJ_HAB: ['MJ/capita', 'energy per capita'], GJ_HAB: ['GJ/capita', 'energy per capita'],
   KGOE_TEUR: ['kgoe/€1000', 'energy intensity'], KGOE_TEUR_PPS: ['kgoe/€1000 (PPS)', 'energy intensity'],

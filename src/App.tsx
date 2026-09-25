@@ -1,4 +1,27 @@
-import { Database, Link2, PlugZap, Zap } from 'lucide-react'
+import {
+  Activity,
+  Building2,
+  Car,
+  ChartPie,
+  Cloud,
+  Database,
+  Factory,
+  Flame,
+  FlaskConical,
+  Fuel,
+  Gauge,
+  House,
+  Layers,
+  Leaf,
+  Link2,
+  Ship,
+  Thermometer,
+  TrainFront,
+  TrendingUp,
+  Warehouse,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import ComponentsGallery from './ComponentsGallery'
 import { Header } from './Header'
@@ -10,12 +33,36 @@ import { useAssistant } from './app/useAssistant'
 import { useChatFlow } from './app/useChatFlow'
 import { useDashboards } from './app/useDashboards'
 import { useEnergyData } from './app/useEnergyData'
-import { WelcomePage } from './app/WelcomePage'
+import { WelcomePage, type Idea } from './app/WelcomePage'
+import { pickPresets, presetPlan, PRESETS, type PresetId } from './genui/presets'
 import { DownloadNotice } from './components/download-notice'
 import { notify, Toaster } from './components/toast'
 import { Dashboard } from './genui/Dashboard'
 import { APP_ABBR, STRINGS, type Lang } from './i18n'
 import './App.css'
+
+const PRESET_ICONS: Record<PresetId, LucideIcon> = {
+  efficiency: Gauge,
+  renewables: Leaf,
+  ghg: Cloud,
+  intensity: Activity,
+  productivity: TrendingUp,
+  imports: Ship,
+  fossil: Fuel,
+  householdsPerCapita: House,
+  byProduct: Layers,
+  bySector: ChartPie,
+  householdUses: Thermometer,
+  transport: TrainFront,
+  road: Car,
+  services: Building2,
+  industry: Factory,
+  nonEnergy: FlaskConical,
+  production: Zap,
+  combustible: Flame,
+  supply: Warehouse,
+  gae: Database,
+}
 
 // Development-only evaluation page (#/eval); the import is dropped from production builds.
 const EvalPage = import.meta.env.DEV ? lazy(() => import('./eval/EvalPage')) : null
@@ -65,16 +112,17 @@ export default function App() {
     },
   })
 
-  const ideas = [
-    { icon: <PlugZap size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaSolar },
-    { icon: <Zap size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaWind },
-    { icon: <Database size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.ideaSave },
-  ]
+  // Four starter topics, picked at random at each start (genui/presets.ts).
+  const [ideaIds] = useState(() => pickPresets(4))
+  const ideas: Idea[] = ideaIds.map((id) => {
+    const Icon = PRESET_ICONS[id]
+    return { icon: <Icon size={18} strokeWidth={1.75} aria-hidden="true" />, text: t.starterQuestions[id], plan: PRESETS[id] }
+  })
   const openChat = () => {
     setUnread(false)
     setChatOpen(true)
   }
-  const chat = useChatFlow({ t, lang, data, assistant, dash, announce: setAnnouncement, openChat, ideas: ideas.map((i) => i.text) })
+  const chat = useChatFlow({ t, lang, data, assistant, dash, announce: setAnnouncement, openChat, ideas })
 
   const busy = llm.generating || dash.building
   const inConversation = llm.messages.length > 0
@@ -115,6 +163,13 @@ export default function App() {
     if (plan) void dash.runPlan(plan, link.question ?? data.dict.datasets[plan.dataset]?.code ?? '')
     else if (link.question) chat.send(link.question)
   })
+
+  // A starter question: the same plan as typing it (its focus included), else its preset.
+  const openIdea = (idea: Idea) => {
+    if (busy) return
+    const plan = (data.dict && data.codelists && presetPlan(idea.text, data.dict, data.codelists)) || idea.plan
+    void dash.runPlan(plan, idea.text)
+  }
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(
@@ -249,7 +304,7 @@ export default function App() {
       </main>
     )
   } else {
-    page = <WelcomePage t={t} composer={composer} ideas={ideas} disabled={busy || !data.dict} onIdea={send} />
+    page = <WelcomePage t={t} composer={composer} ideas={ideas} disabled={busy || !data.dict} onIdea={openIdea} />
   }
 
   return (

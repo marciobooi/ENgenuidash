@@ -27,8 +27,8 @@ function fromBase64Url(raw: string): string {
 
 /** The plan in its shareable form: what is needed to rebuild the dashboard, nothing else. */
 export function encodePlan(plan: Plan): string {
-  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus } = plan
-  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus }))
+  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts } = plan
+  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts }))
 }
 
 /** The plan from a link, or null when it is not a valid plan for our datasets. */
@@ -69,6 +69,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   if (top && Number.isInteger(top.n) && top.n >= 1 && top.n <= 27) plan.top = { n: top.n, ...(top.lowest ? { lowest: true } : {}) }
   if (typeof p.monthlyDataset === 'string' && dict.datasets[p.monthlyDataset]) plan.monthlyDataset = p.monthlyDataset
   if (typeof p.chart === 'string' && CHARTS.includes(p.chart)) plan.chart = p.chart as Plan['chart']
+  if (p.parts === false) plan.parts = false
   const focus = p.focus as Plan['focus']
   if (focus?.kind === 'change') plan.focus = { kind: 'change' }
   else if (focus?.kind === 'which') plan.focus = { kind: 'which', ...(focus.lowest ? { lowest: true } : {}), ...(focus.period ? { period: true } : {}) }

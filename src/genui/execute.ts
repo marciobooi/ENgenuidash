@@ -44,6 +44,8 @@ export interface DashStrings {
   changeSince: string
   shareOfTotal: string
   yearOnYear: string
+  yearEarlier: string
+  monthByYear: string
   average: string
   selectionAverage: string
   sharesOverTime: string
@@ -176,8 +178,11 @@ export async function buildDashboard(
 
   const widgets: WidgetSpec[] = []
   const summary: string[] = []
+  // Monthly and half-yearly data compare with the same period a year earlier (month to month
+  // mostly shows the seasons); annual data with the previous year.
+  const lag = { M: 12, S: 2, Q: 4 }[result.dimensions.freq?.codes[0]?.code ?? 'A'] ?? 1
   const deltaOf = (data: (number | null)[], i: number) => {
-    const prev = data.slice(0, i).findLastIndex((v) => v != null)
+    const prev = lag > 1 ? (i - lag >= 0 && data[i - lag] != null ? i - lag : -1) : data.slice(0, i).findLastIndex((v) => v != null)
     if (prev < 0 || data[i] == null || data[prev] == null) return null
     const a = data[prev] as number
     const b = data[i] as number
@@ -211,7 +216,10 @@ export async function buildDashboard(
   const period = periodLabels[focusIndex]
   const byCountry = seriesDim === 'geo'
   // Quantities that can be summed (ktoe, GWh, m³, t) get "share of total" views; rates and prices don't.
-  const additive = !isPercent && ['energy', 'volume', 'mass'].includes(unitInfo?.kind ?? '')
+  const additive = !isPercent && ['energy', 'volume', 'mass', 'capacity'].includes(unitInfo?.kind ?? '')
+  // Parts of one whole over time (capacity by technology, consumption by fuel): a composition view
+  // (donut, stacked areas) fits better than separate lines. Countries are never parts of a whole here.
+  const composition = additive && !!seriesDim && !['geo', 'partner'].includes(seriesDim) && plan.intent === 'trend'
   const changeUnit = isPercent ? 'pp' : '%'
   const changeBetween = (data: (number | null)[], from: number, to: number): number | null => {
     const a = data[from]
@@ -248,11 +256,13 @@ export async function buildDashboard(
     const data = list
       .filter((x) => x.code.length === 2 && x.data[at] != null)
       .map((x) => ({ code: x.code, name: x.name, value: x.data[at] as number }))
-    return data.length >= 3 ? { type: 'map', title: withPeriod(title), subtitle, data, size: 'half' } : null
+    // A map needs enough countries to show a pattern (not 3 coloured countries on a grey Europe).
+    return data.length >= 8 ? { type: 'map', title: withPeriod(title), subtitle, data, size: 'half' } : null
   }
 
   const heatmapOf = (list: typeof series): WidgetSpec | null => {
-    if (list.length < 3 || periods.length < 4) return null
+    // Countries × periods, for many countries: fewer read better as lines.
+    if (list.length < 6 || periods.length < 4 || !['geo', 'partner'].includes(seriesDim ?? '')) return null
     const rows = [...list].sort((p, q) => (q.data[latestIndex(q.data)] ?? 0) - (p.data[latestIndex(p.data)] ?? 0))
     const cols = periods.length > 15 ? periods.slice(-15).map((_, k) => periods.length - 15 + k) : periods.map((_, k) => k)
     return {
@@ -336,8 +346,8 @@ export async function buildDashboard(
         centerLabel: fmt.compact(total),
         size: 'half',
       })
-    } else if (prev >= 0) {
-      // Not summable: the two periods side by side per country (the ranking already lists the values).
+    } else if (prev >= 0 && (plan.focusPeriod || periods.length <= 2)) {
+      // Not summable, and no evolution below: the two periods side by side per country.
       widgets.push({
         type: 'bar',
         title: `${periodLabels[prev]} – ${period}`,
@@ -347,12 +357,12 @@ export async function buildDashboard(
         horizontal: false,
         size: 'half',
       })
-    } else {
+    } else if (plan.focusPeriod || periods.length <= 2) {
       widgets.push({ type: 'breakdown', title: withPeriod(title), subtitle, items: breakdownItems(ranked.map((r) => r.x), focusIndex), size: 'half' })
     }
     // 3. Evolution (only when no single year was asked for): heatmap for many series, else lines.
     if (!plan.focusPeriod && periods.length > 2) {
-      const heat = heatmapOf(series)
+      const heat = series.length > 8 ? heatmapOf(series) : null
       if (heat) widgets.push(heat)
       else widgets.push({ type: 'line', title: s.evolution, subtitle, categories: periodLabels, series: series.map(({ name, data }) => ({ name, data })), size: 'full' })
     }
@@ -367,7 +377,7 @@ export async function buildDashboard(
         }),
       )
     }
-  } else if (plan.intent === 'mix' && multi) {
+  } else if ((plan.intent === 'mix' || composition) && multi) {
     const slices = series
       .map((x) => ({ x, y: x.data[focusIndex] ?? 0 }))
       .filter((r) => r.y > 0)
@@ -527,21 +537,44 @@ export async function buildDashboard(
         size: 'full',
       })
     }
-    // 2. Period-on-period change.
-    if (periods.length > 2) {
-      const yoy = periods.map((_, k) => (k === 0 ? null : changeBetween(values, k - 1, k)))
+    // 2. Change: from the previous year (annual data) or from the same month / half a year
+    // earlier (sub-annual data, so the seasons do not dominate).
+    if (periods.length > lag + 1) {
+      const yoy = periods.map((_, k) => (k < lag ? null : changeBetween(values, k - lag, k)))
       if (yoy.some((v) => v != null)) {
+        const name = lag > 1 ? s.yearEarlier : s.yearOnYear
         widgets.push({
           type: 'bar',
-          title: s.yearOnYear,
+          title: name,
           subtitle: changeUnit,
-          categories: periodLabels.slice(1),
-          series: [{ name: s.yearOnYear, data: yoy.slice(1).map(round1) }],
+          categories: periodLabels.slice(lag),
+          series: [{ name, data: yoy.slice(lag).map(round1) }],
           signed: true,
           unit: changeUnit,
           decimals: 1,
           size: 'full',
         })
+      }
+      // Monthly data: the months of each of the last three years side by side (the seasons).
+      if (lag === 12) {
+        const years = [...new Set(periods.map((p) => p.code.slice(0, 4)))].slice(-3)
+        const months = Array.from({ length: 12 }, (_, m) => new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(2000, m, 1)))
+        if (years.length >= 2) {
+          widgets.push({
+            type: 'line',
+            title: s.monthByYear,
+            subtitle,
+            categories: months,
+            series: years.map((y) => ({
+              name: y,
+              data: months.map((_, m) => {
+                const k = periods.findIndex((p) => p.code === `${y}-${String(m + 1).padStart(2, '0')}`)
+                return k >= 0 ? values[k] : null
+              }),
+            })),
+            size: 'full',
+          })
+        }
       }
       summary.push(
         fill(s.summaryRange, {
@@ -574,7 +607,7 @@ export async function buildDashboard(
   })
 
   const insights = computeInsights(
-    { intent: plan.intent, multi, ranked: !!topNote, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
+    { intent: composition ? 'mix' : plan.intent, multi, ranked: !!topNote, lag, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
     s.insights,
   )
 

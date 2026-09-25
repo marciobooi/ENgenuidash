@@ -500,7 +500,8 @@ export function planQuestion(
       intent = 'trend'
     }
   } else if (allCountries) {
-    range = { kind: 'last', n: freq === 'A' ? 2 : freq === 'S' ? 2 : 13 }
+    // Ten years (the latest one is compared), so the dashboard can also show the evolution.
+    range = { kind: 'last', n: freq === 'A' ? 10 : freq === 'S' ? 10 : 13 }
     intent = 'compare'
   } else {
     range = { kind: 'last', n: freq === 'M' ? 24 : freq === 'S' ? 10 : 15 } // = a period button (execute.ts)
@@ -584,7 +585,7 @@ export function refinePlan(
       next.allCountries = true
       next.top = top
       next.intent = 'compare'
-      if (next.time.kind !== 'range' || !next.focusPeriod) next.time = { kind: 'last', n: freq === 'A' || freq === 'S' ? 2 : 13 }
+      if (next.time.kind !== 'range' || !next.focusPeriod) next.time = { kind: 'last', n: freq === 'A' || freq === 'S' ? 10 : 13 }
     } else if (any(p, REMOVE_WORDS)) {
       geos = currentGeos.filter((c) => !mentioned.includes(c))
     } else if (!any(p, ONLY_WORDS) && (any(p, ADD_WORDS) || ADD_PREFIXES.some((w) => p.text.startsWith(` ${w} `)))) {

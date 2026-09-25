@@ -19,6 +19,8 @@ export interface InsightStrings {
   vsAverageBelow: string
   biggestJump: string
   biggestDrop: string
+  biggestJumpYear: string
+  biggestDropYear: string
   leader: string
   gapRatio: string
   gapPoints: string
@@ -53,6 +55,8 @@ export interface InsightInput {
   periodLabels: string[]
   focusIndex: number
   perYear: number
+  /** Periods between compared values: 12 for monthly data (same month a year earlier), 1 for annual. */
+  lag?: number
   isPercent: boolean
   unit?: string
   fmt: {
@@ -112,7 +116,8 @@ export function computeInsights(input: InsightInput, s: InsightStrings): Insight
       dir = d
       streak++
     }
-    if (streak >= 3) add(dir > 0 ? 'up' : 'down', dir > 0 ? s.streakUp : s.streakDown, { n: String(streak), period: P[at] })
+    // (Not for monthly or half-yearly data: a run of falling months is mostly the season.)
+    if (streak >= 3 && (input.lag ?? 1) === 1) add(dir > 0 ? 'up' : 'down', dir > 0 ? s.streakUp : s.streakDown, { n: String(streak), period: P[at] })
 
     // Long-term change and average growth per year.
     const first = upTo[0]
@@ -139,13 +144,16 @@ export function computeInsights(input: InsightInput, s: InsightStrings): Insight
     }
 
     // Largest single-period move.
+    // Largest move: from the previous year, or from the same month / half a year earlier.
+    const lag = input.lag ?? 1
     let best: { d: number; i: number } | null = null
     for (let k = 1; k < upTo.length; k++) {
-      const d = change(upTo[k - 1].v, upTo[k].v)
+      const from = lag > 1 ? upTo.find((p) => p.i === upTo[k].i - lag) : upTo[k - 1]
+      const d = from ? change(from.v, upTo[k].v) : null
       if (d != null && (!best || Math.abs(d) > Math.abs(best.d))) best = { d, i: upTo[k].i }
     }
     if (best && Math.abs(best.d) >= 0.1) {
-      add(best.d > 0 ? 'up' : 'down', best.d > 0 ? s.biggestJump : s.biggestDrop, { change: fmt.signed(best.d, changeUnit), period: P[best.i] })
+      add(best.d > 0 ? 'up' : 'down', lag > 1 ? (best.d > 0 ? s.biggestJumpYear : s.biggestDropYear) : best.d > 0 ? s.biggestJump : s.biggestDrop, { change: fmt.signed(best.d, changeUnit), period: P[best.i] })
     }
     return out.slice(0, MAX_INSIGHTS)
   }

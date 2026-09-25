@@ -83,6 +83,8 @@ function dashStrings(t: Strings): DashStrings {
     changeSince: t.dChangeSince,
     shareOfTotal: t.dShareOfTotal,
     yearOnYear: t.dYearOnYear,
+    yearEarlier: t.dYearEarlier,
+    monthByYear: t.dMonthByYear,
     average: t.dAverage,
     selectionAverage: t.dSelectionAverage,
     sharesOverTime: t.dSharesOverTime,

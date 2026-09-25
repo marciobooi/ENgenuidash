@@ -34,3 +34,14 @@ test('"N of N above the EU value" is skipped for a top-N selection', () => {
   assert.equal(aboveEu(true).length, 0)
   assert.equal(aboveEu(false).length, 1)
 })
+
+test('monthly data: no "N periods in a row" streak, and moves are measured on a year earlier', () => {
+  // Two years of a seasonal series: winter high, summer low, 10% lower in the second year.
+  const season = [10, 9, 8, 6, 5, 4, 4, 5, 6, 8, 9, 10]
+  const data = [...season, ...season.map((v) => v * 0.9)]
+  const labels = data.map((_, k) => `${2024 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}`)
+  const out = computeInsights(base({ isPercent: false, unit: 'million m³', series: [{ code: '', name: 'DE', data }], periodLabels: labels, focusIndex: 23, perYear: 12, lag: 12 }), s).map(text)
+  assert.ok(!out.some((t) => /in a row/.test(t)), out.join(' | '))
+  const move = out.find((t) => /on a year earlier/.test(t))
+  assert.ok(move?.includes('-10.0%'), out.join(' | '))
+})

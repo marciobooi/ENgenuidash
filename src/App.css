@@ -386,6 +386,27 @@ main:focus {
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* Figures a written answer states that are in none of its sources (see src/llm/numbers.ts). */
+.msg__warning {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--ecl-color-warning, #f29527);
+  border-radius: 4px;
+  background: var(--ecl-color-warning-5, #fef4e9);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--ecl-color-dark-100);
+}
+
+.msg__warning svg {
+  flex: none;
+  margin-top: 2px;
+  color: #b3500f;
+}
+
 .msg__sources {
   display: flex;
   flex-direction: column;

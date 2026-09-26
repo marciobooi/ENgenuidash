@@ -8,6 +8,7 @@ import type {
   WorkerResponse,
 } from './protocol'
 import { isMobileDevice } from './device'
+import { unsupportedNumbers } from './numbers'
 import type { Source } from './grounding'
 import type { Plan } from '../genui/types'
 
@@ -23,6 +24,8 @@ export interface UIMessage extends ChatMessage {
   kind?: 'refusal' | 'error' | 'quote' | 'generated'
   /** Link to a dashboard built for this message. */
   card?: { index: number; title: string }
+  /** Numbers in a written answer that are in none of the sources it was given (see numbers.ts). */
+  unverified?: string[]
   /** One-click answers to a clarifying question. */
   /** Buttons under a message; `fuller` asks the model for a written answer to `query`. */
   choices?: { label: string; query: string; plan?: Plan; explain?: boolean; fuller?: boolean; explainAi?: boolean }[]
@@ -199,10 +202,14 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
             // A reply cut by the length limit loses its unfinished last sentence (not when stopped).
             const tagless = withoutSourceTag(replyRef.current.trim())
             const clean = stoppedRef.current ? tagless : withoutUnfinishedSentence(tagless)
-            if (clean !== replyRef.current.trim()) {
-              replyRef.current = clean
-              setMessages((m) => [...m.slice(0, -1), { ...m[m.length - 1], content: clean }])
-            }
+            replyRef.current = clean
+            // Figures the answer states that are in none of its sources (the prompt it was given)
+            // are named under it: a small model can invent a number (see numbers.ts).
+            setMessages((m) => {
+              const question = [...m].reverse().find((x) => x.role === 'user')
+              const unverified = unsupportedNumbers(clean, question?.prompt ?? question?.content ?? '')
+              return [...m.slice(0, -1), { ...m[m.length - 1], content: clean, ...(unverified.length ? { unverified } : {}) }]
+            })
           }
           emit({ type: 'done', text: replyRef.current.trim(), stopped: stoppedRef.current })
           break

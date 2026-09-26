@@ -24,7 +24,7 @@ export const HOLDOUT_CASES: ModelCase[] = [
   { q: "What was the EU's natural gas import dependency rate in 2025?", lang: 'en', facts: [['87.6', '87,6']] },
   { q: 'How did natural gas production in the EU change in 2025?', lang: 'en', facts: [['3.2', '3,2'], ['increas', 'rose', 'grew', 'higher', 'up']], never: ['decreased by 3.2', 'fell by 3.2'] },
   { q: 'By how much have EU imports of oil from Russia fallen since 2022?', lang: 'en', facts: [['89.6', '89,6']] },
-  { q: 'Which countries replaced Russian oil imports to the EU?', lang: 'en', facts: [['united states', 'norway', 'kazakhstan']] },
+  { q: 'Which countries replaced Russian oil imports to the EU?', lang: 'en', facts: [['united states', 'usa', 'norway', 'kazakhstan']] },
   // Energy production and imports, renewables (47.2% of generation; 49.9% of consumption)
   { q: "What share of the EU's electricity generation came from renewables in 2025?", lang: 'en', facts: [['47.2', '47,2', '49.9', '49,9']] },
   { q: 'What share of energy used for heating and cooling in the EU was renewable in 2025?', lang: 'en', facts: [['27.3', '27,3']] },

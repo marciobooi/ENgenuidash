@@ -67,6 +67,12 @@ export function ChatThread({
               ))}
             </ul>
           )}
+          {m.unverified && m.unverified.length > 0 && (
+            <p className="msg__warning">
+              <CircleAlert size={14} aria-hidden="true" />
+              {t.unverifiedNumbers.replace('{numbers}', m.unverified.join(', '))}
+            </p>
+          )}
           {m.sources && m.sources.length > 0 && (
             <div className="msg__sources">
               <span className="msg__sources-label">{t.sources}</span>

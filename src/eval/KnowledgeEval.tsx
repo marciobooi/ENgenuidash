@@ -8,6 +8,7 @@ import { searchQuery } from '../llm/crossLingual'
 import { modelPrompt } from '../llm/prompt'
 import type { ChatMessage, GenerationOptions } from '../llm/protocol'
 import { withoutUnfinishedSentence } from '../llm/useLocalLLM'
+import { HOLDOUT_CASES } from './holdoutCases'
 import { answerProblems, missingFacts, MODEL_CASES } from './modelCases'
 
 type Complete = (messages: ChatMessage[], options: GenerationOptions) => Promise<string>
@@ -29,7 +30,7 @@ declare global {
   interface Window {
     __knowledgeEval?: { running: boolean; results: KnowledgeResult[] }
     /** Tuning runs: overrides of the generation options and prompt layout (console only). */
-    __knowledgeEvalOptions?: { temperature?: number; questionLast?: boolean; system?: string; modelOnly?: boolean }
+    __knowledgeEvalOptions?: { temperature?: number; questionLast?: boolean; system?: string; modelOnly?: boolean; set?: 'tuning' | 'holdout' }
   }
 }
 
@@ -49,7 +50,9 @@ export function KnowledgeEval({ dict, codelists, complete, ready }: { dict: Ener
     window.__knowledgeEval = { running: true, results: [] }
     try {
       await Promise.all([loadGlossary(), loadKnowledge()])
-      for (const c of MODEL_CASES) {
+      // The tuning questions, or the held-out ones (never used to tune; see holdoutCases.ts).
+      const cases = window.__knowledgeEvalOptions?.set === 'holdout' ? HOLDOUT_CASES : MODEL_CASES
+      for (const c of cases) {
         const started = performance.now()
         // Conceptual: definitions and passages, no data slice (the knowledge base is what is tested).
         const o = window.__knowledgeEvalOptions ?? {}

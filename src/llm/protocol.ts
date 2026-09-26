@@ -51,7 +51,8 @@ export interface FileProgress {
 
 export type WorkerResponse =
   | { type: 'progress'; file: string; loaded: number; total: number }
-  | { type: 'ready'; model: string; device: 'webgpu' | 'wasm'; dtype: string; source: 'local'; loadMs: number }
+  /** `key`: the models.json key of the loaded model ('small', 'large'…). */
+  | { type: 'ready'; model: string; key: string; device: 'webgpu' | 'wasm'; dtype: string; source: 'local'; loadMs: number }
   | { type: 'start' }
   | { type: 'token'; text: string; tps: number; numTokens: number }
   | { type: 'done'; stats?: GenerationStats }

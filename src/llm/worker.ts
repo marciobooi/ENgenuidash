@@ -202,7 +202,7 @@ async function load(mobile: boolean, preferred?: ModelKey, dtype?: string) {
       await loadCandidate(c, manifest)
       const loadMs = Math.round(performance.now() - started)
       log(`ready: ${active!.id} ${c.device}/${c.dtype} (${mobile ? 'mobile' : 'computer'}) in ${loadMs} ms`)
-      post({ type: 'ready', model: active!.id, device: c.device, dtype: c.dtype, source: 'local', loadMs })
+      post({ type: 'ready', model: active!.id, key: c.key, device: c.device, dtype: c.dtype, source: 'local', loadMs })
       return
     } catch (err) {
       // e.g. an operator the browser's WebGPU does not support: try the next (smaller) option.

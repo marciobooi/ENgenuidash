@@ -105,7 +105,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
   const [status, setStatus] = useState<ModelStatus>(autoLoad ? 'loading' : 'idle')
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<Record<string, FileProgress>>({})
-  const [runtime, setRuntime] = useState<{ model: string; device: string; dtype: string; source: string; loadMs: number } | null>(null)
+  const [runtime, setRuntime] = useState<{ model: string; key: string; device: string; dtype: string; source: string; loadMs: number } | null>(null)
   const [stats, setStats] = useState<GenerationStats | null>(null)
   // Streamed text is buffered and flushed once per animation frame (not one render per token).
   const pendingTextRef = useRef('')
@@ -151,7 +151,7 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
           })
           break
         case 'ready':
-          setRuntime({ model: msg.model, device: msg.device, dtype: msg.dtype, source: msg.source, loadMs: msg.loadMs })
+          setRuntime({ model: msg.model, key: msg.key, device: msg.device, dtype: msg.dtype, source: msg.source, loadMs: msg.loadMs })
           setStatus('ready')
           loadingRef.current = false
           emit({ type: 'ready' })

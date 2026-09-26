@@ -41,3 +41,44 @@ export const HOLDOUT_CASES: ModelCase[] = [
   { q: "De combien les importations de pétrole russe de l'UE ont-elles diminué depuis 2022 ?", lang: 'fr', facts: [['89,6', '89.6']] },
   { q: "Quelle part de la consommation finale d'énergie de l'UE revenait à l'industrie en 2024 ?", lang: 'fr', facts: [['23,9', '23.9']] },
 ]
+
+/**
+ * A second held-out set (September 2026), written before the change it was used to judge (on
+ * computers, figure questions answered by the model from the excerpts rather than quoted), from
+ * sections neither earlier set used. Same rule: never tune on it.
+ */
+export const VALIDATION_CASES: ModelCase[] = [
+  // Electricity price statistics
+  { q: 'Which EU country had the highest household electricity prices in the second half of 2025?', lang: 'en', facts: [['ireland']] },
+  { q: 'What was the EU average household electricity price in the second half of 2025?', lang: 'en', facts: [['0.2896', '0,2896', '0.29', '0,29']] },
+  // Energy consumption in households
+  { q: "What share of the EU's final energy consumption did households represent in 2024?", lang: 'en', facts: [['26.0', '26,0', '26%', '26 %']] },
+  { q: 'Which energy product covered most of household energy consumption in the EU in 2024?', lang: 'en', facts: [['natural gas', 'gas'], ['29.4', '29,4']] },
+  { q: 'Which EU country relies most on electricity for household energy?', lang: 'en', facts: [['malta']] },
+  { q: "What share of households' direct energy use goes to heating and cooling?", lang: 'en', facts: [['half']] },
+  // Emergency oil stocks statistics
+  { q: 'How much emergency oil stock did the EU hold in May 2025?', lang: 'en', facts: [['108.6', '108,6']] },
+  { q: 'How many days of net imports must EU emergency oil stocks cover?', lang: 'en', facts: [['90']] },
+  { q: 'What was the minimum emergency oil stock level for EU countries after July 2022?', lang: 'en', facts: [['90.3', '90,3']] },
+  // Renewable energy statistics
+  { q: 'Which EU country had the highest share of renewable energy in 2025?', lang: 'en', facts: [['sweden']] },
+  // Natural gas supply and market
+  { q: 'How much did inland demand for natural gas in the EU change in 2025?', lang: 'en', facts: [['2.5', '2,5'], ['increas', 'rose', 'grew', 'higher', 'up']] },
+  { q: "Which country is the EU's largest natural gas producer?", lang: 'en', facts: [['romania']] },
+  { q: 'By how much did EU natural gas imports increase in 2025?', lang: 'en', facts: [['8.4', '8,4']] },
+  { q: 'How many companies imported or produced natural gas in the EU in 2024?', lang: 'en', facts: [['596']] },
+  // Coal production and consumption statistics
+  { q: 'Which EU countries still produce hard coal?', lang: 'en', facts: [['poland'], ['czechia', 'czech']] },
+  { q: 'Which two EU countries account for most of the hard coal consumption?', lang: 'en', facts: [['poland'], ['germany']] },
+  // Electricity production, consumption and market overview
+  { q: 'What was total net electricity generation in the EU in 2023?', lang: 'en', facts: [['2 637', '2637', '2,637', '2.637']] },
+  { q: 'Which EU country had the highest net electricity generation in 2023?', lang: 'en', facts: [['france']] },
+  // German
+  { q: 'Welches EU-Land hatte 2025 den höchsten Anteil erneuerbarer Energien?', lang: 'de', facts: [['schweden', 'sweden']] },
+  { q: 'Wie viel Notvorrat an Öl hielt die EU im Mai 2025?', lang: 'de', facts: [['108,6', '108.6']] },
+  { q: 'Welches Land ist der größte Erdgasproduzent der EU?', lang: 'de', facts: [['rumanien', 'rumänien', 'romania']] },
+  // French
+  { q: "Quel pays de l'UE avait les prix de l'électricité les plus élevés pour les ménages au second semestre 2025 ?", lang: 'fr', facts: [['irlande', 'ireland']] },
+  { q: "Quelle part de la consommation finale d'énergie de l'UE représentaient les ménages en 2024 ?", lang: 'fr', facts: [['26,0', '26.0', '26 %', '26%']] },
+  { q: "Quels pays de l'UE produisent encore de la houille ?", lang: 'fr', facts: [['pologne', 'poland'], ['tchequie', 'tchéquie', 'republique tcheque', 'czech']] },
+]

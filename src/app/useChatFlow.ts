@@ -226,7 +226,8 @@ export function useChatFlow({
    * and the offer of a fuller answer, when the model is not there) or 'unclear' (not supported).
    */
   async function answerFromDocuments(text: string, query: string): Promise<'quoted' | 'model' | 'unclear' | 'offered'> {
-    const answer = await documentAnswer(query)
+    // The larger model (computers) answers figure questions itself, from the excerpts.
+    const answer = await documentAnswer(query, { figuresToModel: ready && llm.runtime?.key === 'large' })
     if (answer.kind === 'unclear') return 'unclear'
     if (answer.kind === 'quote') {
       llm.reply(text, answer.text, 'quote', answer.sources)

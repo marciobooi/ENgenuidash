@@ -24,7 +24,7 @@ export type DocumentAnswer =
 const sourceOf = (h: Hit): Source | null => (h.url ? { code: 'Eurostat', title: h.section ? `${h.title} › ${h.section}` : h.title, url: h.url } : null)
 
 /** Decides how to answer from the best knowledge-base passages for `query`. */
-export function answerFromHits(hits: Hit[], query: string): DocumentAnswer {
+export function answerFromHits(hits: Hit[], query: string, { figuresToModel = false }: AnswerOptions = {}): DocumentAnswer {
   const top = hits[0]
   if (!top || top.score < MODEL_MIN_SCORE) return { kind: 'unclear' }
   // The quote comes from the passage whose best sentences cover the question best (among those
@@ -38,6 +38,10 @@ export function answerFromHits(hits: Hit[], query: string): DocumentAnswer {
     .map((c) => ({ ...c, coverage: quoteCoverage(c.quote, query), answers: (!figure || hasFigure(c.quote, query)) && onTopic(c.quote, query) }))
     .sort((a, b) => Number(b.answers) - Number(a.answers) || b.coverage - a.coverage || b.h.score - a.h.score || a.order - b.order)
   const { h: best, quote, coverage, answers: answersIt } = candidates[0]
+  // With the larger model (computers), figure questions are answered by it from the excerpts:
+  // quoting picks a sentence with *a* figure, not always the one asked for (the transport share
+  // for a question on industry); the model reads the excerpts and picks the right one.
+  if (figuresToModel && figure) return { kind: 'model', ...(quote && coverage > 0 && answersIt ? { quote: { text: quote, sources: [] } } : {}) }
   const sources = [best, ...hits.filter((h) => h.url !== best.url && h.score >= CONFIDENT_SCORE / 2)].map(sourceOf).filter((s): s is Source => !!s)
   // A confident quote must also cover most of the question.
   if (best.score >= CONFIDENT_SCORE && quote && coverage >= 0.5 && answersIt) return { kind: 'quote', text: quote, sources }
@@ -48,7 +52,12 @@ export function answerFromHits(hits: Hit[], query: string): DocumentAnswer {
  * The answer from our Eurostat documents for a question: quoted from the sentences of the best
  * documents that match it best (see searchExcerpts), or left to the model, or unclear.
  */
-export async function documentAnswer(query: string): Promise<DocumentAnswer> {
+export interface AnswerOptions {
+  /** The model on this device is good at reading figures (the larger one, on computers). */
+  figuresToModel?: boolean
+}
+
+export async function documentAnswer(query: string, options: AnswerOptions = {}): Promise<DocumentAnswer> {
   // Both kinds of candidate: the best sentences of the best documents, and the best passages as
   // they are. answerFromHits quotes whichever covers the question best.
   const [excerpts, passages] = await Promise.all([
@@ -56,7 +65,7 @@ export async function documentAnswer(query: string): Promise<DocumentAnswer> {
     searchKnowledge(query, { limit: 2 }).catch(() => []),
   ])
   // (Stable sort: on a tie, the focused excerpt comes before the passage as it is.)
-  return answerFromHits([...excerpts, ...passages].sort((a, b) => b.score - a.score), query)
+  return answerFromHits([...excerpts, ...passages].sort((a, b) => b.score - a.score), query, options)
 }
 
 // "How much", "what share", "when", "which country"… (EN, DE, FR): the answer is a figure, a date or a place.

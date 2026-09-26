@@ -260,7 +260,7 @@ export default function App() {
   } else if (EvalPage && route === '#/eval') {
     page = (
       <Suspense>
-        <EvalPage dict={data.dict} codelists={data.codelists} choose={llm.choose} complete={llm.complete} ready={ready} model={llm.runtime?.model} />
+        <EvalPage dict={data.dict} codelists={data.codelists} choose={llm.choose} complete={llm.complete} ready={ready} model={llm.runtime?.model} modelKey={llm.runtime?.key} />
       </Suspense>
     )
   } else if (current) {

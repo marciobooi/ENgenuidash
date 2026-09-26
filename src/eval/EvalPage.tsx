@@ -18,6 +18,7 @@ export default function EvalPage({
   complete,
   ready,
   model,
+  modelKey,
 }: {
   dict: EnergyDictionary | null
   codelists: EnergyCodelists | null
@@ -26,6 +27,8 @@ export default function EvalPage({
   ready: boolean
   /** Model loaded on this device. */
   model?: string
+  /** models.json key of the loaded model ('small', 'large'). */
+  modelKey?: string
 }) {
   const [results, setResults] = useState<CaseResult[]>([])
   const [running, setRunning] = useState(false)
@@ -103,7 +106,7 @@ export default function EvalPage({
         </table>
       )}
       <AnswerEval dict={dict} codelists={codelists} complete={complete} ready={ready} />
-      <KnowledgeEval dict={dict} codelists={codelists} complete={complete} ready={ready} />
+      <KnowledgeEval dict={dict} codelists={codelists} complete={complete} ready={ready} modelKey={modelKey} />
       <MissLog />
     </main>
   )

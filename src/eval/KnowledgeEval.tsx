@@ -8,7 +8,7 @@ import { searchQuery } from '../llm/crossLingual'
 import { modelPrompt } from '../llm/prompt'
 import type { ChatMessage, GenerationOptions } from '../llm/protocol'
 import { withoutUnfinishedSentence } from '../llm/useLocalLLM'
-import { HOLDOUT_CASES } from './holdoutCases'
+import { HOLDOUT_CASES, VALIDATION_CASES } from './holdoutCases'
 import { answerProblems, missingFacts, MODEL_CASES } from './modelCases'
 
 type Complete = (messages: ChatMessage[], options: GenerationOptions) => Promise<string>
@@ -30,7 +30,7 @@ declare global {
   interface Window {
     __knowledgeEval?: { running: boolean; results: KnowledgeResult[] }
     /** Tuning runs: overrides of the generation options and prompt layout (console only). */
-    __knowledgeEvalOptions?: { temperature?: number; questionLast?: boolean; system?: string; modelOnly?: boolean; set?: 'tuning' | 'holdout' }
+    __knowledgeEvalOptions?: { temperature?: number; questionLast?: boolean; system?: string; modelOnly?: boolean; set?: 'tuning' | 'holdout' | 'validation' }
   }
 }
 
@@ -39,7 +39,19 @@ declare global {
  * its facts reached the prompt (retrieval) and whether the model's answer states them (the
  * model). Separating the two shows what to tune. Results are also on window.__knowledgeEval.
  */
-export function KnowledgeEval({ dict, codelists, complete, ready }: { dict: EnergyDictionary | null; codelists: EnergyCodelists | null; complete: Complete; ready: boolean }) {
+export function KnowledgeEval({
+  dict,
+  codelists,
+  complete,
+  ready,
+  modelKey,
+}: {
+  dict: EnergyDictionary | null
+  codelists: EnergyCodelists | null
+  complete: Complete
+  ready: boolean
+  modelKey?: string
+}) {
   const [results, setResults] = useState<KnowledgeResult[]>([])
   const [running, setRunning] = useState(false)
 
@@ -51,7 +63,8 @@ export function KnowledgeEval({ dict, codelists, complete, ready }: { dict: Ener
     try {
       await Promise.all([loadGlossary(), loadKnowledge()])
       // The tuning questions, or the held-out ones (never used to tune; see holdoutCases.ts).
-      const cases = window.__knowledgeEvalOptions?.set === 'holdout' ? HOLDOUT_CASES : MODEL_CASES
+      const set = window.__knowledgeEvalOptions?.set
+      const cases = set === 'holdout' ? HOLDOUT_CASES : set === 'validation' ? VALIDATION_CASES : MODEL_CASES
       for (const c of cases) {
         const started = performance.now()
         // Conceptual: definitions and passages, no data slice (the knowledge base is what is tested).
@@ -60,7 +73,7 @@ export function KnowledgeEval({ dict, codelists, complete, ready }: { dict: Ener
         const missingInPrompt = missingFacts(c, prompt)
         // As in the chat: a quote from Eurostat's documents when they answer the question,
         // otherwise the model's answer (see useChatFlow.answerFromDocuments).
-        const quoted = o.modelOnly ? null : await documentAnswer(searchQuery(c.q))
+        const quoted = o.modelOnly ? null : await documentAnswer(searchQuery(c.q), { figuresToModel: modelKey === 'large' })
         let answer: string
         let via: 'quote' | 'model' = 'model'
         if (quoted?.kind === 'quote') {

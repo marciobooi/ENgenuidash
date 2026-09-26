@@ -47,6 +47,7 @@ const WORDS: Record<string, string> = {
   produite: 'production', produit: 'production', produziert: 'production', erzeugt: 'production',
   heizung: 'heating', raumwarme: 'space heating', chauffage: 'heating', haushalte: 'households', menages: 'households',
   ziel: 'target', objectif: 'target', stocks: 'stocks', notvorrate: 'emergency stocks', urgence: 'emergency',
+  uberholt: 'overtook', uberholen: 'overtake', depasse: 'overtook', solarstrom: 'solar electricity', kohle_: 'coal',
 }
 
 function matches(words: string[], text: string, stem: string): boolean {

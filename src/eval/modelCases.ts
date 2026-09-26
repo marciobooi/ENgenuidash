@@ -35,12 +35,12 @@ export const MODEL_CASES: ModelCase[] = [
   { q: 'What does the electricity price for households consist of?', lang: 'en', facts: [['network'], ['tax']] },
   { q: 'In which EU country do taxes make up the largest share of the household electricity price?', lang: 'en', facts: [['denmark']] },
   // Efficiency (Energy efficiency statistics)
-  { q: "Was the EU's primary energy consumption on track for its 2030 target in 2024?", lang: 'en', facts: [['21.1', '21,1'], ['above']], never: ['below the 2030 target'] },
+  { q: "Was the EU's primary energy consumption on track for its 2030 target in 2024?", lang: 'en', facts: [['21.1', '21,1'], ['above']], never: ['below the 2030 target', 'was on track', 'is on track', 'remains on track'] },
   // Definitions (glossary, dataset descriptions)
   { q: 'What is gross available energy?', lang: 'en', facts: [['suppl', 'available for all activities', 'energy available']] },
   { q: 'How is the share of fossil fuels in gross available energy calculated?', lang: 'en', facts: [['fossil'], ['divid', 'ratio', 'total']] },
   // Conceptual (no single figure)
-  { q: 'Why do countries with more renewables depend less on energy imports?', lang: 'en', facts: [['domestic', 'own production', 'produce', 'import less', 'less import', 'self']], never: ['not related'] },
+  { q: 'Why do countries with more renewables depend less on energy imports?', lang: 'en', facts: [['domestic', 'own production', 'produce', 'import less', 'less import', 'self', 'local']], never: ['not related'] },
   { q: 'Why is natural gas important for electricity production?', lang: 'en', facts: [['flexib', 'reliab', 'stable', 'balanc', 'backup', 'demand', 'peak', 'supply']], never: ['renewable energy source'] },
   // German
   { q: 'Was ist das Ziel der EU für erneuerbare Energien bis 2030?', lang: 'de', facts: [['42,5', '42.5']] },
@@ -66,8 +66,31 @@ export function missingFacts(c: ModelCase, text: string): string[] {
   return c.facts.filter((group) => !group.some((v) => t.includes(norm(v)))).map((group) => group.join(' | '))
 }
 
-/** Problems of a written answer: missing facts, wrong statements. */
-export function answerProblems(c: ModelCase, answer: string): string[] {
+/** Problems of a written answer: missing facts, wrong statements, numbers not in its sources. */
+export function answerProblems(c: ModelCase, answer: string, source?: string): string[] {
   const t = norm(answer)
-  return [...missingFacts(c, answer).map((f) => `missing ${f}`), ...(c.never ?? []).filter((w) => t.includes(norm(w))).map((w) => `says "${w}"`)]
+  return [
+    ...missingFacts(c, answer).map((f) => `missing ${f}`),
+    ...(c.never ?? []).filter((w) => t.includes(norm(w))).map((w) => `says "${w}"`),
+    ...(source === undefined ? [] : unsupportedNumbers(answer, source).map((n) => `number not in the sources: ${n}`)),
+  ]
+}
+
+/** A number as written in EN/DE/FR ("1,545", "1 545", "42,5 %") → its value as text ("1545", "42.5"). */
+function numberValues(text: string): string[] {
+  return (text.replace(/\u00a0|\u202f/g, ' ').match(/\d{1,3}(?:[ ,.]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?/g) ?? []).map((n) => {
+    const grouped = /^\d{1,3}(?:[ ,.]\d{3})+/.test(n) && !/^\d+[.,]\d{1,2}$/.test(n)
+    const plain = grouped ? n.replace(/[ ,.](?=\d{3}(\D|$))/g, '') : n
+    return String(Number(plain.replace(',', '.')))
+  })
+}
+
+/**
+ * Numbers in an answer that are not in its sources (the prompt or the quoted passage): invented
+ * figures ("19 billion tons of hard coal"). Small numbers (below 10) are left out: counts and
+ * list items ("three countries") are too common to check.
+ */
+export function unsupportedNumbers(answer: string, source: string): string[] {
+  const known = new Set(numberValues(source))
+  return [...new Set(numberValues(answer))].filter((n) => Number(n) >= 10 && !known.has(n))
 }

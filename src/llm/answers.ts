@@ -35,7 +35,7 @@ export function answerFromHits(hits: Hit[], query: string): DocumentAnswer {
   const candidates = hits
     .filter((h) => h.score >= top.score * 0.8)
     .map((h, order) => ({ h, order, quote: bestSentences(h, query) }))
-    .map((c) => ({ ...c, coverage: quoteCoverage(c.quote, query), answers: !figure || hasFigure(c.quote, query) }))
+    .map((c) => ({ ...c, coverage: quoteCoverage(c.quote, query), answers: (!figure || hasFigure(c.quote, query)) && onTopic(c.quote, query) }))
     .sort((a, b) => Number(b.answers) - Number(a.answers) || b.coverage - a.coverage || b.h.score - a.h.score || a.order - b.order)
   const { h: best, quote, coverage, answers: answersIt } = candidates[0]
   const sources = [best, ...hits.filter((h) => h.url !== best.url && h.score >= CONFIDENT_SCORE / 2)].map(sourceOf).filter((s): s is Source => !!s)
@@ -72,6 +72,25 @@ export function asksForFigure(question: string): boolean {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, ''),
   )
+}
+
+// The energy topics a question can be about (word stems): a quote must be about the same ones.
+const TOPICS = ['renewab', 'coal', 'lignite', 'natural gas', 'oil', 'petrol', 'electric', 'solar', 'wind', 'nuclear', 'hydro', 'biomass', 'heat pump', 'efficien', 'emission', 'fossil', 'household', 'industr', 'transport', 'price', 'tax']
+// "What does it consist of?": the answer lists parts.
+const PARTS_QUESTION = /\b(consists?|made (up )?of|components?|composed|breakdown|besteht|zusammensetz\w*|compos\w*)\b/
+
+/**
+ * Whether a quote is about what the question asks: the energy topics it names ("the 2030 target
+ * for renewable energy" is not answered by the 2030 efficiency target), and for "what does it
+ * consist of?", a list of the parts.
+ */
+function onTopic(quote: string, question: string): boolean {
+  const q = question.toLowerCase()
+  const t = quote.toLowerCase()
+  if (TOPICS.some((topic) => q.includes(topic) && !t.includes(topic))) return false
+  // (A list of datasets, "• Electricity prices components … (nrg_pc_204_c)", is not a list of parts.)
+  if (PARTS_QUESTION.test(q) && (!/•|\bcomponents?\b/.test(quote) || /\((nrg|sdg|ten)_?\w*\)/.test(quote))) return false
+  return true
 }
 
 /** A figure the question did not give ("2030" in "the 2030 target" is not the answer), or a country. */

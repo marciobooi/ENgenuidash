@@ -3,6 +3,8 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { GENERATION, SYSTEM_PROMPT } from '../llm/config'
 import { loadGlossary } from '../llm/glossary'
 import { loadKnowledge } from '../llm/knowledge'
+import { documentAnswer } from '../llm/answers'
+import { searchQuery } from '../llm/crossLingual'
 import { modelPrompt } from '../llm/prompt'
 import type { ChatMessage, GenerationOptions } from '../llm/protocol'
 import { withoutUnfinishedSentence } from '../llm/useLocalLLM'
@@ -12,6 +14,8 @@ type Complete = (messages: ChatMessage[], options: GenerationOptions) => Promise
 
 export interface KnowledgeResult {
   q: string
+  /** How the app answered: a quote from the documents, or the model. */
+  via: 'quote' | 'model'
   /** The facts reached the prompt (retrieval did its job). */
   retrieved: boolean
   missingInPrompt: string[]
@@ -25,7 +29,7 @@ declare global {
   interface Window {
     __knowledgeEval?: { running: boolean; results: KnowledgeResult[] }
     /** Tuning runs: overrides of the generation options and prompt layout (console only). */
-    __knowledgeEvalOptions?: { temperature?: number; questionLast?: boolean; system?: string }
+    __knowledgeEvalOptions?: { temperature?: number; questionLast?: boolean; system?: string; modelOnly?: boolean }
   }
 }
 
@@ -50,16 +54,26 @@ export function KnowledgeEval({ dict, codelists, complete, ready }: { dict: Ener
         // Conceptual: definitions and passages, no data slice (the knowledge base is what is tested).
         const o = window.__knowledgeEvalOptions ?? {}
         const { prompt } = await modelPrompt(c.q, dict, codelists, c.lang, { conceptual: true, questionLast: o.questionLast })
-        const options = o.temperature === undefined ? GENERATION : { ...GENERATION, temperature: o.temperature }
-        const raw = await complete([{ role: 'system', content: o.system ?? SYSTEM_PROMPT }, { role: 'user', content: prompt }], options)
-        const answer = withoutUnfinishedSentence(raw)
         const missingInPrompt = missingFacts(c, prompt)
+        // As in the chat: a quote from Eurostat's documents when they answer the question,
+        // otherwise the model's answer (see useChatFlow.answerFromDocuments).
+        const quoted = o.modelOnly ? null : await documentAnswer(searchQuery(c.q))
+        let answer: string
+        let via: 'quote' | 'model' = 'model'
+        if (quoted?.kind === 'quote') {
+          answer = quoted.text
+          via = 'quote'
+        } else {
+          const options = o.temperature === undefined ? GENERATION : { ...GENERATION, temperature: o.temperature }
+          answer = withoutUnfinishedSentence(await complete([{ role: 'system', content: o.system ?? SYSTEM_PROMPT }, { role: 'user', content: prompt }], options))
+        }
         const result: KnowledgeResult = {
           q: c.q,
+          via,
           retrieved: !missingInPrompt.length,
           missingInPrompt,
           answer,
-          problems: answerProblems(c, answer),
+          problems: answerProblems(c, answer, via === 'quote' ? answer : prompt),
           ms: Math.round(performance.now() - started),
           promptChars: prompt.length,
         }
@@ -107,7 +121,10 @@ export function KnowledgeEval({ dict, codelists, complete, ready }: { dict: Ener
                 <td className="ecl-table__cell">{r.problems.length ? '✗' : '✓'}</td>
                 <td className="ecl-table__cell">{r.q}</td>
                 <td className="ecl-table__cell">{r.retrieved ? 'yes' : `no: ${r.missingInPrompt.join('; ')}`}</td>
-                <td className="ecl-table__cell">{r.answer}</td>
+                <td className="ecl-table__cell">
+                  {r.via === 'quote' ? '[quote] ' : ''}
+                  {r.answer}
+                </td>
                 <td className="ecl-table__cell">{r.problems.join('; ')}</td>
                 <td className="ecl-table__cell">{r.ms}</td>
               </tr>

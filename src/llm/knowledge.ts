@@ -82,9 +82,12 @@ export function stem(w: string): string {
   return s.length >= 4 ? s : w
 }
 
+/** Eurostat's names for the same thing: the "energy dependency rate" is the import dependency. */
+const SAME_AS: [RegExp, string][] = [[/\benergy dependency\b/gi, 'energy import dependency']]
+
 /** Stems plus adjacent stem pairs, so "heat pump" outranks pages that only mention "heat". */
 function tokens(text: string): string[] {
-  const w = words(text).map(stem)
+  const w = words(SAME_AS.reduce((t, [re, to]) => t.replace(re, to), text)).map(stem)
   return [...w, ...w.slice(1).map((x, i) => `${w[i]}_${x}`)]
 }
 
@@ -246,8 +249,8 @@ export async function searchExcerpts(
   return top.map((hit) => {
     const doc = hit.url ?? hit.title
     const parts = index.passages.filter((p) => (p.url ?? p.title) === doc && !BOILERPLATE.test(p.section ?? ''))
-    const scored = parts
-      .flatMap((p, pi) => sentencesOf(p.text).map((s, si) => ({ s, order: pi * 1000 + si })))
+    const all = parts.flatMap((p, pi) => sentencesOf(p.text).map((s, si) => ({ s, order: pi * 1000 + si })))
+    const scored = all
       .map((x) => {
         const terms = new Set(tokens(x.s))
         let score = 0
@@ -266,6 +269,15 @@ export async function searchExcerpts(
       if (picked.length && length + x.s.length > maxChars) continue
       picked.push(x)
       length += x.s.length + 1
+    }
+    // A sentence that introduces a list ("… divided into the following components and taxes:")
+    // brings its items along, as far as they fit: the list is the answer.
+    for (const x of [...picked].filter((p) => p.s.endsWith(':'))) {
+      for (const item of all.filter((y) => y.order > x.order && y.order < x.order + 8 && y.s.startsWith('•'))) {
+        if (picked.some((p) => p.order === item.order) || length + item.s.length > maxChars * 1.5) break
+        picked.push({ ...item, score: 0 })
+        length += item.s.length + 1
+      }
     }
     const text = picked.sort((a, b) => a.order - b.order).map((x) => x.s).join(' ')
     return { ...hit, text: text || hit.text.slice(0, maxChars) }

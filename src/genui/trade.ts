@@ -1,4 +1,4 @@
-import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary } from '../data/eurostat'
+import { codeLabel, fetchEurostatData, loadEnergyCodelists, type EnergyCodelists, type EnergyDictionary } from '../data/eurostat'
 import type { Strings } from '../i18n'
 import { EU27 } from './concepts'
 import { planQuestion } from './planner'
@@ -336,7 +336,7 @@ export async function buildTradeDashboard(
     unit: symbol,
     source: { code: dataset, title: result.label, url: `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=${lang}` },
     suggestions: tradeSuggestions(plan, s),
-    controls: tradeControls(plan, dict, withData, year, t, (code) => label('siec', code)),
+    controls: await tradeControls(plan, dict, withData, year, t, lang),
     context: [title, ...summary, ...rows.slice(0, 15).map((r, i) => `${i + 1}. ${r.name}: ${nf.format(r.value)} ${symbol} (${fmtPct(r.share)})`)].join('\n'),
     plan: { ...plan, focusPeriod: year },
     shown: { geo: [geo] },
@@ -344,14 +344,14 @@ export async function buildTradeDashboard(
   return spec
 }
 
-function tradeControls(
+async function tradeControls(
   plan: Plan,
   dict: EnergyDictionary,
   years: string[],
   year: string,
   t: TradeStrings,
-  siecLabel: (code: string) => string,
-): DashboardControls {
+  lang: string,
+): Promise<DashboardControls> {
   const trade = plan.trade!
   const at = (next: { flow: TradeFlow; fuel: TradeFuel }): Plan => {
     const dataset = DATASETS[next.fuel][next.flow]
@@ -364,6 +364,11 @@ function tradeControls(
   }
   const ds = dict.datasets[plan.dataset]
   const siecNames = codesOf(dict, plan.dataset, 'siec')
+  // Local codelists: the product dropdown lists every product the dataset offers, not only the
+  // one just fetched (the API response only carries labels for the codes in the query).
+  const codelists: EnergyCodelists = await loadEnergyCodelists()
+  const siecCodelist = ds.dimensions.find((d) => d.id === 'siec')?.codelist ?? null
+  const siecLabel = (code: string) => codeLabel(codelists, siecCodelist, code, lang)
   return {
     years: [...years].reverse().slice(0, 15).map((y) => ({ label: y, plan: { ...plan, focusPeriod: y }, active: y === year })),
     units: ds.units.map((u) => ({ label: UNIT_SYMBOL[u] ?? u, plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: plan.filters.unit === u })),

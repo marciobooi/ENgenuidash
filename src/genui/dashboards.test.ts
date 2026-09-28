@@ -6,6 +6,7 @@ import { installEurostatStub } from '../test/eurostatStub'
 import { buildDashboard, NoDataError } from './execute'
 import { applyFilter } from './filters'
 import { planQuestion, refinePlan } from './planner'
+import { PRESETS } from './presets'
 import { dashStrings } from './strings'
 import type { DashboardSpec, Plan, WidgetSpec } from './types'
 
@@ -156,4 +157,24 @@ test('the data given to the model has the precision the dashboard shows, not all
   const numbers = [...d.context.matchAll(/: (\d+(?:\.\d+)?)/g)].map((m) => m[1])
   assert.ok(numbers.length > 10)
   assert.ok(numbers.every((n) => (n.split('.')[1] ?? '').length <= 1), numbers.join(' '))
+})
+
+test('mix: the donut and the shares over time give each source the same percentage, none left out', async () => {
+  const d = await build({ ...PRESETS.production, time: { kind: 'last', n: 10 } })
+  const pie = charts(d).find((w) => w.type === 'pie') as Extract<WidgetSpec, { type: 'pie' }>
+  const shares = charts(d).find((w) => 'stacked' in w && w.stacked === 'percent') as Extract<WidgetSpec, { type: 'area' | 'bar' }>
+  const stacked = charts(d).find((w) => 'stacked' in w && w.stacked === true) as Extract<WidgetSpec, { type: 'area' | 'bar' }>
+  assert.ok(pie && shares && stacked)
+  const last = shares.categories.length - 1
+  const pieTotal = pie.slices.reduce((n, x) => n + x.y, 0)
+  const barTotal = shares.series.reduce((n, x) => n + (x.data[last] ?? 0), 0)
+  // Same total everywhere (every source of the preset, the small ones grouped as "Other").
+  assert.ok(Math.abs(pieTotal - barTotal) < 1e-6, `${pieTotal} vs ${barTotal}`)
+  assert.deepEqual(stacked.series.map((x) => x.name), shares.series.map((x) => x.name))
+  for (const slice of pie.slices) {
+    const bar = shares.series.find((x) => x.name === slice.name)
+    assert.ok(bar, `${slice.name} missing from the shares over time`)
+    assert.equal(((bar.data[last] ?? 0) / barTotal).toFixed(4), (slice.y / pieTotal).toFixed(4), slice.name)
+  }
+  assert.ok(shares.series.length <= 6)
 })

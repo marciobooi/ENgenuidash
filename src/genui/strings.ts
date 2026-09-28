@@ -40,6 +40,7 @@ export function dashStrings(t: Strings): DashStrings {
     average: t.dAverage,
     selectionAverage: t.dSelectionAverage,
     sharesOverTime: t.dSharesOverTime,
+    other: t.dOther,
     mixRanking: t.dMixRanking,
     heatmapTitle: t.dHeatmapTitle,
     yearsShort: t.dYearsShort,

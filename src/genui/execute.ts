@@ -56,6 +56,8 @@ export interface DashStrings {
   average: string
   selectionAverage: string
   sharesOverTime: string
+  /** Label of the smaller parts grouped together in mix charts. */
+  other: string
   mixRanking: string
   heatmapTitle: string
   yearsShort: string
@@ -462,11 +464,29 @@ export async function buildDashboard(
       ],
     })
     // 1. Composition (donut with total) + sources breakdown.
+    // The same parts in every mix chart: the largest in the period shown, the rest summed as
+    // "Other". The donut, the stacked evolution and the shares over time then share one total, so
+    // a source has the same percentage in each (and no source, e.g. nuclear, is left out).
+    const bySize = [...series].sort((p, q) => (q.data[focusIndex] ?? 0) - (p.data[focusIndex] ?? 0))
+    const rest = bySize.slice(MAX_SERIES - 1)
+    const parts =
+      bySize.length > MAX_SERIES
+        ? [
+            ...bySize.slice(0, MAX_SERIES - 1).map(({ name, data }) => ({ name, data })),
+            {
+              name: s.other,
+              data: periods.map((_, k) => {
+                const vals = rest.map((x) => x.data[k])
+                return vals.every((v) => v == null) ? null : vals.reduce<number>((n, v) => n + (v ?? 0), 0)
+              }),
+            },
+          ]
+        : bySize.map(({ name, data }) => ({ name, data }))
     widgets.push({
       type: 'pie',
       title: withPeriod(title),
       subtitle,
-      slices: slices.map((r) => ({ name: r.x.name, y: r.y })),
+      slices: parts.map((x) => ({ name: x.name, y: x.data[focusIndex] ?? 0 })).filter((x) => x.y > 0),
       centerLabel: fmt.compact(totalShown),
       size: 'half',
       role: 'composition',
@@ -483,9 +503,8 @@ export async function buildDashboard(
     })
     // 2. Stacked evolution and shares over time (only for a view over time).
     if (!plan.focusPeriod && periods.length > 2) {
-      const mixSeries = series.slice(0, MAX_SERIES).map(({ name, data }) => ({ name, data }))
-      widgets.push({ type: 'area', title: s.evolution, subtitle, categories: periodLabels, series: mixSeries, stacked: true, size: 'full', role: 'evolution' })
-      widgets.push({ type: 'area', title: s.sharesOverTime, subtitle: '%', categories: periodLabels, series: mixSeries, stacked: 'percent', size: 'full', unit: '%', role: 'evolution' })
+      widgets.push({ type: 'area', title: s.evolution, subtitle, categories: periodLabels, series: parts, stacked: true, size: 'full', role: 'evolution' })
+      widgets.push({ type: 'area', title: s.sharesOverTime, subtitle: '%', categories: periodLabels, series: parts, stacked: 'percent', size: 'full', unit: '%', role: 'evolution' })
     }
     if (slices[0]) {
       summary.push(fill(s.summaryMix, { period, top: slices[0].x.name, share: fmt.number((slices[0].y / totalShown) * 100, 1) }))

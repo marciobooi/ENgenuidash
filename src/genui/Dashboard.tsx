@@ -388,7 +388,7 @@ function Toolbar({
       label: labels.period,
       node: (
         <div className="dash__control">
-          <span id={periodId}>{controls.periodsTo ? labels.periodTo.replace('{year}', controls.periodsTo) : labels.period}</span>
+          <span className="ecl-form-label" id={periodId}>{controls.periodsTo ? labels.periodTo.replace('{year}', controls.periodsTo) : labels.period}</span>
           <div className="segmented" role="group" aria-labelledby={periodId}>
             {controls.periods.map((o) => (
               <button
@@ -412,7 +412,7 @@ function Toolbar({
       label: labels.show,
       node: (
         <div className="dash__control">
-          <span id={`${periodId}-rank`}>{labels.show}</span>
+          <span className="ecl-form-label" id={`${periodId}-rank`}>{labels.show}</span>
           <div className="segmented" role="group" aria-labelledby={`${periodId}-rank`}>
             {controls.ranks.map((o) => (
               <button

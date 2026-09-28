@@ -1,18 +1,17 @@
-/* ECL form groups laid out inline in the dashboard toolbar. */
+/* ECL form groups as in the ECL select blueprint: the label on top, the control below it. */
 .filters__multi,
 .filters__single {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
   gap: 8px;
   margin: 0;
 }
 
+/* ECL's own label style (bold, dark); only its outer margin is reset, the gap spaces it. */
 .filters__multi .ecl-form-label,
 .filters__single .ecl-form-label {
   margin: 0;
-  font-size: 0.875rem;
-  font-weight: 400;
-  color: var(--ecl-color-dark-80);
   white-space: nowrap;
 }
 
@@ -74,14 +73,6 @@
   min-width: 150px;
 }
 
-/* Labels line up with the control, whatever ECL adds below it (the multiple select's dropdown). */
-.dash__toolbar .filters__multi .ecl-form-label,
-.dash__toolbar .filters__single .ecl-form-label,
-.chart-view .filters__single .ecl-form-label,
-.dash__toolbar .dash__control > span {
-  line-height: var(--ctl-height);
-}
-
 /* The chevron: ECL's icon, white on the primary square, 20px, in single and multiple selects. */
 .dash__toolbar .ecl-select__icon .ecl-icon,
 .chart-view .ecl-select__icon .ecl-icon {
@@ -91,7 +82,7 @@
   fill: #fff;
 }
 
-/* ECL spaces the multiple select 8px below a stacked label; inline, it sits level with the label. */
+/* ECL spaces the multiple select 8px below its label; the form group's gap already does. */
 .dash__toolbar .filters__multi .ecl-select__multiple {
   margin-top: 0;
 }

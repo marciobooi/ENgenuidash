@@ -308,3 +308,21 @@
 .chart-card--placeholder {
   background: linear-gradient(90deg, #fff, var(--ecl-color-dark-5), #fff);
 }
+
+/* The chart's data table, shown in place of the plot. */
+.chart-card__table {
+  max-height: 480px;
+  overflow: auto;
+  margin: 4px 0;
+}
+.chart-card__table .ecl-table {
+  width: 100%;
+  font-size: 0.8125rem;
+}
+.chart-card__table td.ecl-table__cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.chart-card__body[hidden] {
+  display: none;
+}

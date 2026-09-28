@@ -1,6 +1,7 @@
 import type Highcharts from 'highcharts'
 import { CircleAlert, ImageDown, Sheet, Table2 } from 'lucide-react'
 import { useId, useRef, useState, type ReactNode } from 'react'
+import { chartTable, type ChartTable } from './chartTable'
 import { Tooltip } from '../tooltip'
 import { BASE_OPTIONS } from './baseOptions'
 import { mergeOptions } from './merge'
@@ -31,6 +32,8 @@ export interface ChartFrameProps {
 export interface ChartActionLabels {
   showTable: string
   hideTable: string
+  /** Header of the first column of the data table. */
+  tableCategory: string
   downloadPng: string
   downloadCsv: string
   loading: string
@@ -44,6 +47,7 @@ export interface ChartActionLabels {
 const DEFAULT_LABELS: ChartActionLabels = {
   showTable: 'Show data table',
   hideTable: 'Hide data table',
+  tableCategory: 'Category',
   downloadPng: 'Download image (PNG)',
   downloadCsv: 'Download data (CSV)',
   loading: 'Loading chart…',
@@ -57,7 +61,6 @@ const DEFAULT_LABELS: ChartActionLabels = {
 interface ExportingApi {
   exportChart(options?: { type?: string }): void
   downloadCSV(): void
-  toggleDataTable(show?: boolean): void
 }
 
 /** Shared card used by every chart component; the plot is rendered by Europa Webtools. */
@@ -77,7 +80,18 @@ export function ChartFrame({
 }: ChartFrameProps & { options: Highcharts.Options; plugins?: string[]; kind?: 'chart' | 'map' }) {
   const id = useId()
   const chartRef = useRef<Highcharts.Chart | null>(null)
-  const [tableOpen, setTableOpen] = useState(false)
+  // The data table shown instead of the plot (read from the drawn chart when opened).
+  const [table, setTable] = useState<ChartTable | null>(null)
+  const tableOpen = table != null
+  const setTableOpen = (open: boolean) => {
+    if (!open) {
+      setTable(null)
+      // The plot was hidden while the table showed: fit it to the card again.
+      requestAnimationFrame(() => chartRef.current?.reflow())
+      return
+    }
+    if (chartRef.current) setTable(chartTable(chartRef.current, l.tableCategory))
+  }
   const [status, setStatus] = useState<ChartStatus>('loading')
   const [error, setError] = useState<string>()
   const [retryKey, setRetryKey] = useState(0)
@@ -114,10 +128,7 @@ export function ChartFrame({
               type="button"
               className="chart-card__action"
               aria-pressed={tableOpen}
-              onClick={() => {
-                exporting()?.toggleDataTable(!tableOpen)
-                setTableOpen(!tableOpen)
-              }}
+              onClick={() => setTableOpen(!tableOpen)}
             >
               <Table2 size={16} aria-hidden="true" />
             </button>
@@ -142,7 +153,8 @@ export function ChartFrame({
       <a className="chart-card__skip" href={`#${id}-end`}>
         {l.skipChart}: {title}
       </a>
-      <div className="chart-card__body" style={{ minHeight: height }} aria-busy={status === 'loading'}>
+      {table && <DataTable table={table} lang={lang} caption={title} />}
+      <div className="chart-card__body" style={{ minHeight: height }} aria-busy={status === 'loading'} hidden={tableOpen}>
         <WebtoolsChart
           options={merged}
           plugins={plugins}
@@ -153,7 +165,7 @@ export function ChartFrame({
           onStatus={(s, message) => {
             setStatus(s)
             setError(message)
-            if (s !== 'ready') setTableOpen(false)
+            if (s !== 'ready') setTable(null)
           }}
         />
         {status === 'loading' && (
@@ -182,7 +194,42 @@ export function ChartFrame({
       <span className="sr-only" id={`${id}-end`} tabIndex={-1}>
         {l.chartEnd}: {title}
       </span>
-      {source && <p className="chart-card__source">{source}</p>}
+      {source && <div className="chart-card__source">{source}</div>}
     </figure>
+  )
+}
+
+/** The chart's data as an ECL table, in place of the plot. */
+function DataTable({ table, lang, caption }: { table: ChartTable; lang: string; caption: string }) {
+  const numbers = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 })
+  return (
+    <div className="chart-card__table">
+      <table className="ecl-table ecl-table--zebra">
+        <caption className="sr-only">{caption}</caption>
+        <thead className="ecl-table__head">
+          <tr className="ecl-table__row">
+            {table.head.map((h, i) => (
+              <th key={i} scope="col" className="ecl-table__header">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="ecl-table__body">
+          {table.rows.map((r, i) => (
+            <tr key={i} className="ecl-table__row">
+              <th scope="row" className="ecl-table__cell">
+                {r.label}
+              </th>
+              {r.cells.map((c, j) => (
+                <td key={j} className="ecl-table__cell">
+                  {c == null ? '–' : numbers.format(c)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

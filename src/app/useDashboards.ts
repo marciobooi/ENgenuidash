@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FilterControl } from '../components/filters'
 import { notify } from '../components/toast'
 import { EurostatUnavailableError, type EnergyCodelists, type EnergyDictionary } from '../data/eurostat'
@@ -41,6 +41,8 @@ export function useDashboards({
   const [active, setActive] = useState(0)
   const [building, setBuilding] = useState(false)
   const current = dashboards[active] as DashboardSpec | undefined
+  // Language each dashboard was built in: its titles, labels and sentences are in that language.
+  const builtIn = useRef<Lang[]>([])
   const hasDashboard = dashboards.length > 0
 
   // Toolbar filters for the dashboard on screen (countries, products, flows…).
@@ -103,6 +105,7 @@ export function useDashboards({
       // A focused question ("which country…?") also gets its answer in the chat.
       const answer = spec.widgets.find((w) => w.type === 'answer')
       const message = [fill(hasDashboard ? t.dashboardUpdated : t.dashboardReady, { title: spec.title }), answer?.text].filter(Boolean).join(' ')
+      builtIn.current[index] = lang
       setDashboards((d) => [...d, { ...spec, question }])
       setActive(index)
       llm.updateLast((m) => !!m.pending, { content: message, pending: false, card: { index, title: spec.title } })
@@ -134,7 +137,25 @@ export function useDashboards({
     return { ok: true, title: dashboards[active - 1].title }
   }
 
+  // The language changed: build the dashboard on screen again from its plan, so every title,
+  // label, sentence and number is in the new language (the others follow when shown).
+  useEffect(() => {
+    if (!current || !dict || building || (builtIn.current[active] ?? lang) === lang) return
+    const index = active
+    const controller = new AbortController()
+    buildDashboard(current.plan, dict, lang, dashStrings(t), controller.signal)
+      .then((spec) => {
+        builtIn.current[index] = lang
+        setDashboards((d) => d.map((old, i) => (i === index ? { ...spec, question: old.question } : old)))
+      })
+      .catch(() => {
+        // Keeps the dashboard as it was (Eurostat unreachable, switched again meanwhile…).
+      })
+    return () => controller.abort()
+  }, [lang, active, current, dict, building, t])
+
   const clear = () => {
+    builtIn.current = []
     setDashboards([])
     setActive(0)
   }

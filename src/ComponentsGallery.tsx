@@ -14,6 +14,7 @@ export default function ComponentsGallery({ locale, t }: { locale: string; t: St
   const labels = {
     showTable: t.showTable,
     hideTable: t.hideTable,
+    tableCategory: t.tableCategory,
     downloadPng: t.downloadPng,
     downloadCsv: t.downloadCsv,
     loading: t.chartLoading,

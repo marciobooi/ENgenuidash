@@ -276,6 +276,7 @@ export interface PricesStrings {
   leadFocus: string
   sugTaxes: string
   selectedOverTime: string
+  yearFallback: string
   currency: string
   unit: string
 }
@@ -315,8 +316,14 @@ export async function buildPricesDashboard(
   const geoLabel = (code: string) => label('geo', code).replace(/\s*\(.*?\)\s*$/, '')
   const withData = years.filter((y) => byCountry.observations.some((o) => o.keys.time === y && o.keys[partDim] === partCodes[0] && o.value != null))
   // A year asked for on the semester dataset (tax view) is its latest semester with data.
-  const asked = plan.focusPeriod ? withData.filter((y) => y === plan.focusPeriod || y.startsWith(`${plan.focusPeriod}-`)).at(-1) : undefined
-  const year = asked ?? withData.at(-1)
+  // The country asked for (or the EU) decides which years exist: a year it has no data for falls
+  // back to its latest one, and the dashboard says so.
+  const focusGeo = geos.find((g) => byCountry.observations.some((o) => o.keys.geo === g && o.value != null)) ?? 'EU27_2020'
+  const geoYears = withData.filter((y) => byCountry.observations.some((o) => o.keys.geo === focusGeo && o.keys.time === y && o.keys[partDim] === partCodes[0] && o.value != null))
+  const available = geoYears.length ? geoYears : withData
+  const asked = plan.focusPeriod ? available.filter((y) => y === plan.focusPeriod || y.startsWith(`${plan.focusPeriod}-`)).at(-1) : undefined
+  const year = asked ?? available.at(-1)
+  const yearNote = plan.focusPeriod && !asked && year ? [fill(t.yearFallback, { asked: plan.focusPeriod, year })] : []
   if (!year) throw new NoDataError(dataset)
   const yearBefore = year.replace(/^\d{4}/, (y) => String(Number(y) - 1))
   const prev = withData.includes(yearBefore) ? yearBefore : undefined
@@ -548,9 +555,9 @@ export async function buildPricesDashboard(
     subtitle: band ? label('nrg_cons', band) : '',
     summary,
     insights,
-    notes: [],
+    notes: yearNote,
     widgets,
-    layout: ['summary', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
+    layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
     presentation: { template: 'prices', kpiStyle: 'cards', controls: ['geo', 'product', 'consumer', 'band', 'currency', 'year'], primaryControls: 4, accent: 'orange' },
     unit: symbol,
     source: { code: dataset, title: byCountry.label, url: `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=${lang}` },

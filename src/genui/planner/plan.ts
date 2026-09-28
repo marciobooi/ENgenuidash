@@ -1,5 +1,6 @@
 import type { EnergyCodelists, EnergyDictionary } from '../../data/eurostat'
 import {
+  BALANCE_LINES,
   CAUSAL_WORDS,
   ELECTRICITY_MIX,
   ENERGY_MIX,
@@ -153,8 +154,8 @@ export function planQuestion(
     seriesProducts = mix && !fuels.length ? ELECTRICITY_MIX : fuels.length ? fuels : ['TOTAL']
   }
 
-  // 4. Energy balances: any product and/or flow.
-  if (!dataset && (products.length || flows.length)) {
+  // 4. Energy balances: any product and/or flow, or "the energy mix" of a place.
+  if (!dataset && (products.length || flows.length || mix)) {
     dataset = 'nrg_bal_c'
     const sectorFlow = flows.find((f) => ['households', 'industry', 'transport', 'services'].includes(f.id))
     const flow = sectorFlow ?? flows.find((f) => f.id !== 'consumption') ?? flows[0]
@@ -172,7 +173,10 @@ export function planQuestion(
   if (!curated) {
     const topic = topicFromDictionary(question, dict, codelists, time.monthly, exclude)
     if (topic?.unknown) return { kind: 'none' } // a topic word nothing knows: no guessed dashboard
-    if (topic?.dataset && topic.dataset !== dataset) {
+    // A line of the energy balance ("distribution losses", "transformation input") is the
+    // balance's own: another dataset with a code of that name (district heating losses) is not it.
+    const balanceLine = dataset === 'nrg_bal_c' && flows.some((f) => BALANCE_LINES.includes(f.id))
+    if (topic?.dataset && topic.dataset !== dataset && !balanceLine) {
       dataset = topic.dataset
       fromDictionary = true
       const found = dict.datasets[dataset]

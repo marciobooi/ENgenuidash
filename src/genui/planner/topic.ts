@@ -26,9 +26,13 @@ import { parse, matches, detectGeos } from './parse'
 
 // ---------- dictionary search ----------
 
+// Energy units and "mix": how to show the data, not what it is about ("electricity in GWh").
+// (Not "capacity", "index" or "tonnes", which do pick datasets.)
+const UNIT_AND_VIEW_WORDS = ['gwh', 'twh', 'mwh', 'ktoe', 'mtoe', 'toe', 'terajoule', 'terajoules', 'gigawatt', 'mix', 'breakdown', 'composition', 'aufteilung', 'repartition']
+
 // Words the planner already uses for places, time, charts and rankings: never topic words.
 export const NON_TOPIC = new Set(
-  [ALL_TIME_WORDS, MONTHLY_WORDS, TREND_WORDS, ALL_COUNTRIES_WORDS, EXPLAIN_WORDS, EU_ALIASES, ADD_WORDS, ONLY_WORDS, REMOVE_WORDS, Object.keys(MONTH_NAMES), ...Object.values(CHART_WORDS)]
+  [ALL_TIME_WORDS, MONTHLY_WORDS, TREND_WORDS, ALL_COUNTRIES_WORDS, EXPLAIN_WORDS, EU_ALIASES, ADD_WORDS, ONLY_WORDS, REMOVE_WORDS, Object.keys(MONTH_NAMES), ...Object.values(CHART_WORDS), UNIT_AND_VIEW_WORDS]
     .flat()
     .flatMap((t) => normalize(t).split(/[^a-z0-9]+/))
     .filter((w) => w.length >= 3),

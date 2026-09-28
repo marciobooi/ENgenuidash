@@ -16,7 +16,24 @@ export const PRODUCTS: (Concept & { siec: string })[] = [
   { id: 'diesel', siec: 'O4671XR5220B', stems: ['diesel', 'gas oil', 'gazole'] },
   { id: 'gasoline', siec: 'O4652XR5210B', stems: ['gasoline', 'petrol$', 'benzin', 'essence'] },
   { id: 'jet', siec: 'O4661XR5230B', stems: ['jet fuel', 'kerosene', 'kerosin', 'kerosene'] },
-  { id: 'crude', siec: 'O4100_TOT', stems: ['crude', 'rohol', 'brut'] },
+  { id: 'crude', siec: 'O4100_TOT', masks: ['oil'], stems: ['crude oil', 'crude', 'rohol', 'brut'] },
+  // Energy balance products named by a phrase that contains a broader product ("oil shale" is
+  // not oil, "coking coal" is one coal): the phrase hides the broader one (see planner find()).
+  { id: 'oilShale', siec: 'S2000', masks: ['oil'], stems: ['oil shale', 'oil sand', 'olschiefer', 'olsand', 'schiste bitumineux', 'schistes bitumineux', 'sables bitumineux'] },
+  { id: 'fuelOil', siec: 'O4680', masks: ['oil'], stems: ['fuel oil', 'residual fuel', 'schweres heizol', 'fioul lourd'] },
+  { id: 'petcoke', siec: 'O4694', masks: ['oil'], stems: ['petroleum coke', 'petcoke', 'petrolkoks', 'coke de petrole'] },
+  { id: 'naphtha', siec: 'O4640', stems: ['naphtha', 'naphta'] },
+  // Liquid biofuels, pure and blended into the fossil fuel (two codes, as in the balances).
+  { id: 'biogasoline', siec: 'R5210P', masks: ['gasoline', 'biogas'], stems: ['biogasoline', 'bio gasoline', 'biobenzin', 'bioessence'] },
+  { id: 'biogasolineBlended', siec: 'R5210B', masks: ['gasoline', 'biogas'], stems: ['biogasoline', 'bio gasoline', 'biobenzin', 'bioessence'] },
+  { id: 'biojet', siec: 'R5230P', masks: ['jet'], stems: ['bio jet kerosene', 'bio jet', 'bio-jet', 'biojet', 'biokerosin'] },
+  { id: 'biojetBlended', siec: 'R5230B', masks: ['jet'], stems: ['bio jet kerosene', 'bio jet', 'bio-jet', 'biojet', 'biokerosin'] },
+  { id: 'ngl', siec: 'O4200', masks: ['gas'], stems: ['natural gas liquid', 'ngl$', 'liquides de gaz naturel'] },
+  { id: 'manufacturedGases', siec: 'C0350-0370', masks: ['gas'], stems: ['manufactured gas', 'hergestellte gase', 'gaz manufactur'] },
+  { id: 'cokingCoal', siec: 'C0121', masks: ['coal'], stems: ['coking coal', 'kokskohle', 'charbon a coke'] },
+  { id: 'anthracite', siec: 'C0110', stems: ['anthracit', 'anthrazit'] },
+  { id: 'renewableWaste', siec: 'W6210', masks: ['renewables'], stems: ['renewable municipal waste', 'renewable waste', 'erneuerbare siedlungsabfall', 'dechets municipaux renouvelables'] },
+  { id: 'industrialWaste', siec: 'W6100', stems: ['industrial waste', 'industrieabfall', 'dechets industriels'] },
   { id: 'lignite', siec: 'C0220', stems: ['lignite', 'braunkohle'] },
   { id: 'solar', siec: 'RA420', stems: ['solar', 'photovolta', 'solaire', 'pv'] },
   { id: 'wind', siec: 'RA300', stems: ['wind', 'eolien', 'windkraft', 'windenergie'] },
@@ -50,9 +67,20 @@ export const FLOWS: (Concept & { nrgBal: string })[] = [
   // Whole forms, not "produc": that also matched "productivity" and "products".
   { id: 'production', nrgBal: 'PPRD', stems: ['production', 'produced', 'produce', 'producing', 'producer', 'produktion', 'produzier', 'produire', 'produite', 'erzeugung', 'erzeug', 'forder', 'generat', 'gewinn'] },
   { id: 'grossConsumption', nrgBal: 'GIC', stems: ['gross inland', 'bruttoinlands', 'consommation interieure brute'] },
+  // Lines of the energy balance (as in Eurostat's energy balances visualisation).
+  { id: 'transformationInput', nrgBal: 'TI_E', stems: ['transformation input', 'umwandlungseinsatz', 'entrees en transformation', 'entree en transformation', 'entrees de transformation'] },
+  { id: 'transformationOutput', nrgBal: 'TO', stems: ['transformation output', 'umwandlungsausstoss', 'sorties de transformation', 'sortie de transformation'] },
+  { id: 'energySector', nrgBal: 'NRG_E', stems: ['energy sector own use', 'own use', 'eigenverbrauch', 'consommation propre'] },
+  { id: 'losses', nrgBal: 'DL', stems: ['distribution loss', 'transmission loss', 'netzverlust', 'verteilungsverlust', 'pertes de distribution', 'pertes de transport'] },
+  { id: 'availableFinal', nrgBal: 'AFC', stems: ['available for final', 'fur den endverbrauch verfugbar', 'disponible pour la consommation finale'] },
+  { id: 'statDiff', nrgBal: 'STATDIFF', stems: ['statistical difference', 'statistische differenz', 'ecart statistique', 'ecarts statistiques'] },
+  { id: 'nonEnergy', nrgBal: 'FC_NE', stems: ['non-energy', 'non energy', 'nichtenerget', 'non energetique', 'non-energetique'] },
   { id: 'supply', nrgBal: 'NRGSUP', stems: ['supply', 'versorgung', 'approvisionnement'] },
   { id: 'consumption', nrgBal: 'FC_E', stems: ['consum', 'consumption', 'verbrauch', 'consomm', 'demand', 'nachfrage', 'use', 'usage'] },
 ]
+
+/** Flows that are lines of the energy balance only (nrg_bal_c), not topics of other datasets. */
+export const BALANCE_LINES = ['transformationInput', 'transformationOutput', 'energySector', 'losses', 'availableFinal', 'statDiff', 'nonEnergy']
 
 /** Monthly datasets and how flows map onto their NRG_BAL codes. */
 export const MONTHLY: Record<string, { dataset: string; flows: Record<string, string>; defaultFlow: string }> = {
@@ -77,7 +105,7 @@ export const MONTHLY: Record<string, { dataset: string; flows: Record<string, st
 /** Indicator datasets that answer a question directly. */
 export const METRICS: (Concept & { id: string })[] = [
   // German compounds ("Strompreise") need the whole compound: 7+ letters match inside words.
-  { id: 'price', stems: ['price', 'preis', 'prix', 'tarif', 'cost', 'kosten', 'cout', 'bill', 'rechnung', 'facture', 'strompreis', 'gaspreis', 'energiepreis', 'heizolpreis', 'energiekosten', 'stromkosten', 'stromrechnung'] },
+  { id: 'price', stems: ['price', 'preis', 'prix', 'tarif', 'cost', 'kosten', 'cout', 'bill', 'rechnung', 'facture$', 'factures$', 'strompreis', 'gaspreis', 'energiepreis', 'heizolpreis', 'energiekosten', 'stromkosten', 'stromrechnung'] },
   { id: 'dependency', stems: ['depend', 'abhangig', 'dependance'] },
   { id: 'intensity', stems: ['intensity', 'intensitat', 'intensite'] },
   { id: 'perCapita', stems: ['per capita', 'per person', 'per head', 'pro kopf', 'par habitant'] },

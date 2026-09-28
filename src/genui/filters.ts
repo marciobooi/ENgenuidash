@@ -23,8 +23,10 @@ export interface FilterLabels {
 
 // The main products and flows of the energy balances (72 and 142 codes): the lists stay short,
 // and the current selection is always added.
-const MAIN_PRODUCTS = ['TOTAL', 'C0000X0350-0370', 'P1000', 'O4000XBIO', 'G3000', 'RA000', 'W6100_6220', 'N900H', 'H8000', 'E7000']
-const MAIN_FLOWS = ['PPRD', 'IMP', 'EXP', 'GAE', 'GIC', 'TI_E', 'FC_E', 'FC_IND_E', 'FC_TRA_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_OTH_AF_E', 'FC_NE', 'DL']
+// Products: the main fuel families of Eurostat's energy balances visualisation (enbal).
+const MAIN_PRODUCTS = ['TOTAL', 'C0000X0350-0370', 'C0350-0370', 'P1000', 'S2000', 'G3000', 'O4000XBIO', 'RA000', 'W6100_6220', 'N900H', 'E7000', 'H8000']
+// Flows: supply, the balance lines of enbal and the main final consumption sectors.
+const MAIN_FLOWS = ['PPRD', 'IMP', 'EXP', 'GAE', 'GIC', 'NRGSUP', 'TI_E', 'TO', 'NRG_E', 'DL', 'AFC', 'STATDIFF', 'FC_NE', 'FC_E', 'FC_IND_E', 'FC_TRA_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_OTH_AF_E', 'GEP', 'GHP']
 // Countries offered: the EU, its member states and neighbours (not regions or historical aggregates).
 const EUROPE = /^(EU27_2020|EA20|[A-Z]{2})$/
 // Dimensions shown as filters when they have few codes (the others are fixed by the planner).

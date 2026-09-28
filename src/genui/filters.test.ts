@@ -18,7 +18,7 @@ test('a balance question gets country, product and flow filters with the current
   assert.deepEqual(controls(p).map((c) => c.dim), ['geo', 'siec', 'nrg_bal'])
   assert.deepEqual(byDim(p, 'geo')?.selected, ['ES'])
   assert.equal(byDim(p, 'geo')?.options[0].code, 'EU27_2020') // the EU first, then countries by name
-  assert.ok((byDim(p, 'siec')?.options.length ?? 0) <= 11) // the main products, not all 72
+  assert.ok((byDim(p, 'siec')?.options.length ?? 0) <= 12) // the main fuel families (as in enbal), not all 72
   assert.equal(byDim(p, 'nrg_bal')?.multiple, false)
 })
 

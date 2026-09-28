@@ -44,10 +44,13 @@ export function matches(p: Parsed, stem: string): boolean {
 }
 
 export const any = (p: Parsed, stems: string[]) => stems.some((s) => matches(p, s))
-/** The question without the words of these phrases ("combustible renewables" taken out). */
-function without(p: Parsed, phrases: string[]): Parsed {
+/** The question without what these stems matched ("combustible renewables", "biogasoline"). */
+function without(p: Parsed, stems: string[]): Parsed {
   let text = p.text
-  for (const s of phrases) text = text.replace(new RegExp(` ${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[a-z0-9-]*`, 'g'), ' ')
+  for (const s of stems) {
+    if (s.includes(' ')) text = text.replace(new RegExp(` ${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[a-z0-9-]*`, 'g'), ' ')
+    else text = ` ${text.trim().split(' ').filter((w) => !matches(parse(w), s)).join(' ')} `
+  }
   text = ` ${text.trim().replace(/\s+/g, ' ')} `
   return { text, words: text.trim().split(' ').filter(Boolean) }
 }
@@ -61,7 +64,7 @@ export function find<T extends Concept>(p: Parsed, list: T[]): T[] {
   const hidden = new Map<string, string[]>()
   for (const c of list) {
     if (!c.masks || !any(p, c.stems)) continue
-    const phrases = c.stems.filter((s) => s.includes(' ') && matches(p, s))
+    const phrases = c.stems.filter((s) => matches(p, s))
     for (const id of c.masks) hidden.set(id, [...(hidden.get(id) ?? []), ...phrases])
   }
   return list.filter((c) => any(hidden.has(c.id) ? without(p, hidden.get(c.id)!) : p, c.stems))

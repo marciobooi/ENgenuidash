@@ -28,7 +28,13 @@ export function DumbbellChart({ categories, from, to, valueSuffix = '', decimals
     xAxis: { categories, lineColor: 'var(--ecl-color-dark-40)' },
     yAxis: { title: { text: '' }, labels: { format: `{value:,.0f}${valueSuffix}` } },
     legend: { enabled: true },
-    tooltip: { shared: true, valueSuffix, valueDecimals: decimals },
+    tooltip: {
+      shared: true,
+      // The default scatter tooltip shows the raw point index ("x: 0, y: 12%"): name the category
+      // and each end plainly instead ("Germany" / "2014: 12.3%" / "2024: 18.9%").
+      headerFormat: '<b>{point.key}</b><br/>',
+      pointFormat: `{series.name}: <b>{point.y:,.${decimals}f}${valueSuffix}</b><br/>`,
+    },
     plotOptions: { series: { animation: false } },
     series: [
       // (the "more" series types are not in Highcharts' core type definitions)

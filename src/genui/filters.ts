@@ -49,12 +49,13 @@ export function filterControls(
 ): FilterControl[] {
   const ds = dict.datasets[plan.dataset]
   if (!ds) return []
-  if (plan.balance) {
+  if (plan.balance || plan.trade) {
     const label = (code: string) => {
       const text = codeLabel(codelists, 'GEO', code, lang).replace(/\s*\(.*?\)\s*$/, '')
       return code === 'EU27_2020' ? `EU-27 (${text})` : text
     }
-    const options = BALANCE_GEOS.filter((c) => codesOf(ds, 'geo').includes(c)).map((code) => ({ code, label: label(code) }))
+    const geos = plan.balance ? BALANCE_GEOS.filter((c) => codesOf(ds, 'geo').includes(c)) : codesOf(ds, 'geo').filter((c) => /^(EU27_2020|[A-Z]{2})$/.test(c))
+    const options = geos.map((code) => ({ code, label: label(code) }))
     return [{ dim: 'geo', label: labels.geo, multiple: false, options: [options[0], ...options.slice(1).sort((a, b) => a.label.localeCompare(b.label, lang))], selected: [String(plan.filters.geo)] }]
   }
   const isPlace = (dim: string) => dim === 'geo' || dim === 'partner'

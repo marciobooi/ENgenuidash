@@ -6,6 +6,7 @@ import { planQuestion, refinePlan } from './planner'
 import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
 import { balancePlan, refineBalance } from './balance'
+import { refineTrade, tradePlan } from './trade'
 import type { Clarification, Plan } from './types'
 
 /**
@@ -68,6 +69,11 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
     if (sheet) return current?.balance ? { kind: 'refine', plan: { ...current, ...sheet, balance: sheet.balance } } : { kind: 'plan', plan: sheet }
     const changed = current?.balance ? refineBalance(current, text, dict, codelists) : null
     if (changed) return { kind: 'refine', plan: changed }
+    // Energy trade by partner (entrade): a new trade dashboard, or a change of the one on screen.
+    const traded = current?.trade ? refineTrade(current, text, dict, codelists) : null
+    if (traded) return { kind: 'refine', plan: traded }
+    const trade = tradePlan(text, dict, codelists)
+    if (trade) return { kind: 'plan', plan: trade }
   }
 
   const verdict = ctx.classify(text, ctx.previous)

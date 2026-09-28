@@ -230,7 +230,13 @@ function balanceControls(plan: Plan, dataStart: string | undefined, dataEnd: str
   return {
     years: years.map((y) => ({ label: y, plan: at(y), active: y === year })),
     units: Object.keys(UNIT_SYMBOL).map((u) => ({ label: UNIT_SYMBOL[u], plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: plan.filters.unit === u })),
-    fuels: (Object.keys(FUEL_GROUPS) as FuelGroup[]).map((g) => ({ label: s.groups[g], plan: { ...plan, balance: { fuels: g } }, active: (plan.balance?.fuels ?? 'main') === g })),
+    choices: [
+      {
+        key: 'fuels',
+        label: s.fuels,
+        options: (Object.keys(FUEL_GROUPS) as FuelGroup[]).map((g) => ({ label: s.groups[g], plan: { ...plan, balance: { fuels: g } }, active: (plan.balance?.fuels ?? 'main') === g })),
+      },
+    ],
   }
 }
 

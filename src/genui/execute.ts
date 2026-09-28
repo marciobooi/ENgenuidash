@@ -17,6 +17,7 @@ import { monthlyFilters } from './planner'
 import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeRange, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
 import { buildBalanceDashboard, type BalanceStrings } from './balance'
+import { buildTradeDashboard, type TradeStrings } from './trade'
 
 /**
  * Executes a Plan: fetches the data from Eurostat and composes a DashboardSpec (plain JSON)
@@ -46,6 +47,7 @@ export interface DashStrings {
   sugMix: string
   sugExplain: string
   balance: BalanceStrings
+  trade: TradeStrings
   sugUnit: string
   noteCached: string
   evolution: string
@@ -124,6 +126,8 @@ export async function buildDashboard(
 ): Promise<DashboardSpec> {
   // Energy balance sheet (enbal): its own table, not the charts of one series.
   if (plan.balance) return buildBalanceDashboard(plan, dict, lang, s, signal)
+  // Energy trade by partner (entrade): partners ranked, shares and the structure of the supply.
+  if (plan.trade) return buildTradeDashboard(plan, dict, lang, s, signal)
   const ds = dict.datasets[plan.dataset]
   plan = withEveryDimension(plan, dict)
   const geoCodes = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []

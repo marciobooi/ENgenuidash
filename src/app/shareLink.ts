@@ -1,6 +1,7 @@
 import type { EnergyDictionary } from '../data/eurostat'
 import type { Plan, TimeRange } from '../genui/types'
 import { FUEL_GROUPS } from '../genui/balance'
+import { tradeOf } from '../genui/trade'
 
 /**
  * Shareable dashboards: the URL carries the question (readable) and the plan (exact, including
@@ -28,8 +29,8 @@ function fromBase64Url(raw: string): string {
 
 /** The plan in its shareable form: what is needed to rebuild the dashboard, nothing else. */
 export function encodePlan(plan: Plan): string {
-  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance } = plan
-  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance }))
+  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade } = plan
+  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade }))
 }
 
 /** The plan from a link, or null when it is not a valid plan for our datasets. */
@@ -60,7 +61,11 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   // asking its question again gives the right dashboard.
   const balance = p.balance as Plan['balance']
   const isSheet = !!balance && typeof balance.fuels === 'string' && balance.fuels in FUEL_GROUPS
-  if (!isSheet && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
+  // A trade dashboard asks for every partner on purpose; it must match its dataset.
+  const traded = tradeOf(ds.code)
+  const tradeIn = p.trade as Plan['trade']
+  const isTrade = !!traded && !!tradeIn && tradeIn.flow === traded.flow && tradeIn.fuel === traded.fuel
+  if (!isSheet && !isTrade && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
 
   const time = p.time as TimeRange | undefined
   const timeOk =
@@ -80,6 +85,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   if (p.parts === false) plan.parts = false
   // An energy balance sheet (without it, the link would ask for every line × every fuel).
   if (isSheet) plan.balance = { fuels: balance.fuels }
+  if (isTrade) plan.trade = traded
   const focus = p.focus as Plan['focus']
   if (focus?.kind === 'change') plan.focus = { kind: 'change' }
   else if (focus?.kind === 'which') plan.focus = { kind: 'which', ...(focus.lowest ? { lowest: true } : {}), ...(focus.period ? { period: true } : {}) }

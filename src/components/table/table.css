@@ -224,3 +224,34 @@
 .balance-table__row--active td {
   box-shadow: inset 0 -2px 0 var(--ecl-color-primary);
 }
+
+/* ---------- Trade partners (PartnersTable) ---------- */
+.partners-table__delta.is-up,
+.partners-table__move.is-up {
+  color: var(--ecl-color-success, #257d3a);
+}
+
+.partners-table__delta.is-down,
+.partners-table__move.is-down {
+  color: var(--ecl-color-error, #c42020);
+}
+
+.partners-table__move {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 700;
+}
+
+.partners-table__new {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--ecl-color-primary-5, #eef3fb);
+  color: var(--ecl-color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.partners-table__more {
+  margin-top: 8px;
+}

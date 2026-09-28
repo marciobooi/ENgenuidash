@@ -68,6 +68,8 @@ export function widgetProblem(w: WidgetSpec): string | null {
       return Array.isArray(w.items) && w.items.every((i) => text(i.name) && text(i.value)) ? null : 'breakdown: items'
     case 'text':
       return text(w.title) && text(w.body) && w.body.length > 0 ? null : 'text without a body'
+    case 'partners':
+      return Array.isArray(w.rows) && w.rows.length > 0 && w.rows.every((r) => text(r.name) && num(r.value) && num(r.share)) ? null : 'partners: rows'
     case 'balance':
       if (!text(w.query?.geo) || !text(w.query?.unit) || !text(w.query?.year)) return 'balance: query'
       if (!Array.isArray(w.columns) || !w.columns.every((c) => text(c.code) && text(c.label))) return 'balance: columns'

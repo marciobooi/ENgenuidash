@@ -46,7 +46,15 @@ export interface Plan {
    * columns (see balance.ts).
    */
   balance?: { fuels: FuelGroup }
+  /**
+   * Energy trade by partner (as Eurostat's entrade visualisation): one country's imports or
+   * exports of one product, by partner country, for one year (see trade.ts).
+   */
+  trade?: { flow: TradeFlow; fuel: TradeFuel }
 }
+
+export type TradeFlow = 'imp' | 'exp'
+export type TradeFuel = 'gas' | 'solid' | 'oil' | 'bio' | 'electricity'
 
 export type FuelGroup =
   | 'main'
@@ -259,6 +267,14 @@ export type WidgetSpec = (
       source?: { code: string; title: string; url: string }
     }
   | {
+      /** Trade partners of one country: ranked, with shares and their change on the previous year. */
+      type: 'partners'
+      title: string
+      unit: string
+      decimals: number
+      rows: { name: string; value: number; share: number; shareChange: number | null; rankChange: number | null; isNew: boolean }[]
+    }
+  | {
       /** Energy balance sheet: balance lines (a tree, rows) × fuels (columns), see balance.ts. */
       type: 'balance'
       title: string
@@ -325,8 +341,12 @@ export interface DashboardControls {
   units?: { label: string; plan: Plan; active: boolean }[]
   /** Comparisons of many countries: all of them, or the top / bottom 5 or 10. */
   ranks?: { label: string; plan: Plan; active: boolean }[]
-  /** Energy balance sheets: the group of fuels shown as columns. */
-  fuels?: { label: string; plan: Plan; active: boolean }[]
+  /**
+   * Choices of a dashboard module, each a select in the toolbar with its own (translated) label:
+   * the fuels of a balance sheet, the flow, fuel and product of a trade dashboard. `key` is the
+   * toolbar key (Presentation.controls).
+   */
+  choices?: { key: string; label: string; options: { label: string; plan: Plan; active: boolean }[] }[]
 }
 
 export interface DashboardSpec {

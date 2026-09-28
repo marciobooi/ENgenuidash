@@ -4,7 +4,7 @@ import { AreaChart, BarChart, BubbleChart, DumbbellChart, HeatmapChart, HeroChar
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
-import { DataTable } from '../components/table'
+import { DataTable, PartnersTable, type PartnersTableLabels } from '../components/table'
 import { BalanceSheet, type BalanceSheetLabels } from './BalanceSheet'
 import { AnswerCard } from './AnswerCard'
 import { BreakdownCard } from './BreakdownCard'
@@ -32,9 +32,10 @@ export interface DashboardLabels {
   /** "More filters ({n})" / "Fewer filters": the toolbar controls folded away. */
   moreFilters: string
   fewerFilters: string
-  /** Energy balance sheets: the fuels control and the table's buttons. */
-  fuels?: string
+  /** Energy balance sheets: the table's buttons and the charts of a line. */
   balance?: BalanceSheetLabels
+  /** Trade dashboards: the partner table. */
+  partners?: PartnersTableLabels
 }
 
 /**
@@ -155,6 +156,13 @@ export function Dashboard({
         return <MapChart {...common} data={w.data} height={w.height} />
       case 'breakdown':
         return <BreakdownCard widget={w} />
+      case 'partners':
+        return labels.partners ? (
+          <section className="chart-card">
+            <PartnersTable caption={w.title} unit={w.unit} rows={w.rows} locale={lang} decimals={w.decimals} labels={labels.partners} />
+            <SourceLine source={spec.source} labels={labels} />
+          </section>
+        ) : null
       case 'balance':
         return labels.balance ? (
           <BalanceSheet
@@ -485,20 +493,21 @@ function Toolbar({
       entries.push({ key: f.dim, label: f.label, node: <FilterField filter={f} onChange={onFilter} labels={multiSelectLabels} disabled={busy} /> })
     }
   }
-  if (controls.fuels) {
+  for (const choice of controls.choices ?? []) {
+    if (choice.options.length < 2) continue
     entries.push({
-      key: 'fuels',
-      label: labels.fuels ?? '',
+      key: choice.key,
+      label: choice.label,
       node: (
         <EclSelect
-          id={`${periodId}-fuels`}
-          label={labels.fuels ?? ''}
-          value={controls.fuels.find((f) => f.active)?.label ?? ''}
+          id={`${periodId}-${choice.key}`}
+          label={choice.label}
+          value={choice.options.find((o) => o.active)?.label ?? ''}
           disabled={busy}
-          options={controls.fuels.map((f) => ({ code: f.label, label: f.label }))}
+          options={choice.options.map((o) => ({ code: o.label, label: o.label }))}
           onChange={(code) => {
-            const option = controls.fuels?.find((f) => f.label === code)
-            if (option) onSelect({ label: `${labels.fuels}: ${option.label}`, plan: option.plan })
+            const option = choice.options.find((o) => o.label === code)
+            if (option && !option.active) onSelect({ label: `${choice.label}: ${option.label}`, plan: option.plan })
           }}
         />
       ),

@@ -10,6 +10,12 @@ export interface ValueFormat {
   decimals?: number
 }
 
+/**
+ * Tooltip line for percent-stacked charts (shares): the part's percentage of the stack, e.g.
+ * "Wind: 22.2%". The raw value (in GWh, ktoe…) belongs to the non-percent chart next to it.
+ */
+export const PERCENT_POINT = '<span style="color:{point.color}">●</span> {series.name}: <b>{point.percentage:,.1f}%</b><br/>'
+
 /** Dashed reference line (e.g. an average or the EU-27 value), labelled on the plot. */
 export interface ReferenceLine {
   value: number

@@ -1,7 +1,7 @@
 import type Highcharts from 'highcharts'
 import { ChartFrame, type ChartFrameProps } from './ChartFrame'
 import { SURFACE } from './theme'
-import { highlightPlotBand, referencePlotLine, type ReferenceLine, type SeriesInput, type ValueFormat } from './types'
+import { highlightPlotBand, PERCENT_POINT, referencePlotLine, type ReferenceLine, type SeriesInput, type ValueFormat } from './types'
 
 export interface AreaChartProps extends ChartFrameProps, ValueFormat {
   categories: (string | number)[]
@@ -45,11 +45,8 @@ export function AreaChart({
       shared: true,
       valueSuffix,
       valueDecimals: decimals,
-      ...(stacking === 'percent'
-        ? {
-            pointFormat: `<span style="color:{point.color}">●</span> {series.name}: <b>{point.y:,.${decimals}f}${valueSuffix}</b> ({point.percentage:.0f}%)<br/>`,
-          }
-        : {}),
+      // Shares: the tooltip shows each part's percentage of the total, not the raw value.
+      ...(stacking === 'percent' ? { pointFormat: PERCENT_POINT } : {}),
     },
     legend: { enabled: series.length > 1 },
     plotOptions: {

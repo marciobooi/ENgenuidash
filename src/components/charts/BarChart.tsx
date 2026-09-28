@@ -1,7 +1,7 @@
 import type Highcharts from 'highcharts'
 import { ChartFrame, type ChartFrameProps } from './ChartFrame'
 import { PALETTE, SURFACE } from './theme'
-import { referencePlotLine, type ReferenceLine, type SeriesInput, type ValueFormat } from './types'
+import { PERCENT_POINT, referencePlotLine, type ReferenceLine, type SeriesInput, type ValueFormat } from './types'
 
 export interface BarChartProps extends ChartFrameProps, ValueFormat {
   categories: string[]
@@ -70,7 +70,13 @@ export function BarChart({
       // Never pass `labels: undefined` — Highcharts' merge would wipe the axis label defaults.
       ...(stacking === 'percent' ? { labels: { format: '{value}%' } } : {}),
     },
-    tooltip: { shared: series.length > 1, valueSuffix, valueDecimals: decimals },
+    tooltip: {
+      shared: series.length > 1,
+      valueSuffix,
+      valueDecimals: decimals,
+      // Shares: the tooltip shows each part's percentage of the column, not the raw value.
+      ...(stacking === 'percent' ? { pointFormat: PERCENT_POINT } : {}),
+    },
     legend: { enabled: series.length > 1 },
     plotOptions: { column: barOptions, bar: barOptions },
     series: series.map((s) => ({ type, name: s.name, data: s.data })),

@@ -27,6 +27,7 @@ export function dashStrings(t: Strings): DashStrings {
     sugExplain: t.dSugExplain,
     balance: t.balance,
     trade: t.trade,
+    prices: t.prices,
     sugUnit: t.dSugUnit,
     noteCached: t.dNoteCached,
     evolution: t.dEvolution,

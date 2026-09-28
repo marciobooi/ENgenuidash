@@ -6,6 +6,7 @@ import { planQuestion, refinePlan } from './planner'
 import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
 import { balancePlan, refineBalance } from './balance'
+import { pricesPlan, refinePrices, toComponentsPlan } from './prices'
 import { refineTrade, tradePlan } from './trade'
 import type { Clarification, Plan } from './types'
 
@@ -74,6 +75,14 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
     if (traded) return { kind: 'refine', plan: traded }
     const trade = tradePlan(text, dict, codelists)
     if (trade) return { kind: 'plan', plan: trade }
+    // Energy price structure (enprices): a new breakdown, a change of the one on screen, or "now
+    // in components"/"add all taxes" for the plain (non-decomposed) price dashboard on screen.
+    const priced = current?.prices ? refinePrices(current, text, dict, codelists) : null
+    if (priced) return { kind: 'refine', plan: priced }
+    const prices = pricesPlan(text, dict, codelists)
+    if (prices) return { kind: 'plan', plan: prices }
+    const decomposed = current ? toComponentsPlan(current, text, dict) : null
+    if (decomposed) return { kind: 'refine', plan: decomposed }
   }
 
   const verdict = ctx.classify(text, ctx.previous)

@@ -34,6 +34,14 @@ const EUROPE = /^(EU27_2020|EA20|[A-Z]{2})$/
 const SMALL_DIMS = ['nrg_cons', 'tax', 'currency', 'stk_flow', 'plant_tec', 'operator', 'indic_nrg', 'customer', 'tra_mode', 'nrg_prc']
 const MAX_OPTIONS = 12
 
+/**
+ * A consumption band still in use (price datasets keep pre-2007 bands in their dimension: a
+ * single figure, e.g. KWH1200 or GJ83P70 - or, for industry, a load factor, e.g. GJ41860_I31).
+ * The bands still used have a range (1000-2499), a comparator (_LT1000, _GE15000) or are the
+ * "all bands" total (TOT_KWH) - never a bare figure.
+ */
+export const isCurrentBand = (code: string) => /^TOT_|_(LT|LE|GE)\d|\d-\d/.test(code)
+
 const codesOf = (ds: DatasetInfo, dim: string) => ds.dimensions.find((d) => d.id === dim)?.codes ?? []
 const asList = (v: string | string[] | undefined) => ([] as string[]).concat(v ?? [])
 
@@ -49,7 +57,7 @@ export function filterControls(
 ): FilterControl[] {
   const ds = dict.datasets[plan.dataset]
   if (!ds) return []
-  if (plan.balance || plan.trade) {
+  if (plan.balance || plan.trade || plan.prices) {
     const label = (code: string) => {
       const text = codeLabel(codelists, 'GEO', code, lang).replace(/\s*\(.*?\)\s*$/, '')
       return code === 'EU27_2020' ? `EU-27 (${text})` : text
@@ -86,7 +94,7 @@ export function filterControls(
   control('nrg_bal', labels.nrg_bal, flows.length > 15 ? MAIN_FLOWS : flows, false)
   // Other small dimensions (single choice), with the dictionary's name for them.
   for (const dim of SMALL_DIMS) {
-    const codes = codesOf(ds, dim)
+    const codes = dim === 'nrg_cons' ? codesOf(ds, dim).filter(isCurrentBand) : codesOf(ds, dim)
     if (codes.length < 2 || codes.length > MAX_OPTIONS) continue
     control(dim, labels.other[dim] ?? pick(dict.dimensions[dim], lang, dim), codes, false)
   }

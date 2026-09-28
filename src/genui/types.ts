@@ -51,10 +51,18 @@ export interface Plan {
    * exports of one product, by partner country, for one year (see trade.ts).
    */
   trade?: { flow: TradeFlow; fuel: TradeFuel }
+  /**
+   * Energy price structure (as Eurostat's energy prices visualisation, enprices): one product's
+   * price for one type of consumer, decomposed into its components, for one year (see prices.ts).
+   */
+  prices?: { product: PriceProduct; consumer: PriceConsumer }
 }
 
 export type TradeFlow = 'imp' | 'exp'
 export type TradeFuel = 'gas' | 'solid' | 'oil' | 'bio' | 'electricity'
+
+export type PriceProduct = 'gas' | 'electricity'
+export type PriceConsumer = 'household' | 'nonHousehold'
 
 export type FuelGroup =
   | 'main'

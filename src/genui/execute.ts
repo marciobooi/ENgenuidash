@@ -18,6 +18,7 @@ import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeR
 import { sanitizeSpec } from './validate'
 import { buildBalanceDashboard, type BalanceStrings } from './balance'
 import { buildTradeDashboard, type TradeStrings } from './trade'
+import { buildPricesDashboard, type PricesStrings } from './prices'
 
 /**
  * Executes a Plan: fetches the data from Eurostat and composes a DashboardSpec (plain JSON)
@@ -48,6 +49,7 @@ export interface DashStrings {
   sugExplain: string
   balance: BalanceStrings
   trade: TradeStrings
+  prices: PricesStrings
   sugUnit: string
   noteCached: string
   evolution: string
@@ -128,6 +130,8 @@ export async function buildDashboard(
   if (plan.balance) return buildBalanceDashboard(plan, dict, lang, s, signal)
   // Energy trade by partner (entrade): partners ranked, shares and the structure of the supply.
   if (plan.trade) return buildTradeDashboard(plan, dict, lang, s, signal)
+  // Energy price structure (enprices): decomposed into its components, by country and over time.
+  if (plan.prices) return buildPricesDashboard(plan, dict, lang, s, signal)
   const ds = dict.datasets[plan.dataset]
   plan = withEveryDimension(plan, dict)
   const geoCodes = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []

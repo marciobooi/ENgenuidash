@@ -348,7 +348,11 @@ function Explainer({ widget, labels }: { widget: Extract<WidgetSpec, { type: 'te
         <BookOpen size={16} aria-hidden="true" />
         {widget.title}
       </h3>
-      <p className="explainer__body">{widget.body}</p>
+      {widget.lead && <p className="explainer__body">{widget.lead}</p>}
+      {widget.bodyLabel && <p className="explainer__label">{widget.bodyLabel}</p>}
+      <p className="explainer__body" lang={widget.bodyLang}>
+        {widget.body}
+      </p>
       {widget.source && (
         <a className="dash__source" href={widget.source.url} target="_blank" rel="noreferrer">
           <Database size={12} aria-hidden="true" />

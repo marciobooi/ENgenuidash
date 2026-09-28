@@ -138,6 +138,9 @@ const en = {
   moreFilters: 'More filters ({n})',
   fewerFilters: 'Fewer filters',
   dAboutIndicator: 'About this indicator',
+  dAboutLead: 'Eurostat dataset “{title}” ({code}), with data from {from} to {to}.',
+  dAboutInEnglish: 'Eurostat’s description (in English)',
+  dDataDescription: 'Data description',
   dAnswer: {
     title: 'Answer',
     highest: '{name} has the highest value in {period}: {value}.',
@@ -431,6 +434,9 @@ export const STRINGS: Record<Lang, Strings> = {
     moreFilters: 'Weitere Filter ({n})',
     fewerFilters: 'Weniger Filter',
     dAboutIndicator: 'Über diesen Indikator',
+    dAboutLead: 'Eurostat-Datensatz „{title}“ ({code}), mit Daten von {from} bis {to}.',
+    dAboutInEnglish: 'Beschreibung von Eurostat (nur auf Englisch verfügbar)',
+    dDataDescription: 'Datenbeschreibung',
     dAnswer: {
       title: 'Antwort',
       highest: '{name} hat {period} den höchsten Wert: {value}.',
@@ -719,6 +725,9 @@ export const STRINGS: Record<Lang, Strings> = {
     moreFilters: 'Plus de filtres ({n})',
     fewerFilters: 'Moins de filtres',
     dAboutIndicator: 'À propos de cet indicateur',
+    dAboutLead: 'Jeu de données Eurostat « {title} » ({code}), avec des données de {from} à {to}.',
+    dAboutInEnglish: 'Description d’Eurostat (disponible en anglais uniquement)',
+    dDataDescription: 'Description des données',
     dAnswer: {
       title: 'Réponse',
       highest: '{name} a la valeur la plus élevée en {period} : {value}.',

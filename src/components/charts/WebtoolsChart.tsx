@@ -49,6 +49,9 @@ export function WebtoolsChart({
     const container = containerRef.current
     if (!container) return
     onStatusRef.current?.('loading')
+    // Options the chart is drawn with; newer ones may arrive while Webtools is still drawing
+    // (e.g. the dashboard rebuilt in the new language), and are applied once it is ready.
+    let drawnWith: Highcharts.Options | null = null
 
     const done = (chart: Highcharts.Chart) => {
       if (cancelled) {
@@ -58,6 +61,7 @@ export function WebtoolsChart({
       }
       instanceRef.current = chart
       if (chartRef) chartRef.current = chart
+      if (drawnWith && drawnWith !== optionsRef.current) chart.update(optionsRef.current, true, true)
       // Webtools' translated screen-reader texts may carry broken templates: repair and re-read.
       if (repairChartLang()) (chart as unknown as { accessibility?: { update(): void } }).accessibility?.update()
       onStatusRef.current?.('ready')
@@ -71,7 +75,8 @@ export function WebtoolsChart({
           const H = webtoolsHighcharts()
           if (!H?.mapChart) throw new Error('The map module is not available.')
           applyMapLang(lang)
-          done(H.mapChart(container, optionsRef.current))
+          drawnWith = optionsRef.current
+          done(H.mapChart(container, drawnWith))
         })
         .catch((err: Error) => {
           if (!cancelled) onStatusRef.current?.('error', err.message)
@@ -97,7 +102,7 @@ export function WebtoolsChart({
           menu: [],
           ...(pluginKey ? { plugins: pluginKey.split(',') } : {}),
           options: { logo: { visible: false } },
-          data: optionsRef.current,
+          data: (drawnWith = optionsRef.current),
           ready: done,
         })
       })

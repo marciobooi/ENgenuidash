@@ -305,7 +305,14 @@ export async function datasetDescription(code: string, maxSentences = 2): Promis
   const { passages } = await loadKnowledge()
   const p = passages.find((x) => x.kind === 'metadata' && x.datasets?.includes(code) && x.section === 'Data description')
   if (!p) return null
-  const text = p.text.replace(/\s+/g, ' ').trim()
+  // Sub-headings in capitals ("ANNUAL", "DISAGGREGATED FINAL ENERGY CONSUMPTION") are dropped:
+  // run into the text they read as part of the first sentence.
+  const text = p.text
+    .split('\n')
+    .filter((line) => !/^[^a-z]*[A-Z]{3}[^a-z]*$/.test(line.trim()))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
   const sentences = text.match(/[^.!?]+[.!?]+(?=\s|$)/g) ?? [text]
   return { ...p, text: sentences.slice(0, maxSentences).join(' ').replace(/\s+/g, ' ').trim() }
 }

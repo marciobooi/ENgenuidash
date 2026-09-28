@@ -674,3 +674,11 @@
   font-size: 0.8125rem;
   color: var(--ecl-color-dark-80);
 }
+
+/* "Eurostat's description (in English)", before a quote that is not in the page's language. */
+.explainer__label {
+  margin: 8px 0 2px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ecl-color-dark-80);
+}

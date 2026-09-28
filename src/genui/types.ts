@@ -231,7 +231,13 @@ export type WidgetSpec = (
       /** Explainer: Eurostat's own description of the indicator (from the local knowledge base). */
       type: 'text'
       title: string
+      /** A sentence in the dashboard's language, before an English-only body. */
+      lead?: string
       body: string
+      /** Language of the body, when it differs from the dashboard's (Eurostat's texts are English). */
+      bodyLang?: string
+      /** Label before an English-only body, e.g. "Eurostat's description (in English)". */
+      bodyLabel?: string
       source?: { code: string; title: string; url: string }
     }
   | {

@@ -83,6 +83,9 @@ export interface DashStrings {
   companions: CompanionStrings
   answer: AnswerStrings
   aboutIndicator: string
+  aboutLead: string
+  aboutInEnglish: string
+  dataDescription: string
 }
 
 /**
@@ -853,8 +856,19 @@ export async function buildDashboard(
     widgets.push({
       type: 'text',
       title: s.aboutIndicator,
+      // Eurostat's descriptions are in English: other languages get a sentence of their own
+      // first (the dataset's translated title and years), and the quote is marked as English.
+      ...(lang !== 'en'
+        ? {
+            lead: fill(s.aboutLead, { title: pick(ds.title, lang, ds.code), code: ds.code, from: ds.dataStart ?? '', to: ds.dataEnd ?? '' }),
+            bodyLang: 'en',
+            bodyLabel: s.aboutInEnglish,
+          }
+        : {}),
       body: described.text,
-      ...(described.url ? { source: { code: ds.code, title: `${described.title} › ${described.section}`, url: described.url } } : {}),
+      ...(described.url
+        ? { source: { code: ds.code, title: `${described.title} › ${lang === 'en' ? described.section : s.dataDescription}`, url: described.url } }
+        : {}),
     })
   }
   const kind = arrange(widgets, plan, view).presentation.template.replace(/-[ab]$/, '') as Kind

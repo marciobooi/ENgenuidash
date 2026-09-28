@@ -2,6 +2,9 @@
 
 Front-end-only generative UI dashboard for Eurostat **energy** data (React 19, Vite, TS, ECL, Highcharts via Webtools, EN/DE/FR, accessible, local Qwen models in public/models). Pitch: docs/PITCH.md.
 
+## Start of every session
+- Run `git log --oneline -15` (and `git diff --stat <last-known>..HEAD | tail -1`) to catch up: work also lands from other sessions. Read a commit (`git show --stat <sha>`) only when it touches the task.
+
 ## Save tokens — input
 - Never read whole large files. Use `grep -n`, `sed -n 'a,bp'`, Read with offset/limit, or `jq` on JSON.
   Blocked by .claude/settings.json + hook: public/models, dist, node_modules, package-lock.json,

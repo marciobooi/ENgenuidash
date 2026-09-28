@@ -135,3 +135,13 @@ test('a shared price link keeps the breakdown dashboard', async () => {
   const taxes = planOf(route('before and after taxes', planOf(route('electricity prices for households in Germany'))))!
   assert.deepEqual(decodePlan(encodePlan(taxes), dict)?.prices, { product: 'electricity', consumer: 'household', view: 'taxes' })
 })
+
+test('"all available years" after a single-year price dashboard widens the period', () => {
+  const first = planOf(route('show electricity prices for all countries in 2022'))!
+  assert.ok(first)
+  for (const q of ['all available years', 'all years', 'every available year']) {
+    const r = route(q, first)
+    assert.equal(r.kind, 'refine', `${q}: ${r.kind}`)
+    assert.equal(planOf(r)!.time.kind, 'all', q)
+  }
+})

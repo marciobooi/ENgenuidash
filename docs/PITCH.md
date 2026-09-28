@@ -1,3 +1,28 @@
+# Summary
+
+One-minute summary: people come to Eurostat with a question and get tables; this tool answers the question with a dashboard.
+
+The problem: what users want next to what they have to do today, e.g. knowing that import dependency is dataset nrg_ind_id before they can find it.
+
+What generative UI is: compared with a fixed dashboard and a chatbot. The key selling point is that the AI arranges the answer but never produces a number; every figure comes from the Eurostat API.
+
+What it can do:
+questions in three languages, with follow-ups like "top 5"
+layouts that fit the question, 11 chart types and related data
+insights calculated from the data, with sources and definitions
+data tables and CSV, share links, and the optional AI running on the user's device
+
+Why it fits Eurostat: accuracy, privacy (no server, nothing sent to an AI company), no usage fees, accessibility, three languages, EC design system, tests and CI.
+
+Who benefits: citizens, journalists, policy officers, and Eurostat itself.
+A 5-minute demo script, step by step.
+
+Honest limits: energy data only, unusual wording may not be understood, 26 descriptions translated, one-time 0.6–0.9 GB model download, not yet tested with real users.
+
+The ask: a 4–6 week internal pilot, measure how it's used, then decide whether to extend it to more topics and languages.
+
+
+
 # ENgenuidash: ask a question, get a dashboard
 
 *A pitch: what generative UI is, what this prototype does, and what it solves for Eurostat's users.*

@@ -34,6 +34,12 @@ export interface Plan {
    * this selection, the question is planned again without the datasets already tried.
    */
   retry?: { question: string; tried: string[] }
+  /**
+   * A known-good plan for the same topic (the starter dashboard the question names), shown if
+   * Eurostat has no values for this one. Set when the planner's reading of the wording was kept
+   * over the starter plan (see route.ts).
+   */
+  fallback?: Plan
 }
 
 export type QuestionFocus =

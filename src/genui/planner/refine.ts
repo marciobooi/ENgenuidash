@@ -80,7 +80,7 @@ export function refinePlan(
   const allCountries = wantsAllCountries(p) || !!top || any(p, ['map', 'karte', 'carte'])
   const mix = any(p, MIX_WORDS)
 
-  const next: Plan = { ...current, filters: { ...current.filters }, notes: [], retry: undefined }
+  const next: Plan = { ...current, filters: { ...current.filters }, notes: [], retry: undefined, fallback: undefined }
   let changed = false
 
   if (switchProduct) {

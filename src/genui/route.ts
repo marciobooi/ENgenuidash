@@ -72,7 +72,10 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
   const preset = !refined && dict && codelists && verdict !== 'small-talk' ? presetPlan(text, dict, codelists) : null
   if (preset) {
     const planned = planQuestion(text, dict!, codelists!)
-    return { kind: 'plan', plan: planned.kind === 'plan' && planned.plan.dataset === preset.dataset ? planned.plan : preset }
+    // The wording's plan may pick a selection without values (a dataset's full title read word by
+    // word: "Gross and net production of electricity…" → net production of the product
+    // electricity): the starter plan stands by.
+    return { kind: 'plan', plan: planned.kind === 'plan' && planned.plan.dataset === preset.dataset ? { ...planned.plan, fallback: preset } : preset }
   }
 
   // Off-topic questions never reach the model or the planner. A dashboard change such as

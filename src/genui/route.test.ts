@@ -188,3 +188,14 @@ test('"add all available countries to this daash": all countries, despite the wo
   assert.equal(vocabulary.correct('countriess'), 'countries')
   assert.equal(vocabulary.correct('capital', docFreq), null)
 })
+
+test('a dataset typed by its Eurostat title: if the wording finds no values, its starter dashboard stands by', async () => {
+  const { PRESETS } = await import('./presets')
+  // The planner reads "net production of electricity" (NEP, product E7000), which has no values;
+  // the starter plan of the topic is attached and shown instead (useDashboards.runPlan).
+  const plan = planOf('Gross and net production of electricity and derived heat by type of plant and operator')
+  assert.equal(plan.dataset, 'nrg_ind_peh')
+  assert.deepEqual(plan.fallback?.filters, PRESETS.production.filters)
+  // A question worded its own way keeps its reading: the total import dependency.
+  assert.notEqual(Array.isArray(planOf('What is the energy import dependency of the EU?').filters.siec), true)
+})

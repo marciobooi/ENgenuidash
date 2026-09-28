@@ -78,6 +78,11 @@ export function useDashboards({
         try {
           spec = await buildDashboard(plan, dict, lang, dashStrings(t), undefined, modelVariant(question))
         } catch (err) {
+          // The starter dashboard of the topic the question names, if the wording's plan is empty.
+          if (err instanceof NoDataError && plan.fallback) {
+            plan = plan.fallback
+            continue
+          }
           if (!(err instanceof NoDataError) || !plan.retry || attempt >= 2 || !codelists) throw err
           // Next best datasets about the same product ("wood pellets" in the biomass supply, not
           // electricity use in the wood industry); unrelated ones are skipped.

@@ -86,7 +86,7 @@ export function applyFilter(plan: Plan, dim: string, codes: string[], dict: Ener
   const ds = dict.datasets[plan.dataset]
   const valid = codes.filter((c) => codesOf(ds, dim).includes(c))
   if (!valid.length) return plan
-  const next: Plan = { ...plan, filters: { ...plan.filters, [dim]: valid.length === 1 ? valid[0] : valid }, notes: [], retry: undefined }
+  const next: Plan = { ...plan, filters: { ...plan.filters, [dim]: valid.length === 1 ? valid[0] : valid }, notes: [], retry: undefined, fallback: undefined }
   // Only one dimension varies: the others keep their first code.
   if (valid.length > 1) {
     for (const [k, v] of Object.entries(next.filters)) if (k !== dim && Array.isArray(v)) next.filters[k] = v[0]

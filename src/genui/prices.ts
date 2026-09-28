@@ -32,6 +32,9 @@ const BASE_DATASETS: Record<PriceProduct, Record<PriceConsumer, string>> = {
 // itemised sub-taxes (renewable, capacity, environmental, nuclear) — those already sum into it.
 const PARTS = ['NRG_SUP', 'NETC', 'TAX_FEE_LEV_CHRG', 'VAT', 'TAX_FEE_LEV_CHRG_ALLOW']
 const isCountry = (code: string) => /^[A-Z]{2}$/.test(code)
+// Short unit symbols (gas components have a unit dimension - KWH, GJ_GCV, MWH; electricity's does
+// not, and always prices per kWh): the codelist's own label is the long form ("Kilowatt-hour").
+const UNIT_SYMBOL: Record<string, string> = { KWH: 'kWh', MWH: 'MWh', GJ_GCV: 'GJ (GCV)' }
 
 // ---------- questions ----------
 
@@ -253,7 +256,7 @@ export async function buildPricesDashboard(
 
   const euParts = partsAt(byCountry, (o) => o.keys.geo === 'EU27_2020' && o.keys.time === year, otherTaxesLabel)
   const euTotal = totalOf(euParts)
-  const symbol = unit ? `${currency}/${label('unit', unit)}` : `${currency}/${prices.product === 'gas' ? 'GJ' : 'kWh'}`
+  const symbol = `${currency}/${unit ? (UNIT_SYMBOL[unit] ?? label('unit', unit)) : 'kWh'}`
   const decimals = 3
   const nf = new Intl.NumberFormat(lang, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
   const pct = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })

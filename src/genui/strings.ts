@@ -41,6 +41,7 @@ export function dashStrings(t: Strings): DashStrings {
     selectionAverage: t.dSelectionAverage,
     sharesOverTime: t.dSharesOverTime,
     other: t.dOther,
+    noDataFor: t.dNoDataFor,
     countriesCount: t.dCountriesCount,
     mixByCountry: t.dMixByCountry,
     byPartAndCountry: t.dByPartAndCountry,

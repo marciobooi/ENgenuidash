@@ -240,7 +240,11 @@ export type WidgetSpec = (
       columns: string[]
       rows: { label: string; values: (number | null)[]; flags?: (string | undefined)[] }[]
     }
-) & { role?: WidgetRole }
+) & {
+  role?: WidgetRole
+  /** A line under the chart, e.g. the countries left out for having no data in it. */
+  note?: string
+}
 
 export interface KpiSpec {
   label: string

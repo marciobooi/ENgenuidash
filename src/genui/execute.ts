@@ -7,6 +7,8 @@ import {
 import { ELECTRICITY_MIX, ENERGY_MIX, EU27 } from './concepts'
 import { answerFor, type AnswerStrings } from './answer'
 import { buildCompanions, type CompanionStrings } from './companions'
+import { comparableSum } from './sums'
+import { dropEmptyRows } from './empty'
 import { computeInsights, type InsightStrings } from './insights'
 import { arrange, type Kind } from './layout'
 import { datasetDescription } from '../llm/knowledge'
@@ -58,6 +60,8 @@ export interface DashStrings {
   sharesOverTime: string
   /** Label of the smaller parts grouped together in mix charts. */
   other: string
+  /** "No data for {names} in this selection." under a chart. */
+  noDataFor: string
   /** "4 countries" in subtitles. */
   countriesCount: string
   /** Mix of several countries: shares and quantities per country. */
@@ -219,15 +223,19 @@ export async function buildDashboard(
   let series = seriesCodes.flatMap((sc) =>
     (byPart ? partCodes : [null]).map((pc) => {
       const cells = periods.map((p) => (pc ? [valueAt(sc.code, pc, p.code)] : partCodes.map((c) => valueAt(sc.code, c, p.code))))
+      // A country's total counts only in periods with all the parts it reports now (sums.ts).
+      const byParts = partCodes.map((c) => periods.map((p) => valueAt(sc.code, c, p.code)?.value ?? null))
       const partName = pc ? ((partDims.length === 1 ? shortName(pc.code, pc.label) : undefined) ?? pc.label) : ''
       return {
         code: pc && pc.code ? (seriesDim ? `${sc.code}|${pc.code}` : pc.code) : sc.code,
         name: pc && pc.code ? (seriesDim ? `${seriesName(sc)} – ${partName}` : partName) : seriesName(sc),
-        data: cells.map((cs) => (cs.every((o) => o?.value == null) ? null : cs.reduce<number>((n, o) => n + (o?.value ?? 0), 0))),
+        data: pc ? cells.map((cs) => cs[0]?.value ?? null) : comparableSum(byParts),
         flags: cells.map((cs) => (cs.length === 1 ? cs[0]?.flag : undefined)),
       }
     }),
   )
+  // Countries asked for that have no value at all here: left out, and named in the notes.
+  const withoutData = placeDim && seriesDim === placeDim ? series.filter((x) => x.data.every((v) => v == null)).map((x) => x.name) : []
   series = series.filter((x) => x.data.some((v) => v != null))
   if (!series.length) throw new NoDataError(s.noData)
 
@@ -497,10 +505,8 @@ export async function buildDashboard(
       .filter((r) => r.y > 0)
       .sort((p, q) => q.y - p.y)
     const totalShown = slices.reduce((n, r) => n + r.y, 0)
-    const totalSeries = periods.map((_, k) => {
-      const vals = series.map((x) => x.data[k])
-      return vals.every((v) => v == null) ? null : vals.reduce<number>((n, v) => n + (v ?? 0), 0)
-    })
+    // (only periods with every part: a year before a source was reported is no total)
+    const totalSeries = comparableSum(series.map((x) => x.data))
     widgets.push({
       type: 'kpis',
       items: [
@@ -807,6 +813,9 @@ export async function buildDashboard(
     view = 'mix'
   }
 
+  // Countries (or other rows) without data leave each chart and are named under it.
+  widgets.splice(0, widgets.length, ...widgets.map((w) => dropEmptyRows(w, s.noDataFor)))
+
   // Data table: every series; for a single-year comparison or mix only that year's column,
   // otherwise every period.
   const tableSeries = euRef ? [euRef, ...series] : series
@@ -864,6 +873,7 @@ export async function buildDashboard(
     insights,
     notes: [
       ...(topNote ? [topNote] : []),
+      ...(withoutData.length && series.length ? [fill(s.noDataFor, { names: withoutData.join(', ') })] : []),
       ...(result.cachedAt
         ? [fill(s.noteCached, { date: new Date(result.cachedAt).toLocaleString(lang, { dateStyle: 'medium', timeStyle: 'short' }) })]
         : []),

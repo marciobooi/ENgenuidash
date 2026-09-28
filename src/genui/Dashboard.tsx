@@ -84,7 +84,13 @@ export function Dashboard({
       title: 'title' in w ? w.title : '',
       subtitle: 'subtitle' in w ? w.subtitle : undefined,
       description: spec.summary.join(' '),
-      source: <SourceLine source={'source' in w && w.source ? w.source : spec.source} labels={labels} />,
+      source: (
+        <>
+          {/* e.g. the countries left out of this chart for having no data in it */}
+          {w.note && <p className="chart-note">{w.note}</p>}
+          <SourceLine source={'source' in w && w.source ? w.source : spec.source} labels={labels} />
+        </>
+      ),
       labels: chartLabels,
       lang,
       decimals: w.type === 'bar' && w.decimals != null ? w.decimals : decimals,

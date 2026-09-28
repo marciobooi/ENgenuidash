@@ -42,6 +42,8 @@ export interface CompanionStrings {
   bubbleZ: string
   /** Unit of energy use per person ("kgoe per person"). */
   perPerson: string
+  /** "No data for {names} in this selection." */
+  noDataFor: string
 }
 
 export interface Companion {
@@ -243,6 +245,8 @@ async function buildBubble(plan: Plan, dict: EnergyDictionary, lang: string, s: 
   if (!time) return null
   const names = new Map((x.dimensions.geo?.codes ?? []).map((g) => [g.code, g.label.replace(/\s*\(.*?\)\s*$/, '')]))
   const points = complete(time).map((c) => ({ name: names.get(c) ?? c, x: at(x, c, time)!, y: at(y, c, time)!, z: at(z, c, time)! }))
+  // Countries without all three values that year: named under the chart.
+  const missing = countries.filter((c) => !complete(time).includes(c)).map((c) => names.get(c) ?? c)
   const euX = at(x, 'EU27_2020', time)
   const euY = at(y, 'EU27_2020', time)
   const label = x.dimensions.time?.codes.find((t) => t.code === time)?.label ?? time
@@ -254,6 +258,7 @@ async function buildBubble(plan: Plan, dict: EnergyDictionary, lang: string, s: 
     y: { label: s.bubbleY, unit: BUBBLE.y.unit },
     z: { label: s.bubbleZ, unit: s.perPerson },
     ...(euX != null || euY != null ? { reference: { ...(euX != null ? { x: euX } : {}), ...(euY != null ? { y: euY } : {}), label: 'EU-27' } } : {}),
+    ...(missing.length ? { note: s.noDataFor.replace('{names}', missing.join(', ')) } : {}),
     size: 'full',
     source: { code: `${BUBBLE.x.dataset}, ${BUBBLE.y.dataset}, ${BUBBLE.z.dataset}`, url: `https://ec.europa.eu/eurostat/databrowser/view/${BUBBLE.x.dataset}/default/table?lang=${lang}` },
     role: 'related',

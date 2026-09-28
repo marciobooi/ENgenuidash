@@ -1,5 +1,6 @@
 import type Highcharts from 'highcharts'
 import { ChartFrame, type ChartFrameProps } from './ChartFrame'
+import { outlierCap } from './scale'
 import { PALETTE, SURFACE } from './theme'
 import { PERCENT_POINT, referencePlotLine, type ReferenceLine, type SeriesInput, type ValueFormat } from './types'
 
@@ -33,6 +34,7 @@ export function BarChart({
   ...frame
 }: BarChartProps) {
   const type = orientation === 'horizontal' ? 'bar' : 'column'
+  const cap = signed ? outlierCap(series.flatMap((s) => s.data)) : null
   const stacking = stacked === 'percent' ? 'percent' : stacked ? 'normal' : undefined
   const barOptions: Highcharts.PlotColumnOptions & Highcharts.PlotBarOptions = {
     stacking,
@@ -47,8 +49,16 @@ export function BarChart({
     pointPadding: 0.04,
     maxPointWidth: 48,
     dataLabels: {
-      enabled: showValues && !stacking && series.length === 1,
-      format: signed ? `{#if (gt y 0)}+{/if}{y:,.${decimals}f}${valueSuffix}` : `{y:,.${decimals}f}${valueSuffix}`,
+      enabled: (showValues && !stacking && series.length === 1) || cap != null,
+      // Bars cut at the axis edge (outliers) always carry their real value.
+      ...(cap != null && !showValues
+        ? {
+            formatter(this: { y?: number | null }) {
+              const y = this.y ?? 0
+              return Math.abs(y) > cap ? `${y > 0 ? '+' : ''}${y.toLocaleString(undefined, { maximumFractionDigits: decimals })}${valueSuffix}` : null
+            },
+          }
+        : { format: signed ? `{#if (gt y 0)}+{/if}{y:,.${decimals}f}${valueSuffix}` : `{y:,.${decimals}f}${valueSuffix}` }),
       inside: false,
       crop: false,
       overflow: 'allow',
@@ -67,6 +77,9 @@ export function BarChart({
       ],
       // Headroom so end-of-bar value labels never collide with the plot edge.
       ...(showValues ? { maxPadding: 0.12 } : {}),
+      // One extreme value (growth from a tiny base) would flatten every other bar: the axis stops
+      // at a range fitting the typical values, and the bars beyond it are cut and labelled.
+      ...(cap != null ? { max: cap * 1.15, min: Math.min(0, ...series.flatMap((s) => s.data).map((v) => Math.max(v ?? 0, -cap * 1.15))) } : {}),
       // Never pass `labels: undefined` — Highcharts' merge would wipe the axis label defaults.
       ...(stacking === 'percent' ? { labels: { format: '{value}%' } } : {}),
     },
@@ -83,3 +96,4 @@ export function BarChart({
   }
   return <ChartFrame {...frame} options={options} />
 }
+

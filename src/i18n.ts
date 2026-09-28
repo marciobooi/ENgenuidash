@@ -84,6 +84,7 @@ const en = {
   dSelectionAverage: 'Average of selection',
   dSharesOverTime: 'Shares over time',
   dOther: 'Other',
+  dNoDataFor: 'No data for {names} in this selection.',
   dCountriesCount: '{n} countries',
   dMixByCountry: 'Mix by country, {period}',
   dByPartAndCountry: 'By source and country, {period}',
@@ -167,6 +168,7 @@ const en = {
     bubbleY: 'Renewable share',
     bubbleZ: 'Final energy consumption per person',
     perPerson: 'kgoe per person',
+    noDataFor: 'No data for {names} in this selection.',
   },
   filters: {
     geo: 'Countries',
@@ -374,6 +376,7 @@ export const STRINGS: Record<Lang, Strings> = {
     dSelectionAverage: 'Durchschnitt der Auswahl',
     dSharesOverTime: 'Anteile im Zeitverlauf',
     dOther: 'Sonstige',
+    dNoDataFor: 'Keine Daten für {names} in dieser Auswahl.',
     dCountriesCount: '{n} Länder',
     dMixByCountry: 'Zusammensetzung nach Land, {period}',
     dByPartAndCountry: 'Nach Quelle und Land, {period}',
@@ -457,6 +460,7 @@ export const STRINGS: Record<Lang, Strings> = {
       bubbleY: 'Anteil erneuerbarer Energien',
       bubbleZ: 'Endenergieverbrauch pro Kopf',
       perPerson: 'kgoe pro Kopf',
+      noDataFor: 'Keine Daten für {names} in dieser Auswahl.',
     },
     filters: {
       geo: 'Länder',
@@ -659,6 +663,7 @@ export const STRINGS: Record<Lang, Strings> = {
     dSelectionAverage: 'Moyenne de la sélection',
     dSharesOverTime: 'Parts dans le temps',
     dOther: 'Autres',
+    dNoDataFor: 'Pas de données pour {names} dans cette sélection.',
     dCountriesCount: '{n} pays',
     dMixByCountry: 'Composition par pays, {period}',
     dByPartAndCountry: 'Par source et par pays, {period}',
@@ -742,6 +747,7 @@ export const STRINGS: Record<Lang, Strings> = {
       bubbleY: 'Part des renouvelables',
       bubbleZ: 'Consommation finale d’énergie par habitant',
       perPerson: 'kgep par habitant',
+      noDataFor: 'Pas de données pour {names} dans cette sélection.',
     },
     filters: {
       geo: 'Pays',

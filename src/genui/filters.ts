@@ -7,8 +7,9 @@ import type { Plan } from './types'
  * small dimensions (price band, taxes, currency, stock type…). Choosing an option rebuilds the
  * dashboard directly, like a chat request, so users do not need to type "add France".
  *
- * Only one dimension can vary (be the series) at a time: while several products are shown,
- * "Countries" is a single choice, and the other way round.
+ * Countries (or partner countries) can always be several, together with one other dimension
+ * (several products or flows): the dashboard then shows each country's mix. Two other dimensions
+ * never vary at once: while several products are shown, "Flow" is a single choice.
  */
 
 
@@ -45,7 +46,9 @@ export function filterControls(
 ): FilterControl[] {
   const ds = dict.datasets[plan.dataset]
   if (!ds) return []
-  const varying = Object.entries(plan.filters).find(([, v]) => Array.isArray(v) && v.length > 1)?.[0]
+  const isPlace = (dim: string) => dim === 'geo' || dim === 'partner'
+  // The non-place dimension that varies, if any (products, flows…).
+  const varying = Object.entries(plan.filters).find(([k, v]) => !isPlace(k) && Array.isArray(v) && v.length > 1)?.[0]
   const out: FilterControl[] = []
   const label = (dim: string, code: string) => {
     const codelist = ds.dimensions.find((d) => d.id === dim)?.codelist ?? null
@@ -58,7 +61,7 @@ export function filterControls(
     if (all.length < 2) return
     let options = all.map((code) => ({ code, label: label(dim, code) }))
     if (sort) options = [...options.filter((o) => o.code.startsWith('EU')), ...options.filter((o) => !o.code.startsWith('EU')).sort((a, b) => a.label.localeCompare(b.label, lang))]
-    out.push({ dim, label: name, multiple: multiple && (!varying || varying === dim), options, selected })
+    out.push({ dim, label: name, multiple: multiple && (isPlace(dim) || !varying || varying === dim), options, selected })
   }
 
   // Countries (reporting) and partner countries (imports from / exports to).
@@ -87,16 +90,21 @@ export function applyFilter(plan: Plan, dim: string, codes: string[], dict: Ener
   const valid = codes.filter((c) => codesOf(ds, dim).includes(c))
   if (!valid.length) return plan
   const next: Plan = { ...plan, filters: { ...plan.filters, [dim]: valid.length === 1 ? valid[0] : valid }, notes: [], retry: undefined, fallback: undefined }
-  // Only one dimension varies: the others keep their first code.
+  // Countries vary together with one other dimension at most: several products (or flows) keep
+  // the other non-place dimensions to their first code; several countries keep the products.
+  const isPlace = (d: string) => d === 'geo' || d === 'partner'
   if (valid.length > 1) {
-    for (const [k, v] of Object.entries(next.filters)) if (k !== dim && Array.isArray(v)) next.filters[k] = v[0]
+    for (const [k, v] of Object.entries(next.filters)) if (k !== dim && Array.isArray(v) && (isPlace(k) === isPlace(dim) || !isPlace(k))) next.filters[k] = isPlace(dim) && !isPlace(k) ? v : v[0]
   }
+  // Still a mix when the parts stay several (the dashboard shows each country's mix).
+  const parts = Object.entries(next.filters).some(([k, v]) => !isPlace(k) && Array.isArray(v) && v.length > 1)
   if (dim === 'geo') {
     next.allCountries = false
     next.top = undefined
   }
   const several = valid.length > 1
-  if (several) next.intent = next.focusPeriod ? 'compare' : dim === 'geo' && valid.length > 6 ? 'compare' : 'trend'
+  if (plan.intent === 'mix' && parts) next.intent = 'mix'
+  else if (several) next.intent = next.focusPeriod ? 'compare' : dim === 'geo' && valid.length > 6 ? 'compare' : 'trend'
   else if (!Object.values(next.filters).some((v) => Array.isArray(v))) next.intent = next.focusPeriod ? 'snapshot' : 'trend'
   // A comparison without a year shows the latest one, with ten years for the evolution.
   if (next.intent === 'compare' && !next.focusPeriod && next.time.kind === 'last' && next.time.n < 10) next.time = { kind: 'last', n: 10 }

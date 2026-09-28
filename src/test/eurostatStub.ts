@@ -78,7 +78,10 @@ export function installEurostatStub(dict: EnergyDictionary, codelists: EnergyCod
         // Price components keep Eurostat's relation: "taxes, fees, levies" includes VAT.
         const component = keys[ids.indexOf('nrg_prc')]
         const share = component === 'VAT' ? 0.3 : component === 'TAX_FEE_LEV_CHRG' ? 0.9 : component?.endsWith('_ALLOW') ? 0 : 1
-        value[i] = Math.round(base * share * (0.85 + 0.3 * t + 0.05 * Math.sin(i)) * 1000) / 1000
+        // The wobble depends on the observation's own keys, not its position in the response: the
+        // same country, product and year give the same value whatever else was asked (as at Eurostat).
+        const wobble = Math.sin(hash(keys.join('|')) * 1000)
+        value[i] = Math.round(base * share * (0.85 + 0.3 * t + 0.05 * wobble) * 1000) / 1000
       }
     }
     const label = (id: string, code: string) => {

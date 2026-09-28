@@ -178,3 +178,54 @@ test('mix: the donut and the shares over time give each source the same percenta
   }
   assert.ok(shares.series.length <= 6)
 })
+
+// ---------- several countries on any dashboard (a filter, or "… in Germany and France") ----------
+
+const PLACES = ['EU27_2020', 'DE', 'FR']
+const withPlaces = (p: Plan, geo: string | string[]): Plan => ({ ...p, filters: { ...p.filters, geo } })
+const tableOf = (d: DashboardSpec) => d.widgets.find((w) => w.type === 'table') as Extract<WidgetSpec, { type: 'table' }>
+
+for (const [id, preset] of Object.entries(PRESETS)) {
+  const geoCodes: string[] = dict.datasets[preset.dataset]?.dimensions.find((x: { id: string }) => x.id === 'geo')?.codes ?? []
+  if (!PLACES.every((c) => geoCodes.includes(c))) continue
+  test(`several countries on "${id}": each country its own values, named in the subtitle`, async () => {
+    const d = await build(withPlaces(preset, PLACES))
+    // Never "EU-27" alone when three countries are shown.
+    assert.ok(/Germany/.test(d.subtitle) || charts(d).some((w) => 'categories' in w && w.categories.includes('Germany')) || tableOf(d).rows.some((r) => r.label.includes('Germany')), d.subtitle)
+    // One row per country (or country × part), and no two countries with the same figures.
+    const rows = tableOf(d).rows
+    for (const c of ['Germany', 'France']) assert.ok(rows.some((r) => r.label.includes(c)), `${c} missing: ${rows.map((r) => r.label)}`)
+    const byCountry = (c: string) => JSON.stringify(rows.filter((r) => r.label.includes(c)).map((r) => r.values))
+    assert.notEqual(byCountry('Germany'), byCountry('France'))
+    // Summable mixes: a country's total is the total of its own single-country dashboard.
+    if (Array.isArray(preset.filters.siec) || Array.isArray(preset.filters.nrg_bal) || Array.isArray(preset.filters.src_crf)) {
+      const one = await build(withPlaces(preset, 'DE'))
+      const pie = charts(one).find((w) => w.type === 'pie') as Extract<WidgetSpec, { type: 'pie' }> | undefined
+      const de = rows.find((r) => r.label === 'Germany')
+      if (pie && de) {
+        const total = pie.slices.reduce((n, x) => n + x.y, 0)
+        const col = tableOf(d).columns.indexOf(tableOf(one).columns.at(-1)!)
+        assert.ok(Math.abs((de.values[col] ?? 0) - total) < 1e-6 * total, `Germany ${de.values[col]} vs its own dashboard ${total}`)
+        assert.ok(charts(d).some((w) => w.type === 'bar' && w.stacked === 'percent' && w.categories.includes('Germany')), 'mix by country')
+      }
+    }
+  })
+}
+
+test('"electricity mix in Germany, France and Italy": the mix per country, not one country labelled EU-27', async () => {
+  const d = await dash('electricity mix in Germany, France and Italy')
+  assert.match(d.subtitle, /Germany, France, Italy/)
+  const shares = charts(d).find((w) => w.type === 'bar' && w.stacked === 'percent') as Extract<WidgetSpec, { type: 'bar' }>
+  assert.deepEqual([...shares.categories].sort(), ['France', 'Germany', 'Italy'])
+})
+
+test('mix of several countries: EU-27 is the reference, never a slice next to its own members', async () => {
+  const p = PRESETS.production
+  const year = await build({ ...p, filters: { ...p.filters, geo: ['EU27_2020', 'DE', 'FR', 'IT'] }, focusPeriod: '2022', time: { kind: 'range', since: '2021', until: '2022' } })
+  for (const w of charts(year)) if (w.type === 'pie') assert.ok(!w.slices.some((x) => x.name === 'EU-27'), 'EU-27 in a pie of countries')
+  const ranking = charts(year).find((w) => w.type === 'bar' && w.title.startsWith('Ranking')) as Extract<WidgetSpec, { type: 'bar' }>
+  assert.equal(ranking.reference?.label, 'EU-27')
+  // Over time: each country's share of its largest sources.
+  const overTime = await build({ ...p, filters: { ...p.filters, geo: ['EU27_2020', 'DE', 'FR', 'IT'] } })
+  assert.ok(charts(overTime).some((w) => w.type === 'line' && w.title.startsWith('Share of')))
+})

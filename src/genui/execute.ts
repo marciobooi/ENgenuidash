@@ -58,6 +58,13 @@ export interface DashStrings {
   sharesOverTime: string
   /** Label of the smaller parts grouped together in mix charts. */
   other: string
+  /** "4 countries" in subtitles. */
+  countriesCount: string
+  /** Mix of several countries: shares and quantities per country. */
+  mixByCountry: string
+  byPartAndCountry: string
+  /** "Share of Wind over time" (several countries of a mix). */
+  shareOfPartOverTime: string
   mixRanking: string
   heatmapTitle: string
   yearsShort: string
@@ -108,9 +115,13 @@ export async function buildDashboard(
   const ds = dict.datasets[plan.dataset]
   const geoCodes = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []
 
-  // In country comparisons also fetch the EU aggregate as a reference value.
+  // In country comparisons also fetch the EU aggregate as a reference value. A mix of several
+  // countries in one year is such a comparison too (countries are never parts of one whole: the
+  // EU-27 already contains its members).
   const filters = { ...plan.filters }
-  const withEuReference = plan.intent === 'compare' && Array.isArray(filters.geo) && geoCodes.includes('EU27_2020')
+  const severalCountries = Array.isArray(filters.geo) && filters.geo.length > 1
+  const comparesCountries = plan.intent === 'compare' || (plan.intent === 'mix' && severalCountries && !!plan.focusPeriod)
+  const withEuReference = comparesCountries && Array.isArray(filters.geo) && geoCodes.includes('EU27_2020')
   if (withEuReference && !(filters.geo as string[]).includes('EU27_2020')) {
     filters.geo = [...(filters.geo as string[]), 'EU27_2020']
   }
@@ -166,20 +177,57 @@ export async function buildDashboard(
   const isPercent = unitCode === 'PC'
 
   // Which dimension varies? That one becomes the series (countries, products…).
-  const seriesDim = result.dimensionIds.find((id) => id !== 'time' && (result.dimensions[id]?.codes.length ?? 0) > 1)
-  const periods = result.dimensions.time?.codes ?? []
-  const lookup = new Map(result.observations.map((o) => [`${seriesDim ? o.keys[seriesDim] : ''}|${o.keys.time}`, o]))
+  const varying = result.dimensionIds.filter((id) => id !== 'time' && (result.dimensions[id]?.codes.length ?? 0) > 1)
+  // Countries and parts at once (several countries picked on a mix, "electricity mix in Germany
+  // and France"): the countries are the series, and each value is looked up by country AND part.
+  // Any other dimension that also varies (fuels × flows…) is kept apart in the same way.
+  const placeDim = varying.find((id) => id === 'geo' || id === 'partner')
+  const seriesDim = placeDim ?? varying[0]
+  const partDims = varying.filter((id) => id !== seriesDim)
+  const partDim = partDims.length ? partDims.join('+') : undefined
+  const periods = result.dimensionIds.includes('time') ? (result.dimensions.time?.codes ?? []) : []
+  const keyOf = (keys: Record<string, string>) => [...varying.map((id) => keys[id]), keys.time].join('|')
+  const lookup = new Map(result.observations.map((o) => [keyOf(o.keys), o]))
+  // Every combination of the other varying dimensions' codes ("Wind", or "Wind · Imports").
+  const partCodes = partDims.reduce<{ code: string; label: string; keys: Record<string, string> }[]>(
+    (combos, id) =>
+      combos.flatMap((c) =>
+        result.dimensions[id].codes.map((x) => ({
+          code: c.code ? `${c.code}|${x.code}` : x.code,
+          label: c.label ? `${c.label} · ${x.label}` : x.label,
+          keys: { ...c.keys, [id]: x.code },
+        })),
+      ),
+    [{ code: '', label: '', keys: {} }],
+  )
+  const valueAt = (seriesCode: string, part: { keys: Record<string, string> }, time: string) =>
+    lookup.get(keyOf({ ...part.keys, ...(seriesDim ? { [seriesDim]: seriesCode } : {}), time }))
 
   // Long or technical labels read badly in charts; use the common short form.
   const shortName = (code: string | undefined, label: string | undefined) =>
     code === 'EU27_2020' ? 'EU-27' : code === 'EA20' ? 'Euro area' : code && FRIENDLY[code]?.[lang] ? FRIENDLY[code][lang] : label
   const geo0 = result.dimensions.geo?.codes[0]
-  let series = (seriesDim ? result.dimensions[seriesDim].codes : [{ code: '', label: '' }]).map((sc) => ({
-    code: sc.code,
-    name: (seriesDim ? shortName(sc.code, sc.label) : shortName(geo0?.code, geo0?.label)) || pick(ds.title, lang, ds.code),
-    data: periods.map((p) => lookup.get(`${sc.code}|${p.code}`)?.value ?? null),
-    flags: periods.map((p) => lookup.get(`${sc.code}|${p.code}`)?.flag),
-  }))
+  const seriesCodes = seriesDim ? result.dimensions[seriesDim].codes : [{ code: '', label: '' }]
+  // Quantities that can be summed (ktoe, GWh, m³, t) get "share of total" views; rates and prices don't.
+  const additive = !isPercent && ['energy', 'volume', 'mass', 'capacity'].includes(unitInfo?.kind ?? '')
+  const seriesName = (sc: { code: string; label: string }) =>
+    (seriesDim ? shortName(sc.code, sc.label) : shortName(geo0?.code, geo0?.label)) || pick(ds.title, lang, ds.code)
+  // With parts: summable quantities give each country the total of the parts (the mix itself is
+  // drawn per country below); rates and prices cannot be added, so each country × part is a series.
+  // Summing needs one dimension of parts across countries (several flows could overlap).
+  const byPart = !!partDim && !(additive && placeDim && partDims.length === 1)
+  let series = seriesCodes.flatMap((sc) =>
+    (byPart ? partCodes : [null]).map((pc) => {
+      const cells = periods.map((p) => (pc ? [valueAt(sc.code, pc, p.code)] : partCodes.map((c) => valueAt(sc.code, c, p.code))))
+      const partName = pc ? ((partDims.length === 1 ? shortName(pc.code, pc.label) : undefined) ?? pc.label) : ''
+      return {
+        code: pc && pc.code ? (seriesDim ? `${sc.code}|${pc.code}` : pc.code) : sc.code,
+        name: pc && pc.code ? (seriesDim ? `${seriesName(sc)} – ${partName}` : partName) : seriesName(sc),
+        data: cells.map((cs) => (cs.every((o) => o?.value == null) ? null : cs.reduce<number>((n, o) => n + (o?.value ?? 0), 0))),
+        flags: cells.map((cs) => (cs.length === 1 ? cs[0]?.flag : undefined)),
+      }
+    }),
+  )
   series = series.filter((x) => x.data.some((v) => v != null))
   if (!series.length) throw new NoDataError(s.noData)
 
@@ -206,12 +254,15 @@ export async function buildDashboard(
 
   // ---------- titles ----------
   const selectionLabels = result.dimensionIds
-    .filter((id) => !['time', 'freq', 'unit', 'currency', 'geo', seriesDim].includes(id))
+    .filter((id) => !['time', 'freq', 'unit', 'currency', 'geo', ...varying].includes(id))
     .map((id) => result.dimensions[id].codes[0]?.label)
     .filter((l): l is string => !!l && !/^total$|^insgesamt$/i.test(l))
   const singleGeo = seriesDim !== 'geo' ? shortName(geo0?.code, geo0?.label) : undefined
+  // Several countries of a mix: named in the subtitle (up to three), else counted.
+  const places = partDim && placeDim ? seriesCodes.map((c) => shortName(c.code, c.label) ?? c.code) : []
+  const placesLabel = places.length > 3 ? fill(s.countriesCount, { n: String(places.length) }) : places.join(', ')
   const title = pick(ds.title, lang, ds.code)
-  const subtitle = [...selectionLabels, singleGeo, unit].filter(Boolean).join(' · ')
+  const subtitle = [...selectionLabels, singleGeo, placesLabel, unit].filter(Boolean).join(' · ')
 
   const widgets: WidgetSpec[] = []
   const summary: string[] = []
@@ -252,11 +303,11 @@ export async function buildDashboard(
   const multi = series.length > 1
   const period = periodLabels[focusIndex]
   const byCountry = seriesDim === 'geo'
-  // Quantities that can be summed (ktoe, GWh, m³, t) get "share of total" views; rates and prices don't.
-  const additive = !isPercent && ['energy', 'volume', 'mass', 'capacity'].includes(unitInfo?.kind ?? '')
+  // Countries of a mix are compared (one year) or followed over time, never parts of one whole.
+  const intent: Plan['intent'] = placeDim && seriesDim === placeDim && multi && plan.intent === 'mix' ? (plan.focusPeriod ? 'compare' : 'trend') : plan.intent
   // Parts of one whole over time (capacity by technology, consumption by fuel): a composition view
   // (donut, stacked areas) fits better than separate lines. Countries are never parts of a whole here.
-  const composition = additive && plan.parts !== false && !!seriesDim && !['geo', 'partner'].includes(seriesDim) && plan.intent === 'trend'
+  const composition = additive && plan.parts !== false && !!seriesDim && !['geo', 'partner'].includes(seriesDim) && intent === 'trend'
   const changeUnit = isPercent ? 'pp' : '%'
   const changeBetween = (data: (number | null)[], from: number, to: number): number | null => {
     const a = data[from]
@@ -315,7 +366,7 @@ export async function buildDashboard(
   }
 
   let view: 'compare' | 'mix' | 'trend' | 'single' = 'single'
-  if (plan.intent === 'compare' && multi) {
+  if (intent === 'compare' && multi) {
     view = 'compare'
     const ranked = series
       .map((x) => ({ x, value: x.data[focusIndex] }))
@@ -438,7 +489,7 @@ export async function buildDashboard(
         }),
       )
     }
-  } else if ((plan.intent === 'mix' || composition) && multi) {
+  } else if ((intent === 'mix' || composition) && multi) {
     view = 'mix'
     const slices = series
       .map((x) => ({ x, y: x.data[focusIndex] ?? 0 }))
@@ -682,6 +733,62 @@ export async function buildDashboard(
   if (plan.chart) applyChartOverride(widgets, plan.chart)
   widgets.push(...(await companions).map((w) => ({ ...w, role: w.role ?? ('related' as const) })))
 
+  // Mix of several countries (summable parts): each country's composition in the period shown,
+  // as shares (comparable across sizes) and as quantities. The parts are grouped as in the donut:
+  // the five largest overall, the rest as "Other".
+  if (partDim && placeDim && !byPart && multi) {
+    // The EU-27 (when shown as the reference) gets its own bar: the mix to compare with.
+    const shownPlaces = [...(euRef ? [euRef] : []), ...series].filter((x) => x.data[focusIndex] != null)
+    const cell = (place: string, part: (typeof partCodes)[number]) => valueAt(place, part, periods[focusIndex].code)?.value ?? null
+    const partTotals = partCodes
+      .map((pc) => ({ pc, total: shownPlaces.reduce((n, x) => n + Math.max(cell(x.code, pc) ?? 0, 0), 0) }))
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total)
+    const big = partTotals.slice(0, partTotals.length > MAX_SERIES ? MAX_SERIES - 1 : MAX_SERIES)
+    const rest = partTotals.slice(big.length)
+    const mixSeries = [
+      ...big.map(({ pc }) => ({ name: shortName(pc.code, pc.label) ?? pc.label, data: shownPlaces.map((x) => cell(x.code, pc)) })),
+      ...(rest.length
+        ? [{ name: s.other, data: shownPlaces.map((x) => rest.reduce<number | null>((n, { pc }) => (cell(x.code, pc) == null ? n : (n ?? 0) + (cell(x.code, pc) as number)), null)) }]
+        : []),
+    ]
+    const categories = shownPlaces.map((x) => x.name)
+    const at = widgets.findIndex((w) => w.type !== 'kpis')
+    // Over time: how the share of the largest parts moves in each country (the one-country
+    // dashboard's "shares over time", per country).
+    const shareLines: WidgetSpec[] =
+      !plan.focusPeriod && periods.length > 2
+        ? big.slice(0, 2).map(({ pc }) => ({
+            type: 'line' as const,
+            title: fill(s.shareOfPartOverTime, { part: shortName(pc.code, pc.label) ?? pc.label }),
+            subtitle: [...selectionLabels, '%'].join(' · '),
+            categories: periodLabels,
+            series: shownPlaces.map((x) => ({
+              name: x.name,
+              data: periods.map((p, k) => {
+                const all = partCodes.reduce<number | null>((n, c) => {
+                  const v = valueAt(x.code, c, p.code)?.value
+                  return v == null ? n : (n ?? 0) + v
+                }, null)
+                const v = valueAt(x.code, pc, p.code)?.value
+                return v == null || !all || x.data[k] == null ? null : Math.round((v / all) * 1000) / 10
+              }),
+            })),
+            unit: '%',
+            size: 'half' as const,
+            role: 'evolution' as const,
+          }))
+        : []
+    widgets.splice(at < 0 ? widgets.length : at, 0,
+      { type: 'bar', title: fill(s.mixByCountry, { period }), subtitle: [...selectionLabels, '%'].join(' · '), categories, series: mixSeries, horizontal: true, stacked: 'percent', size: 'full', role: 'composition' },
+      { type: 'bar', title: fill(s.byPartAndCountry, { period }), subtitle, categories, series: mixSeries, horizontal: true, stacked: true, size: 'full', role: 'composition' },
+    )
+    // After the countries' evolution (same role: the layout keeps this order).
+    widgets.push(...shareLines)
+    // Laid out as a mix: the composition first, then the evolution, ranking and changes.
+    view = 'mix'
+  }
+
   // Data table: every series; for a single-year comparison or mix only that year's column,
   // otherwise every period.
   const tableSeries = euRef ? [euRef, ...series] : series
@@ -700,7 +807,7 @@ export async function buildDashboard(
     ? answerFor(
         {
           focus: plan.focus,
-          mix: plan.intent === 'mix' || composition,
+          mix: intent === 'mix' || composition,
           series,
           euRef,
           periodLabels,
@@ -728,7 +835,7 @@ export async function buildDashboard(
   const arranged = arrange(widgets, plan, view, variant)
 
   const insights = computeInsights(
-    { intent: composition ? 'mix' : plan.intent, multi, ranked: !!topNote, lag, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
+    { intent: composition ? 'mix' : intent, multi, ranked: !!topNote, lag, focusPeriod: plan.focusPeriod, series, euRef, periodLabels, focusIndex, perYear, isPercent, unit, fmt },
     s.insights,
   )
 

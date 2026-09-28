@@ -22,25 +22,36 @@ test('a balance question gets country, product and flow filters with the current
   assert.equal(byDim(p, 'nrg_bal')?.multiple, false)
 })
 
-test('several countries: a trend (few) or a comparison (many); products become a single choice', () => {
+test('several countries: a trend (few) or a comparison (many); products can still be several', () => {
   const p = applyFilter(plan('Oil consumption in Spain'), 'geo', ['ES', 'FR', 'DE'], dict)
   assert.deepEqual(p.filters.geo, ['ES', 'FR', 'DE'])
   assert.equal(p.intent, 'trend')
-  assert.equal(byDim(p, 'siec')?.multiple, false)
+  // Countries × products is a valid view (each country's mix): products stay a multiple choice.
+  assert.equal(byDim(p, 'siec')?.multiple, true)
   const many = applyFilter(p, 'geo', ['ES', 'FR', 'DE', 'IT', 'PL', 'NL', 'BE', 'AT'], dict)
   assert.equal(many.intent, 'compare')
 })
 
-test('several products on one country: countries become a single choice', () => {
+test('several products on one country: countries stay a multiple choice, flows become single', () => {
   const p = applyFilter(plan('Energy consumption in Spain'), 'siec', ['O4000XBIO', 'G3000', 'RA000'], dict)
-  assert.equal(byDim(p, 'geo')?.multiple, false)
+  assert.equal(byDim(p, 'geo')?.multiple, true)
   assert.equal(byDim(p, 'siec')?.multiple, true)
+  const flow = byDim(p, 'nrg_bal')
+  if (flow) assert.equal(flow.multiple, false)
 })
 
-test('choosing several of one dimension keeps only the first of another', () => {
+test('several countries on a mix keep its products: a mix per country', () => {
   const mix = plan('Electricity mix in Germany')
   const p = applyFilter(mix, 'geo', ['DE', 'FR'], dict)
-  assert.ok(!Array.isArray(p.filters.siec), JSON.stringify(p.filters.siec))
+  assert.deepEqual(p.filters.siec, mix.filters.siec)
+  assert.equal(p.intent, 'mix')
+})
+
+test('several products on several countries: the countries are kept, other dimensions single', () => {
+  const p = applyFilter(applyFilter(plan('Energy consumption in Spain'), 'geo', ['ES', 'FR'], dict), 'siec', ['O4000XBIO', 'G3000'], dict)
+  assert.deepEqual(p.filters.geo, ['ES', 'FR'])
+  assert.deepEqual(p.filters.siec, ['O4000XBIO', 'G3000'])
+  for (const [k, v] of Object.entries(p.filters)) if (!['geo', 'siec'].includes(k)) assert.ok(!Array.isArray(v), k)
 })
 
 test('price datasets offer their small dimensions: band, taxes, currency', () => {

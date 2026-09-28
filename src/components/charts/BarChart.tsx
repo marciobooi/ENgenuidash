@@ -41,7 +41,7 @@ export function BarChart({
     borderWidth: 2,
     borderColor: SURFACE,
     // Round only the data end; the baseline end stays square.
-    borderRadius: stacking ? 0 : { radius: 4, where: 'end' },
+    borderRadius: stacking ? 0 : { radius: 4, scope: 'stack', where: 'end' },
     // Changes: increases in the first palette colour, decreases in the second (plus the legend-free
     // sign in the value label, so colour is not the only cue).
     ...(signed ? { negativeColor: PALETTE[2] } : {}),

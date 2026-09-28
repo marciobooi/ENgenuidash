@@ -100,20 +100,44 @@ export function fetchEurostatData(code: string, q: EurostatQuery = {}): Promise<
   const url = buildDataUrl(code, q)
   let pending = cache.get(url)
   if (!pending) {
-    pending = load(code, url, q.signal)
+    // Shared by every caller asking for the same slice, so it is not tied to any one caller's
+    // signal: one dashboard giving up (a newer question, a language switch) must not fail the
+    // others waiting for the same data. Each caller stops waiting on its own signal instead.
+    pending = load(code, url)
     cache.set(url, pending)
     pending.catch(() => cache.delete(url))
   }
-  return pending
+  return q.signal ? untilAborted(pending, q.signal) : pending
 }
 
-async function load(code: string, url: string, signal?: AbortSignal): Promise<EurostatResult> {
+/** The promise, or an AbortError as soon as the signal aborts (the request itself goes on). */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'))
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (v) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(v)
+      },
+      (e) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(e)
+      },
+    )
+  })
+}
+
+/** A request Eurostat does not answer in this time counts as an outage (see load). */
+const TIMEOUT_MS = 45_000
+
+async function load(code: string, url: string): Promise<EurostatResult> {
   let res: Response
   try {
-    res = await fetch(url, { signal })
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') throw err
-    // Network failure. During EC outages the API redirects to sorry.ec.europa.eu, which the
+    res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+  } catch {
+    // Network failure or no answer in time. During EC outages the API redirects to sorry.ec.europa.eu, which the
     // browser reports as a failed (CORS) fetch. Fall back to the last cached copy.
     return fromCache(code, url)
   }

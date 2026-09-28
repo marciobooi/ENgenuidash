@@ -52,7 +52,7 @@ export function HeroChart({
     legend: { enabled: false },
     tooltip: { valueSuffix, valueDecimals: decimals },
     plotOptions: {
-      column: { borderWidth: 0, borderRadius: { radius: 4, where: 'end' }, groupPadding: 0.08, pointPadding: 0.06, maxPointWidth: 56 },
+      column: { borderWidth: 0, borderRadius: { radius: 4, scope: 'stack', where: 'end' }, groupPadding: 0.08, pointPadding: 0.06, maxPointWidth: 56 },
     },
     series: [
       {

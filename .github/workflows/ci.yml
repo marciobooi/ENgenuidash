@@ -1,0 +1,27 @@
+# Tests, lint and a production build on every push and pull request.
+# The build runs tsc and vite directly: `npm run build` first downloads the language models
+# (several GB, see scripts/ensure-model.mjs), which a check does not need.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npx tsc -b && npx vite build

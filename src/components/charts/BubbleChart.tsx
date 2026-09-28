@@ -61,7 +61,6 @@ export function BubbleChart({ points, x, y, z, reference, decimals = 1, ...frame
       labels: { format: `{value:,.0f}${withUnit(y.unit)}` },
     },
     tooltip: {
-      useHTML: true,
       headerFormat: '',
       pointFormat:
         `<b>{point.name}</b><br/>${x.label}: <b>{point.realX:,.${decimals}f}${withUnit(x.unit)}</b>` +

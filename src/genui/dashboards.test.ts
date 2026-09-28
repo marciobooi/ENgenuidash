@@ -59,8 +59,12 @@ test('three countries over time: lines, ranking, change since the start; no map,
   const d = await dash('Renewable energy share in Spain, France and Germany since 2010')
   // (the order depends on the page variant, see layout.ts; the evolution always leads)
   assert.equal(kinds(d)[0], 'line')
-  // (plus the renewable share by sector of each country, a related chart)
-  assert.deepEqual([...kinds(d)].sort(), ['bar', 'bar', 'breakdown', 'line'])
+  // (plus the renewable share by sector of each country, where each started and ended, and the
+  // big picture of the three countries: related charts)
+  assert.deepEqual([...kinds(d)].sort(), ['bar', 'bar', 'breakdown', 'bubble', 'dumbbell', 'line'])
+  const db = charts(d).find((w) => w.type === 'dumbbell') as Extract<WidgetSpec, { type: 'dumbbell' }>
+  assert.equal(db.title, `${db.from.name} → ${db.to.name}`)
+  assert.deepEqual([...db.categories].sort(), ['France', 'Germany', 'Spain'])
   assert.ok(titled(d, 'Renewable share by sector'))
   assert.equal(d.widgets.find((w) => w.type === 'kpis')?.type, 'kpis')
 })
@@ -241,8 +245,30 @@ test('electricity production, four countries in one year: gross vs net, plant ty
   const d = await build({ ...p, filters: { ...p.filters, geo: ['EU27_2020', 'DE', 'FR', 'IT'] }, focusPeriod: '2022', time: { kind: 'range', since: '2021', until: '2022' } })
   const bar = (title: string) => titled(d, title) as Extract<WidgetSpec, { type: 'bar' }>
   // Gross and net side by side per country; plant types and operators as 100% bars per country.
-  assert.deepEqual(bar('Gross and net production').series.map((x) => x.name), ['Gross electricity production', 'Net electricity production'])
+  const gn = titled(d, 'Gross and net production') as Extract<WidgetSpec, { type: 'dumbbell' }>
+  assert.equal(gn.type, 'dumbbell')
+  assert.deepEqual([gn.from.name, gn.to.name], ['Net electricity production', 'Gross electricity production'])
   assert.equal(bar('By type of plant').stacked, 'percent')
   assert.deepEqual(bar('By operator').categories, ['EU-27', 'Germany', 'France', 'Italy'])
   assert.equal(bar('Renewable share of energy consumption').reference?.label, 'EU 2030 target')
+})
+
+test('bubble chart: three or more countries on energy topics, never for prices or two countries', async () => {
+  const three = await dash('Renewable energy share in Spain, France and Germany since 2010')
+  const bubble = charts(three).find((w) => w.type === 'bubble') as Extract<WidgetSpec, { type: 'bubble' }>
+  assert.deepEqual(bubble.points.map((p) => p.name).sort(), ['France', 'Germany', 'Spain'])
+  assert.equal(bubble.reference?.label, 'EU-27')
+  assert.ok(bubble.points.every((p) => p.x >= 0 && p.y >= 0 && p.z > 0))
+  // Two countries: two dots are not a picture.
+  assert.ok(!charts(await dash('Renewable energy share in Spain and France since 2010')).some((w) => w.type === 'bubble'))
+  // Prices are not about how a country gets its energy.
+  const prices = await dash('electricity prices for households in Germany, France and Italy')
+  assert.ok(!charts(prices).some((w) => w.type === 'bubble'))
+})
+
+test('one year, several countries (not summable): each country from the previous year to this one (dumbbell)', async () => {
+  const d = await dash('Compare energy import dependency of Germany, France and Italy in 2023')
+  const db = charts(d).find((w) => w.type === 'dumbbell') as Extract<WidgetSpec, { type: 'dumbbell' }>
+  assert.equal(db.title, '2022 → 2023')
+  assert.equal(db.categories.length, 3)
 })

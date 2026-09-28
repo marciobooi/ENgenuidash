@@ -458,14 +458,15 @@ export async function buildDashboard(
         role: 'composition',
       })
     } else if (prev >= 0 && (plan.focusPeriod || periods.length <= 2)) {
-      // Not summable, and no evolution below: the two periods side by side per country.
+      // Not summable, and no evolution below: each country's two periods joined (dumbbell), so
+      // the direction and size of the move read at a glance.
       widgets.push({
-        type: 'bar',
-        title: `${periodLabels[prev]} – ${period}`,
+        type: 'dumbbell',
+        title: `${periodLabels[prev]} → ${period}`,
         subtitle,
         categories: ranked.map((r) => r.x.name),
-        series: [prev, focusIndex].map((i) => ({ name: periodLabels[i], data: ranked.map((r) => r.x.data[i] ?? null) })),
-        horizontal: false,
+        from: { name: periodLabels[prev], data: ranked.map((r) => r.x.data[prev] ?? null) },
+        to: { name: period, data: ranked.map((r) => r.x.data[focusIndex] ?? null) },
         size: 'half',
         role: 'change',
       })
@@ -603,6 +604,23 @@ export async function buildDashboard(
         size: 'half',
         role: 'change',
       })
+      // Where each one started and ended (the change above is relative): first year → latest.
+      const pairs = series
+        .map((x) => ({ name: x.name, a: x.data[firstIndex(x.data)], b: x.data[latestIndex(x.data)] }))
+        .filter((r): r is { name: string; a: number; b: number } => r.a != null && r.b != null)
+        .sort((p, q) => q.b - p.b)
+      if (pairs.length >= 2 && pairs.length <= 15 && latest > start) {
+        widgets.push({
+          type: 'dumbbell',
+          title: `${periodLabels[start]} → ${periodLabels[latest]}`,
+          subtitle,
+          categories: pairs.map((r) => r.name),
+          from: { name: periodLabels[start], data: pairs.map((r) => r.a) },
+          to: { name: periodLabels[latest], data: pairs.map((r) => r.b) },
+          size: 'half',
+          role: 'change',
+        })
+      }
     }
     // 3. Map of the latest period and 4. country × period heatmap (patterns across many series).
     const map = byCountry ? mapOf(series, latest) : null

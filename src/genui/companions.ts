@@ -35,6 +35,13 @@ export interface CompanionStrings {
   renTarget: string
   /** Label of the EU 2030 renewable target line. */
   renTargetLine: string
+  /** The bubble chart: import dependency × renewable share, sized by energy use per person. */
+  bubble: string
+  bubbleX: string
+  bubbleY: string
+  bubbleZ: string
+  /** Unit of energy use per person ("kgoe per person"). */
+  perPerson: string
 }
 
 export interface Companion {
@@ -45,7 +52,8 @@ export interface Companion {
   /** Codes to show; all two-letter partner countries when 'partners'. */
   codes: string[] | 'partners'
   title: string
-  view: 'pie' | 'bar'
+  /** 'dumbbell': two codes per country joined (the first → the second), for several countries. */
+  view: 'pie' | 'bar' | 'dumbbell'
   /** Price components: taxes other than VAT are derived (see PRICE_PARTS). */
   priceSplit?: { otherTaxes: string; overTime: string }
   unit?: string
@@ -119,7 +127,8 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
     const electricity = flow === 'GEP' || flow === 'NEP'
     const base = { siec: 'TOTAL', unit: one(f.unit) ?? (electricity ? 'GWH' : 'TJ'), geo }
     const unit = electricity ? 'GWh' : 'TJ'
-    out.push({ dataset: plan.dataset, filters: { ...base, plants: 'TOTAL', operator: 'TOTAL' }, dim: 'nrg_bal', codes: electricity ? ['GEP', 'NEP'] : ['GHP', 'NHP'], title: s.grossNet, view: 'bar', unit })
+    // Net → gross: the gap is what the plants use themselves.
+    out.push({ dataset: plan.dataset, filters: { ...base, plants: 'TOTAL', operator: 'TOTAL' }, dim: 'nrg_bal', codes: electricity ? ['NEP', 'GEP'] : ['NHP', 'GHP'], title: s.grossNet, view: 'dumbbell', unit })
     out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, operator: 'TOTAL' }, dim: 'plants', codes: electricity ? ['ELC', 'CHP'] : ['CHP', 'HEAT'], title: s.byPlant, view: 'pie', unit })
     out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, plants: 'TOTAL' }, dim: 'operator', codes: ['PRR_MAIN', 'PRR_AUTO'], title: s.byOperator, view: 'pie', unit })
   }
@@ -180,7 +189,75 @@ export async function buildCompanions(
     const w = toWidget(list[i], r.value, lang, format)
     if (w) widgets.push(...([] as WidgetSpec[]).concat(w))
   })
+  const bubble = await buildBubble(plan, dict, lang, s, year, signal).catch(() => null)
+  if (bubble) widgets.push(bubble)
   return widgets
+}
+
+// ---------- the big picture: several countries on three indicators ----------
+
+// Three official indicators, for the same countries and year: where each country stands.
+const BUBBLE = {
+  x: { dataset: 'nrg_ind_id', filters: { siec: 'TOTAL', unit: 'PC' }, unit: '%' },
+  y: { dataset: 'nrg_ind_ren', filters: { nrg_bal: 'REN', unit: 'PC' }, unit: '%' },
+  z: { dataset: 'nrg_ind_esc', filters: { siec: 'TOTAL', nrg_bal: 'FC_E', unit: 'KGOE_HAB' }, unit: 'kgoe' },
+} as const
+// Prices and living conditions are not about how a country gets its energy: no bubble there.
+const NO_BUBBLE = /^(nrg_pc_|ilc_)/
+
+/** Whether a dashboard gets the bubble chart, and for which countries (two-letter codes). */
+export function bubbleCountries(plan: Plan, dict: EnergyDictionary): string[] | null {
+  if (NO_BUBBLE.test(plan.dataset)) return null
+  const countries = list(plan.filters.geo).filter((c) => /^[A-Z]{2}$/.test(c))
+  if (countries.length < 3) return null // two countries are two dots, not a picture
+  const has = (dataset: string) => new Set(dict.datasets[dataset]?.dimensions.find((d) => d.id === 'geo')?.codes ?? [])
+  const all = [BUBBLE.x, BUBBLE.y, BUBBLE.z].map((i) => has(i.dataset))
+  const shared = countries.filter((c) => all.every((set) => set.has(c)))
+  return shared.length >= 3 ? shared : null
+}
+
+/**
+ * Import dependency (x) against the renewable share (y), each bubble sized by final energy
+ * consumption per person, for the dashboard's countries in one year: import-dependent countries
+ * with little renewable energy sit bottom right. Dashed lines at the EU-27 values split it into
+ * quadrants. Left out when fewer than three countries have all three values in a common year.
+ */
+async function buildBubble(plan: Plan, dict: EnergyDictionary, lang: string, s: CompanionStrings, year: string | undefined, signal?: AbortSignal): Promise<WidgetSpec | null> {
+  const countries = bubbleCountries(plan, dict)
+  if (!countries) return null
+  const geo = [...countries, 'EU27_2020']
+  const [x, y, z] = await Promise.all(
+    [BUBBLE.x, BUBBLE.y, BUBBLE.z].map((i) =>
+      fetchEurostatData(i.dataset, {
+        filters: { ...i.filters, geo },
+        ...(year ? { sinceTimePeriod: year, untilTimePeriod: year } : { lastTimePeriod: 4 }),
+        lang,
+        signal,
+      }),
+    ),
+  )
+  const at = (r: EurostatResult, geoCode: string, time: string) => r.observations.find((o) => o.keys.geo === geoCode && o.keys.time === time)?.value ?? null
+  const years = [...new Set((x.dimensions.time?.codes ?? []).map((t) => t.code))].sort().reverse()
+  const complete = (t: string) => countries.filter((c) => [x, y, z].every((r) => at(r, c, t) != null))
+  const time = years.find((t) => complete(t).length >= 3)
+  if (!time) return null
+  const names = new Map((x.dimensions.geo?.codes ?? []).map((g) => [g.code, g.label.replace(/\s*\(.*?\)\s*$/, '')]))
+  const points = complete(time).map((c) => ({ name: names.get(c) ?? c, x: at(x, c, time)!, y: at(y, c, time)!, z: at(z, c, time)! }))
+  const euX = at(x, 'EU27_2020', time)
+  const euY = at(y, 'EU27_2020', time)
+  const label = x.dimensions.time?.codes.find((t) => t.code === time)?.label ?? time
+  return {
+    type: 'bubble',
+    title: s.bubble.replace('{period}', label),
+    points,
+    x: { label: s.bubbleX, unit: BUBBLE.x.unit },
+    y: { label: s.bubbleY, unit: BUBBLE.y.unit },
+    z: { label: s.bubbleZ, unit: s.perPerson },
+    ...(euX != null || euY != null ? { reference: { ...(euX != null ? { x: euX } : {}), ...(euY != null ? { y: euY } : {}), label: 'EU-27' } } : {}),
+    size: 'full',
+    source: { code: `${BUBBLE.x.dataset}, ${BUBBLE.y.dataset}, ${BUBBLE.z.dataset}`, url: `https://ec.europa.eu/eurostat/databrowser/view/${BUBBLE.x.dataset}/default/table?lang=${lang}` },
+    role: 'related',
+  }
 }
 
 export function toWidget(c: Companion, result: EurostatResult, lang: string, format: (v: number) => string): WidgetSpec | WidgetSpec[] | null {
@@ -275,6 +352,18 @@ function compareCountries(c: Companion, result: EurostatResult, lang: string, pl
   const title = c.title.replace('{period}', time.label)
   const source = sourceOf(c, lang)
   const unit = c.unit ? { unit: c.unit } : {}
+  // Two measures per country joined (net → gross): the gap is the message.
+  if (c.view === 'dumbbell' && codes.length === 2) {
+    const [a, b] = Array.isArray(c.codes) ? c.codes.map((code) => codes.find((k) => k.code === code)!) : codes
+    const rows = shown
+      .map((p) => ({ name: placeName(p), a: value(p.code, a.code, time.code), b: value(p.code, b.code, time.code) }))
+      .sort((x, y) => (y.b ?? 0) - (x.b ?? 0))
+    return {
+      type: 'dumbbell', title, categories: rows.map((r) => r.name),
+      from: { name: partName(a), data: rows.map((r) => r.a) }, to: { name: partName(b), data: rows.map((r) => r.b) },
+      size: 'half', source, ...unit, role: 'related',
+    }
+  }
   if (codes.length === 1) {
     const ranked = shown.map((p) => ({ name: placeName(p), y: value(p.code, codes[0].code, time.code) })).sort((a, b) => (b.y ?? 0) - (a.y ?? 0))
     return {

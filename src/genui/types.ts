@@ -182,6 +182,39 @@ export type WidgetSpec = (
       values: (number | null)[][]
       size?: WidgetSize
     }
+  | {
+      /**
+       * Two values per category joined by a line (dumbbell): a country's value in two years, or
+       * two measures (gross and net production). The gap is what the chart shows.
+       */
+      type: 'dumbbell'
+      title: string
+      subtitle?: string
+      categories: string[]
+      /** The first value of each pair (earlier year, net…) and the second (later year, gross…). */
+      from: SeriesSpec
+      to: SeriesSpec
+      size?: WidgetSize
+      unit?: string
+      source?: WidgetSource
+    }
+  | {
+      /**
+       * Countries placed by two indicators, sized by a third (bubble chart): where each stands
+       * on several measures at once. Reference lines (e.g. the EU-27 values) split it into
+       * quadrants.
+       */
+      type: 'bubble'
+      title: string
+      subtitle?: string
+      points: { name: string; x: number; y: number; z: number }[]
+      x: { label: string; unit: string }
+      y: { label: string; unit: string }
+      z: { label: string; unit: string }
+      reference?: { x?: number; y?: number; label: string }
+      size?: WidgetSize
+      source?: WidgetSource
+    }
   | { type: 'map'; title: string; subtitle?: string; data: { code: string; name: string; value: number }[]; size?: WidgetSize; height?: number }
   | {
       type: 'breakdown'

@@ -42,6 +42,16 @@ export function widgetProblem(w: WidgetSpec): string | null {
       return Array.isArray(w.values) && w.values.length === w.yCategories.length && w.values.every((r) => values(r, w.xCategories.length))
         ? null
         : 'heatmap: values do not match the categories'
+    case 'dumbbell':
+      if (!texts(w.categories) || !w.categories.length) return 'dumbbell: categories'
+      return text(w.from?.name) && text(w.to?.name) && values(w.from.data, w.categories.length) && values(w.to.data, w.categories.length)
+        ? null
+        : 'dumbbell: values do not match the categories'
+    case 'bubble':
+      if (!text(w.x?.label) || !text(w.y?.label) || !text(w.z?.label)) return 'bubble: axes'
+      return Array.isArray(w.points) && w.points.length >= 2 && w.points.every((p) => text(p.name) && num(p.x) && num(p.y) && num(p.z) && p.z >= 0)
+        ? null
+        : 'bubble: points'
     case 'map':
       return Array.isArray(w.data) && w.data.every((d) => /^[A-Z]{2}$/.test(d.code) && text(d.name) && num(d.value)) ? null : 'map: data'
     case 'breakdown':

@@ -1,6 +1,6 @@
 import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
-import { AreaChart, BarChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
+import { AreaChart, BarChart, BubbleChart, DumbbellChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
@@ -137,6 +137,10 @@ export function Dashboard({
         )
       case 'heatmap':
         return <HeatmapChart {...common} xCategories={w.xCategories} yCategories={w.yCategories} values={w.values} />
+      case 'dumbbell':
+        return <DumbbellChart {...common} categories={w.categories} from={w.from} to={w.to} />
+      case 'bubble':
+        return <BubbleChart {...common} points={w.points} x={w.x} y={w.y} z={w.z} reference={w.reference} />
       case 'map':
         return <MapChart {...common} data={w.data} height={w.height} />
       case 'breakdown':

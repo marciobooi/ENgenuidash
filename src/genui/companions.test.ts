@@ -33,7 +33,7 @@ test('electricity production: gross vs net, by type of plant, by operator, renew
   const p: Plan = { dataset: 'nrg_ind_peh', filters: { freq: 'A', plants: 'TOTAL', operator: 'TOTAL', nrg_bal: 'GEP', siec: ['CF', 'RA300'], unit: 'GWH', geo: ['DE', 'FR'] }, time: { kind: 'last', n: 10 }, intent: 'mix' }
   const list = companionsFor(p, dict, s)
   assert.deepEqual(list.map((c) => `${c.dim}:${([] as string[]).concat(c.codes as string[]).join(',')}`), [
-    'nrg_bal:GEP,NEP',
+    'nrg_bal:NEP,GEP', // net → gross (dumbbell for several countries)
     'plants:ELC,CHP',
     'operator:PRR_MAIN,PRR_AUTO',
     'nrg_bal:REN',

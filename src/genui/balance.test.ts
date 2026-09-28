@@ -85,3 +85,10 @@ test('a shared link keeps the balance sheet', async () => {
   const sheet = planOf(route('energy balance of Germany 2023 for coal'))!
   assert.deepEqual(decodePlan(encodePlan(sheet), dict)?.balance, { fuels: 'coal' })
 })
+
+test('an older balance link without the sheet is asked again, not drawn with one flow', async () => {
+  const { encodePlan, decodePlan } = await import('../app/shareLink')
+  const old = planOf(route('energy balance of Germany 2023'))!
+  delete old.balance
+  assert.equal(decodePlan(encodePlan(old), dict), null)
+})

@@ -55,6 +55,13 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
     filters[dim] = Array.isArray(value) ? (list as string[]) : (value as string)
   }
 
+  // Every dimension but the countries has its codes (the planner always sets them). A link that
+  // leaves one open is incomplete (e.g. a balance sheet shared before sheets were in links):
+  // asking its question again gives the right dashboard.
+  const balance = p.balance as Plan['balance']
+  const isSheet = !!balance && typeof balance.fuels === 'string' && balance.fuels in FUEL_GROUPS
+  if (!isSheet && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
+
   const time = p.time as TimeRange | undefined
   const timeOk =
     !!time &&
@@ -72,8 +79,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   if (typeof p.chart === 'string' && CHARTS.includes(p.chart)) plan.chart = p.chart as Plan['chart']
   if (p.parts === false) plan.parts = false
   // An energy balance sheet (without it, the link would ask for every line × every fuel).
-  const balance = p.balance as Plan['balance']
-  if (balance && typeof balance.fuels === 'string' && balance.fuels in FUEL_GROUPS) plan.balance = { fuels: balance.fuels }
+  if (isSheet) plan.balance = { fuels: balance.fuels }
   const focus = p.focus as Plan['focus']
   if (focus?.kind === 'change') plan.focus = { kind: 'change' }
   else if (focus?.kind === 'which') plan.focus = { kind: 'which', ...(focus.lowest ? { lowest: true } : {}), ...(focus.period ? { period: true } : {}) }

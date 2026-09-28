@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./public/models/**)",
+      "Read(./dist/**)",
+      "Read(./node_modules/**)",
+      "Read(./package-lock.json)",
+      "Read(./public/data/eurostat/energy/knowledge.json)",
+      "Read(./public/data/eurostat/energy/dictionary.json)",
+      "Read(./public/data/eurostat/energy/codelists.json)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-large-reads.mjs\"" }]
+      }
+    ]
+  }
+}

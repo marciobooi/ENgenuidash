@@ -74,7 +74,7 @@ test('"now in components" pivots the plain price dashboard on screen', () => {
   assert.equal(base.kind, 'plan')
   const plain = (base as { kind: 'plan'; plan: Plan }).plan
   assert.equal(plain.dataset, 'nrg_pc_204')
-  for (const q of ['now in components', 'in components', 'add all taxes', 'show components', 'as components']) {
+  for (const q of ['now in components', 'in components', 'add all taxes', 'show components', 'as components', 'components for the same view', 'give me the components please']) {
     const r = route(q, plain)
     assert.equal(r.kind, 'refine', `${q}: ${r.kind}`)
     const p = planOf(r)!
@@ -144,4 +144,9 @@ test('"all available years" after a single-year price dashboard widens the perio
     assert.equal(r.kind, 'refine', `${q}: ${r.kind}`)
     assert.equal(planOf(r)!.time.kind, 'all', q)
   }
+})
+
+test('components pivot keeps the year the price dashboard was about', () => {
+  const first = planOf(route('show electricity prices for all countries in 2022'))!
+  assert.equal(planOf(route('components for the same view', first))?.focusPeriod, '2022')
 })

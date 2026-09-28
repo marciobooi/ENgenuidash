@@ -57,7 +57,8 @@ const TAX_ITEMS = [['TAX_RNW', 'TAX_RNW_ALLOW'], ['TAX_CAP', 'TAX_CAP_ALLOW'], [
 /** The countries of a selection a dataset has (one code, or several), else the EU. */
 function keepGeos(value: string | string[] | undefined, codes: string[]): string | string[] {
   const kept = ([] as string[]).concat(value ?? []).filter((c) => codes.includes(c))
-  return kept.length > 1 ? kept : (kept[0] ?? 'EU27_2020')
+  // A few countries stay the selection; every country (or most) is the EU overview.
+  return kept.length > 1 && kept.length <= 6 ? kept : kept.length > 6 ? 'EU27_2020' : (kept[0] ?? 'EU27_2020')
 }
 type PriceView = { product: PriceProduct; consumer: PriceConsumer; view?: 'taxes' }
 const datasetFor = (p: PriceView) => (p.view === 'taxes' ? BASE_DATASETS : DATASETS)[p.product][p.consumer]
@@ -73,8 +74,12 @@ const STRUCTURE =
 // A follow-up asking for the same dashboard, decomposed: "now in components", "add all taxes",
 // "with components", "show components" (its "show" is stripped by prepareQuestion's lead-ins,
 // leaving bare "components"), "as components", "add the tax breakdown".
-const TO_COMPONENTS =
+const TO_COMPONENTS_EXACT =
   /^ (now )?((in|with|as|show( me)?|add( all)?( the)?) )?(components?|(all )?(the )?taxe?s?( breakdown| components)?|(the )?(price )?(breakdown|composition|components)) ?$/
+// Or a short sentence naming the components ("components for the same view", "give me the
+// components please"), unless it asks to leave them out (TAX_VIEW).
+const COMPONENT_WORDS = /\b(components?|breakdown|composition|all taxes|bestandteile|zusammensetzung|composantes)\b/
+const TO_COMPONENTS = { test: (text: string) => TO_COMPONENTS_EXACT.test(text) || (text.trim().split(/\s+/).length <= 10 && COMPONENT_WORDS.test(text) && !TAX_VIEW.test(text)) }
 // A follow-up asking for the price split by tax level instead of components.
 const TAX_VIEW =
   /(non ?components?|(without|instead of|not in|not|no|except) (the )?(price )?components?|(normal|standard|regular|plain|simple|basic|original) (tax|taxes|price|prices|view|version|one)|(the )?tax (view|levels?)|(before|with) and (after|without) tax(es)?|ohne bestandteile|normaler preis|vor und nach steuern|sans composantes|prix normal|avant et apres taxes)/
@@ -154,10 +159,18 @@ export function toComponentsPlan(current: Plan, text: string, dict: EnergyDictio
     dataset,
     filters: { geo, nrg_cons, currency: 'EUR', ...(ds.dimensions.some((d) => d.id === 'unit') ? { unit: ds.defaults.unit ?? 'KWH' } : {}) },
     time: { kind: 'all' },
-    ...(current.focusPeriod ? { focusPeriod: current.focusPeriod } : {}),
+    ...(yearOf(current) ? { focusPeriod: yearOf(current) } : {}),
     intent: 'snapshot',
     prices,
   }
+}
+
+/** The year a dashboard is about: its focus year, or the single year its period covers ("in 2022"). */
+function yearOf(plan: Plan): string | undefined {
+  if (plan.focusPeriod) return plan.focusPeriod.slice(0, 4)
+  const t = plan.time
+  if (t.kind === 'range' && t.since && t.until && t.since.slice(0, 4) === t.until.slice(0, 4)) return t.until.slice(0, 4)
+  return undefined
 }
 
 /** The price dashboard on screen for another product, consumer or breakdown (components / tax levels). */
@@ -176,7 +189,7 @@ function retarget(current: Plan, next: PriceView, dict: EnergyDictionary): Plan 
       ...(ds.dimensions.some((d) => d.id === 'unit') ? { unit: has('unit', current.filters.unit) ? current.filters.unit : (ds.defaults.unit ?? 'KWH') } : {}),
     },
     // Semesters (2025-S2) and years (2025) do not carry over between the two datasets' periods.
-    focusPeriod: current.focusPeriod?.slice(0, 4),
+    focusPeriod: yearOf(current),
     prices,
     notes: [],
   }

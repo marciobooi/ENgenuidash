@@ -45,6 +45,7 @@ export function EclMultiSelect({
 }) {
   const id = useId()
   const ref = useRef<HTMLSelectElement>(null)
+  const groupRef = useRef<HTMLDivElement>(null)
   const onApplyRef = useRef(onApply)
   useEffect(() => {
     onApplyRef.current = onApply
@@ -74,7 +75,20 @@ export function EclMultiSelect({
     tidy()
     const labelObserver = new MutationObserver(tidy)
     if (select.input) labelObserver.observe(select.input, { childList: true, characterData: true, subtree: true })
+    // Pressing an option's label (or Apply / Clear all) must not move the focus: the label itself
+    // cannot take it, so the browser gives it to the nearest focusable ancestor (the dashboard's
+    // <main tabindex="-1">), ECL sees the focus leave and closes the list before the click ticks
+    // the box. The click still does its job; the search field keeps taking the focus.
+    const root = groupRef.current
+    const keepFocus = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (!target?.closest('.ecl-select__multiple-dropdown')) return
+      if (target.closest('input[type="search"], input[type="text"]')) return
+      e.preventDefault()
+    }
+    root?.addEventListener('mousedown', keepFocus)
     return () => {
+      root?.removeEventListener('mousedown', keepFocus)
       observer.disconnect()
       labelObserver.disconnect()
       select.destroy()
@@ -84,7 +98,7 @@ export function EclMultiSelect({
   }, [])
 
   return (
-    <div className="ecl-form-group filters__multi">
+    <div ref={groupRef} className="ecl-form-group filters__multi">
       <label className="ecl-form-label" htmlFor={id}>
         {label}
       </label>

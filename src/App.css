@@ -5,6 +5,19 @@
   height: 100dvh;
 }
 
+/* Dashboards and other long pages scroll with the browser window (scrollbar at the window's edge,
+   full width), not inside a one-screen box. */
+.app--page {
+  height: auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app--page .dash-page {
+  flex: none;
+  overflow: visible;
+}
+
 main:focus {
   outline: none;
 }

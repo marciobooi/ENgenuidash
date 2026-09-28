@@ -255,6 +255,9 @@ export default function App() {
   }
 
   let page: ReactNode
+  // Long pages (dashboards, the gallery, the evaluation) scroll with the browser window; the chat
+  // and welcome screens keep the one-screen layout (conversation above, input below).
+  const scrollsWithWindow = route === '#/components' || (!!EvalPage && route === '#/eval') || !!current
   if (route === '#/components') {
     page = <ComponentsGallery locale={lang} t={t} />
   } else if (EvalPage && route === '#/eval') {
@@ -318,7 +321,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={scrollsWithWindow ? 'app app--page' : 'app'}>
       <a className="skip-link" href="#main">
         {t.skipToContent}
       </a>

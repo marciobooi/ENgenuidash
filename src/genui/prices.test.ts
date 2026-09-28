@@ -109,8 +109,28 @@ test('priceDatasetOf identifies base and components datasets', () => {
   assert.equal(priceDatasetOf('nrg_bal_c'), null)
 })
 
+test('the tax view (price before/after taxes) switches both ways and keeps the country', () => {
+  const base = planQuestion('gas prices for industry in the Netherlands', dict, codelists)
+  const plain = (base as { kind: 'plan'; plan: Plan }).plan
+  assert.equal(plain.dataset, 'nrg_pc_203')
+  for (const q of ['non components', 'without components', 'before and after taxes', 'tax view']) {
+    const p = planOf(route(q, plain))
+    assert.ok(p?.prices?.view === 'taxes', q)
+    assert.equal(p.dataset, 'nrg_pc_203', q)
+    assert.equal(p.filters.geo, 'NL', q)
+  }
+  const taxes = planOf(route('before and after taxes', plain))!
+  const back = planOf(route('now in components', taxes))!
+  assert.equal(back.dataset, 'nrg_pc_203_c')
+  assert.equal(back.prices?.view, undefined)
+  assert.equal(back.filters.geo, 'NL')
+  assert.equal(planOf(route('and Germany?', taxes))?.prices?.view, 'taxes')
+})
+
 test('a shared price link keeps the breakdown dashboard', async () => {
   const { encodePlan, decodePlan } = await import('../app/shareLink')
   const p = planOf(route('price breakdown of electricity in Germany 2024'))!
   assert.deepEqual(decodePlan(encodePlan(p), dict)?.prices, { product: 'electricity', consumer: 'household' })
+  const taxes = planOf(route('before and after taxes', planOf(route('electricity prices for households in Germany'))))!
+  assert.deepEqual(decodePlan(encodePlan(taxes), dict)?.prices, { product: 'electricity', consumer: 'household', view: 'taxes' })
 })

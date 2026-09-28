@@ -55,7 +55,7 @@ export interface Plan {
    * Energy price structure (as Eurostat's energy prices visualisation, enprices): one product's
    * price for one type of consumer, decomposed into its components, for one year (see prices.ts).
    */
-  prices?: { product: PriceProduct; consumer: PriceConsumer }
+  prices?: { product: PriceProduct; consumer: PriceConsumer; view?: 'taxes' }
 }
 
 export type TradeFlow = 'imp' | 'exp'

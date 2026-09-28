@@ -5,7 +5,7 @@
  * floor band, so charts always add secondary encoding (legend + direct labels,
  * 2px gaps between fills). Assign in this order; never cycle or reorder by rank.
  */
-export const PALETTE = ['#2F55C8', '#B07E0E', '#C0266A', '#1C9C8C', '#7A3FD0', '#4A8FE0'] as const
+export const PALETTE = ['#2F55C8', '#B07E0E', '#C0266A', '#1C9C8C', '#7A3FD0', '#4A8FE0', '#D9480F', '#5E6B7A'] as const
 
 /** Charts support at most this many series before folding into "Other". */
 export const MAX_SERIES = PALETTE.length

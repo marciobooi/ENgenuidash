@@ -69,7 +69,8 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   // A price dashboard's own dimension (nrg_prc) is set per widget, not per filter.
   const priced = priceDatasetOf(ds.code)
   const pricesIn = p.prices as Plan['prices']
-  const isPrices = !!priced && priced.components && !!pricesIn && pricesIn.product === priced.product && pricesIn.consumer === priced.consumer
+  // Its components view reads the components dataset; its tax view the base one.
+  const isPrices = !!priced && !!pricesIn && pricesIn.product === priced.product && pricesIn.consumer === priced.consumer && priced.components === (pricesIn.view !== 'taxes')
   if (!isSheet && !isTrade && !isPrices && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
 
   const time = p.time as TimeRange | undefined
@@ -91,7 +92,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   // An energy balance sheet (without it, the link would ask for every line × every fuel).
   if (isSheet) plan.balance = { fuels: balance.fuels }
   if (isTrade) plan.trade = traded
-  if (isPrices) plan.prices = pricesIn
+  if (isPrices) plan.prices = { product: pricesIn.product, consumer: pricesIn.consumer, ...(pricesIn.view === 'taxes' ? { view: 'taxes' as const } : {}) }
   const focus = p.focus as Plan['focus']
   if (focus?.kind === 'change') plan.focus = { kind: 'change' }
   else if (focus?.kind === 'which') plan.focus = { kind: 'which', ...(focus.lowest ? { lowest: true } : {}), ...(focus.period ? { period: true } : {}) }

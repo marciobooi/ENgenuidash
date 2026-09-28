@@ -2,6 +2,7 @@ import { codeLabel, pick, type DatasetInfo, type EnergyCodelists, type EnergyDic
 import type { FilterControl } from '../components/filters'
 import type { Plan } from './types'
 import { BALANCE_GEOS } from './balance'
+import { priceBands } from './prices'
 
 /**
  * Toolbar filters for the dashboard on screen: countries, products, flows and the dataset's other
@@ -64,7 +65,7 @@ export function filterControls(
     }
     const geos = plan.balance ? BALANCE_GEOS.filter((c) => codesOf(ds, 'geo').includes(c)) : codesOf(ds, 'geo').filter((c) => /^(EU27_2020|[A-Z]{2})$/.test(c))
     const options = geos.map((code) => ({ code, label: label(code) }))
-    return [{ dim: 'geo', label: labels.geo, multiple: false, options: [options[0], ...options.slice(1).sort((a, b) => a.label.localeCompare(b.label, lang))], selected: [String(plan.filters.geo)] }]
+    return [{ dim: 'geo', label: labels.geo, multiple: !!plan.prices, options: [options[0], ...options.slice(1).sort((a, b) => a.label.localeCompare(b.label, lang))], selected: asList(plan.filters.geo) }]
   }
   const isPlace = (dim: string) => dim === 'geo' || dim === 'partner'
   // The non-place dimension that varies, if any (products, flows…).
@@ -94,7 +95,7 @@ export function filterControls(
   control('nrg_bal', labels.nrg_bal, flows.length > 15 ? MAIN_FLOWS : flows, false)
   // Other small dimensions (single choice), with the dictionary's name for them.
   for (const dim of SMALL_DIMS) {
-    const codes = dim === 'nrg_cons' ? codesOf(ds, dim).filter(isCurrentBand) : codesOf(ds, dim)
+    const codes = dim === 'nrg_cons' ? (priceBands(plan.dataset) ?? codesOf(ds, dim).filter(isCurrentBand)) : codesOf(ds, dim)
     if (codes.length < 2 || codes.length > MAX_OPTIONS) continue
     control(dim, labels.other[dim] ?? pick(dict.dimensions[dim], lang, dim), codes, false)
   }

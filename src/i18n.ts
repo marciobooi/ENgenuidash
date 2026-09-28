@@ -265,7 +265,7 @@ const en = {
     sugEu: 'Same for the EU',
   },
   prices: {
-    title: '{product} prices for {consumer}: {geo}, {year}',
+    title: '{product} price components for {consumer}: {geo}, {year}',
     product: 'Product',
     consumer: 'Consumer type',
     products: { gas: 'Gas', electricity: 'Electricity' },
@@ -684,7 +684,7 @@ export const STRINGS: Record<Lang, Strings> = {
       sugEu: 'Dasselbe für die EU',
     },
     prices: {
-      title: '{product}preise für {consumer}: {geo}, {year}',
+      title: '{product}preisbestandteile für {consumer}: {geo}, {year}',
       product: 'Produkt',
       consumer: 'Verbrauchertyp',
       products: { gas: 'Gas', electricity: 'Strom' },
@@ -1098,7 +1098,7 @@ export const STRINGS: Record<Lang, Strings> = {
       sugEu: 'Même chose pour l’UE',
     },
     prices: {
-      title: 'Prix du {product} pour les {consumer} : {geo}, {year}',
+      title: 'Composantes du prix du {product} pour les {consumer} : {geo}, {year}',
       product: 'Produit',
       consumer: 'Type de consommateur',
       products: { gas: 'Gaz', electricity: 'Électricité' },

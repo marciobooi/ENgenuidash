@@ -16,8 +16,18 @@ const text = (v: unknown): boolean => typeof v === 'string'
 const texts = (v: unknown): v is string[] => Array.isArray(v) && v.every(text)
 const values = (v: unknown, length: number): boolean => Array.isArray(v) && v.length === length && v.every(numOrNull)
 
+/**
+ * Beyond these a chart is a runaway (a plan that asked for every code of a big dimension), not a
+ * reading: it is left out, and the rest of the dashboard stays. Monthly data over 20 years is 240.
+ */
+export const MAX_CATEGORIES = 400
+export const MAX_SERIES = 60
+
 /** Why a widget cannot be drawn, or null when it can. */
 export function widgetProblem(w: WidgetSpec): string | null {
+  const categories = 'categories' in w && Array.isArray(w.categories) ? w.categories.length : 0
+  const series = 'series' in w && Array.isArray(w.series) ? w.series.length : 0
+  if (categories > MAX_CATEGORIES || series > MAX_SERIES) return `${w.type}: too large (${categories} categories, ${series} series)`
   switch (w.type) {
     case 'kpis':
       return Array.isArray(w.items) && w.items.every((k) => text(k.label) && num(k.value)) ? null : 'KPI without a label or value'

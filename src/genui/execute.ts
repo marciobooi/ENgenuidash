@@ -125,6 +125,7 @@ export async function buildDashboard(
   // Energy balance sheet (enbal): its own table, not the charts of one series.
   if (plan.balance) return buildBalanceDashboard(plan, dict, lang, s, signal)
   const ds = dict.datasets[plan.dataset]
+  plan = withEveryDimension(plan, dict)
   const geoCodes = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []
 
   // In country comparisons also fetch the EU aggregate as a reference value. A mix of several
@@ -927,6 +928,22 @@ export async function buildDashboard(
   })
   if (problems.length) console.warn(`Dashboard ${ds.code}: left out`, problems)
   return spec
+}
+
+/**
+ * The planner gives every dimension a code, but a plan from elsewhere (a shared link, an older
+ * version) may leave one open, and Eurostat then returns all its codes: nrg_bal_c without products
+ * and flows is 72 × 142 series. An open dimension gets its total (or first code) instead.
+ */
+export function withEveryDimension(plan: Plan, dict: EnergyDictionary): Plan {
+  const ds = dict.datasets[plan.dataset]
+  if (!ds) return plan
+  const open = ds.dimensions.filter((d) => d.id !== 'geo' && d.codes.length > 1 && plan.filters[d.id] === undefined)
+  if (!open.length) return plan
+  const filters = { ...plan.filters }
+  for (const d of open) filters[d.id] = d.codes.find((c) => ['TOTAL', 'TOT', 'STKCL_NAT', 'WORLD'].includes(c)) ?? d.codes[0]
+  console.warn(`Plan ${plan.dataset}: filled open dimensions`, open.map((d) => d.id))
+  return { ...plan, filters }
 }
 
 // ---------- "show as …" overrides ----------

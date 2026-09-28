@@ -9,6 +9,12 @@ import type { Plan, WidgetSpec } from './types'
  *   import dependency of a country      → dependency by fuel, and where its natural gas comes from
  *   renewable share of a country        → the share in electricity, heating & cooling, transport
  *   household or industry prices        → what the price is made of (energy, network, taxes, VAT)
+ *   electricity or heat production      → gross vs net, by type of plant (CHP), by operator
+ *   production or supply of energy      → the renewable share against the EU 2030 target
+ *
+ * With several countries each companion compares them: parts of a whole (sectors, plant types,
+ * price components) as 100% bars per country, separate measures (shares by sector, gross and net)
+ * as grouped bars.
  *
  * Each companion is one request and one chart; one that fails or has no data is left out.
  */
@@ -23,6 +29,12 @@ export interface CompanionStrings {
   pricePartsOverTime: string
   /** Taxes, fees, levies and charges other than VAT. */
   otherTaxes: string
+  grossNet: string
+  byPlant: string
+  byOperator: string
+  renTarget: string
+  /** Label of the EU 2030 renewable target line. */
+  renTargetLine: string
 }
 
 export interface Companion {
@@ -38,6 +50,8 @@ export interface Companion {
   priceSplit?: { otherTaxes: string; overTime: string }
   unit?: string
   top?: number
+  /** Dashed reference line (e.g. the EU 2030 renewable target). */
+  reference?: { value: number; label: string }
 }
 
 const SECTORS = ['FC_IND_E', 'FC_TRA_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_OTH_AF_E', 'FC_NE']
@@ -48,13 +62,28 @@ const REN_SECTORS = ['REN_ELC', 'REN_HEAT_CL', 'REN_TRA']
 const PRICE_PARTS = ['NRG_SUP', 'NETC', 'TAX_FEE_LEV_CHRG', 'VAT', 'TAX_FEE_LEV_CHRG_ALLOW']
 const PRICE_COMPONENTS: Record<string, string> = { nrg_pc_204: 'nrg_pc_204_c', nrg_pc_205: 'nrg_pc_205_c', nrg_pc_202: 'nrg_pc_202_c', nrg_pc_203: 'nrg_pc_203_c' }
 
+// The EU's 2030 target for the share of renewables in gross final energy consumption
+// (Directive (EU) 2023/2413): a binding 42.5%.
+const EU_REN_TARGET_2030 = 42.5
+// Producing or supplying energy (a mix of sources), where the renewable share is the next
+// question: electricity production, and the balances' supply flows by product.
+const PRODUCTION_DATASETS = ['nrg_ind_peh', 'nrg_bal_peh']
+const SUPPLY_FLOWS = ['GAE', 'GIC', 'NRGSUP', 'PPRD']
+// Several countries: up to this many compared in a companion.
+const MAX_COUNTRIES = 8
+
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? undefined : v)
+const list = (v: string | string[] | undefined) => ([] as string[]).concat(v ?? [])
 
 export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionStrings): Companion[] {
   const f = plan.filters
-  const geo = one(f.geo)
-  if (!geo) return [] // companions describe one country (or the EU)
+  // One country (or the EU), or up to MAX_COUNTRIES compared side by side.
+  const geos = list(f.geo)
+  if (!geos.length || geos.length > MAX_COUNTRIES) return []
+  const several = geos.length > 1
+  const geo: string | string[] = several ? geos : geos[0]
   const has = (dataset: string, dim: string, code: string) => dict.datasets[dataset]?.dimensions.find((d) => d.id === dim)?.codes.includes(code) ?? false
+  const hasAll = (dataset: string, codes: string[]) => codes.every((c) => has(dataset, 'geo', c))
   const out: Companion[] = []
 
   // A product's consumption or supply in the balances → use by sector.
@@ -64,7 +93,7 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
   // Import dependency → by fuel, and the origins of natural gas imports.
   if (plan.dataset === 'nrg_ind_id' && one(f.siec) === 'TOTAL') {
     out.push({ dataset: 'nrg_ind_id', filters: { unit: 'PC', geo }, dim: 'siec', codes: FUELS, title: s.byFuel, view: 'bar', unit: '%' })
-    if (has('nrg_ti_gas', 'geo', geo)) {
+    if (!several && has('nrg_ti_gas', 'geo', geos[0])) {
       out.push({ dataset: 'nrg_ti_gas', filters: { siec: 'G3000', unit: 'MIO_M3', geo }, dim: 'partner', codes: 'partners', title: s.gasOrigins, view: 'pie', unit: 'million m³', top: 6 })
     }
   }
@@ -74,13 +103,34 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
   }
   // Prices → their components (annual data, same consumption band and currency).
   const parts = PRICE_COMPONENTS[plan.dataset]
-  if (parts && dict.datasets[parts]) {
+  if (parts && dict.datasets[parts] && !several) {
     const ds = dict.datasets[parts]
     const band = one(f.nrg_cons)
-    const filters: Record<string, string> = { geo, currency: one(f.currency) ?? 'EUR' }
+    const filters: Record<string, string> = { geo: geos[0], currency: one(f.currency) ?? 'EUR' }
     filters.nrg_cons = band && has(parts, 'nrg_cons', band) ? band : (ds.defaults.nrg_cons ?? '')
     if (ds.dimensions.some((d) => d.id === 'unit')) filters.unit = ds.defaults.unit ?? 'KWH'
     out.push({ dataset: parts, filters, dim: 'nrg_prc', codes: PRICE_PARTS, title: s.priceParts, view: 'pie', priceSplit: { otherTaxes: s.otherTaxes, overTime: s.pricePartsOverTime } })
+  }
+  // Electricity or heat production by type of plant and operator: the dataset's own breakdowns,
+  // for the total of all fuels. Electricity comes from electricity-only and CHP plants, heat from
+  // CHP and heat-only plants ("CHP full mode" is part of CHP, so it is left out).
+  if (plan.dataset === 'nrg_ind_peh' && one(f.plants) === 'TOTAL' && one(f.operator) === 'TOTAL') {
+    const flow = one(f.nrg_bal) ?? 'GEP'
+    const electricity = flow === 'GEP' || flow === 'NEP'
+    const base = { siec: 'TOTAL', unit: one(f.unit) ?? (electricity ? 'GWH' : 'TJ'), geo }
+    const unit = electricity ? 'GWh' : 'TJ'
+    out.push({ dataset: plan.dataset, filters: { ...base, plants: 'TOTAL', operator: 'TOTAL' }, dim: 'nrg_bal', codes: electricity ? ['GEP', 'NEP'] : ['GHP', 'NHP'], title: s.grossNet, view: 'bar', unit })
+    out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, operator: 'TOTAL' }, dim: 'plants', codes: electricity ? ['ELC', 'CHP'] : ['CHP', 'HEAT'], title: s.byPlant, view: 'pie', unit })
+    out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, plants: 'TOTAL' }, dim: 'operator', codes: ['PRR_MAIN', 'PRR_AUTO'], title: s.byOperator, view: 'pie', unit })
+  }
+  // Producing or supplying energy → how renewable it is, against the EU 2030 target.
+  const supplyMix =
+    PRODUCTION_DATASETS.includes(plan.dataset) ||
+    (['nrg_bal_s', 'nrg_bal_c'].includes(plan.dataset) && list(f.siec).length > 1 && SUPPLY_FLOWS.includes(one(f.nrg_bal) ?? ''))
+  if (supplyMix && hasAll('nrg_ind_ren', geos)) {
+    // One country is shown next to the EU-27, so the target line has something to compare.
+    const withEu = several || geos[0] === 'EU27_2020' || !has('nrg_ind_ren', 'geo', 'EU27_2020') ? geo : [geos[0], 'EU27_2020']
+    out.push({ dataset: 'nrg_ind_ren', filters: { unit: 'PC', geo: withEu }, dim: 'nrg_bal', codes: ['REN'], title: s.renTarget, view: 'bar', unit: '%', reference: { value: EU_REN_TARGET_2030, label: s.renTargetLine } })
   }
   return out
 }
@@ -136,6 +186,8 @@ export async function buildCompanions(
 export function toWidget(c: Companion, result: EurostatResult, lang: string, format: (v: number) => string): WidgetSpec | WidgetSpec[] | null {
   const codes = result.dimensions[c.dim]?.codes ?? []
   const times = result.dimensions.time?.codes ?? []
+  const places = Array.isArray(c.filters.geo) ? (result.dimensions.geo?.codes ?? []) : []
+  if (places.length > 1) return compareCountries(c, result, lang, places)
   const value = (code: string, time: string) => result.observations.find((o) => o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
   // The latest period where most codes have a value.
   const time = [...times].reverse().find((t) => codes.filter((k) => value(k.code, t.code) != null).length >= Math.max(2, Math.ceil(codes.length / 2)))
@@ -199,6 +251,48 @@ export function toWidget(c: Companion, result: EurostatResult, lang: string, for
     size: 'half',
     source,
     ...(c.unit ? { unit: c.unit } : {}),
+  }
+}
+
+/**
+ * A companion for several countries: one bar per country. Parts of a whole (the pie views:
+ * sectors, plant types, operators) as 100% stacked bars, so countries of any size compare;
+ * separate measures (shares by sector, gross and net) side by side; one measure (the renewable
+ * share) as a ranking with its reference line.
+ */
+function compareCountries(c: Companion, result: EurostatResult, lang: string, places: { code: string; label: string }[]): WidgetSpec | null {
+  const codes = (result.dimensions[c.dim]?.codes ?? []).filter((k) => (Array.isArray(c.codes) ? c.codes.includes(k.code) : false))
+  const times = result.dimensions.time?.codes ?? []
+  const value = (geo: string, code: string, time: string) =>
+    result.observations.find((o) => o.keys.geo === geo && o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
+  // The latest period where most countries have every part.
+  const complete = (t: string) => places.filter((p) => codes.every((k) => value(p.code, k.code, t) != null)).length
+  const time = [...times].reverse().find((t) => complete(t.code) >= Math.max(2, Math.ceil(places.length / 2)))
+  if (!time || !codes.length) return null
+  const shown = places.filter((p) => codes.some((k) => value(p.code, k.code, time.code) != null))
+  const placeName = (p: { code: string; label: string }) => (p.code === 'EU27_2020' ? 'EU-27' : p.label.replace(/\s*\(.*?\)\s*$/, ''))
+  const partName = (k: { label: string }) => (c.dim === 'nrg_bal' || c.dim === 'nrg_prc' ? shortLabel(k.label) : k.label.replace(/\s*\(.*?\)\s*$/, ''))
+  const title = c.title.replace('{period}', time.label)
+  const source = sourceOf(c, lang)
+  const unit = c.unit ? { unit: c.unit } : {}
+  if (codes.length === 1) {
+    const ranked = shown.map((p) => ({ name: placeName(p), y: value(p.code, codes[0].code, time.code) })).sort((a, b) => (b.y ?? 0) - (a.y ?? 0))
+    return {
+      type: 'bar', title, categories: ranked.map((x) => x.name), series: [{ name: partName(codes[0]), data: ranked.map((x) => x.y) }],
+      horizontal: true, size: 'half', source, ...unit, ...(c.reference ? { reference: c.reference } : {}), role: 'related',
+    }
+  }
+  return {
+    type: 'bar',
+    title,
+    categories: shown.map(placeName),
+    series: codes.map((k) => ({ name: partName(k), data: shown.map((p) => value(p.code, k.code, time.code)) })),
+    horizontal: c.view === 'pie',
+    ...(c.view === 'pie' ? { stacked: 'percent' as const } : {}),
+    size: 'half',
+    source,
+    ...unit,
+    role: 'related',
   }
 }
 

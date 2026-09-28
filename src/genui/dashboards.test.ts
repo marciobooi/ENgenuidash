@@ -59,7 +59,9 @@ test('three countries over time: lines, ranking, change since the start; no map,
   const d = await dash('Renewable energy share in Spain, France and Germany since 2010')
   // (the order depends on the page variant, see layout.ts; the evolution always leads)
   assert.equal(kinds(d)[0], 'line')
-  assert.deepEqual([...kinds(d)].sort(), ['bar', 'breakdown', 'line'])
+  // (plus the renewable share by sector of each country, a related chart)
+  assert.deepEqual([...kinds(d)].sort(), ['bar', 'bar', 'breakdown', 'line'])
+  assert.ok(titled(d, 'Renewable share by sector'))
   assert.equal(d.widgets.find((w) => w.type === 'kpis')?.type, 'kpis')
 })
 
@@ -85,8 +87,12 @@ test('top 5: no map for five countries, an evolution line, and a note', async ()
 
 test('a mix: donut with the total, sources ranked, stacked and share areas', async () => {
   const d = await dash('Electricity mix in Germany')
-  assert.deepEqual(kinds(d), ['pie', 'breakdown', 'area', 'area'])
+  assert.deepEqual(kinds(d), ['pie', 'breakdown', 'area', 'area', 'bar'])
   assert.ok((charts(d)[0] as Extract<WidgetSpec, { type: 'pie' }>).centerLabel)
+  // Related: the renewable share next to the EU-27, with the EU 2030 target line.
+  const ren = titled(d, 'Renewable share of energy consumption') as Extract<WidgetSpec, { type: 'bar' }>
+  assert.equal(ren.reference?.value, 42.5)
+  assert.deepEqual([...ren.categories].sort(), ['EU-27', 'Germany'])
 })
 
 test('parts of a whole (capacity by technology): the composition view and share insights', async () => {
@@ -228,4 +234,15 @@ test('mix of several countries: EU-27 is the reference, never a slice next to it
   // Over time: each country's share of its largest sources.
   const overTime = await build({ ...p, filters: { ...p.filters, geo: ['EU27_2020', 'DE', 'FR', 'IT'] } })
   assert.ok(charts(overTime).some((w) => w.type === 'line' && w.title.startsWith('Share of')))
+})
+
+test('electricity production, four countries in one year: gross vs net, plant types, operators, renewables vs target', async () => {
+  const p = PRESETS.production
+  const d = await build({ ...p, filters: { ...p.filters, geo: ['EU27_2020', 'DE', 'FR', 'IT'] }, focusPeriod: '2022', time: { kind: 'range', since: '2021', until: '2022' } })
+  const bar = (title: string) => titled(d, title) as Extract<WidgetSpec, { type: 'bar' }>
+  // Gross and net side by side per country; plant types and operators as 100% bars per country.
+  assert.deepEqual(bar('Gross and net production').series.map((x) => x.name), ['Gross electricity production', 'Net electricity production'])
+  assert.equal(bar('By type of plant').stacked, 'percent')
+  assert.deepEqual(bar('By operator').categories, ['EU-27', 'Germany', 'France', 'Italy'])
+  assert.equal(bar('Renewable share of energy consumption').reference?.label, 'EU 2030 target')
 })

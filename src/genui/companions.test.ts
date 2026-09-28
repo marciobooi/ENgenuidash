@@ -21,8 +21,36 @@ test('each kind of question gets its related data', () => {
   assert.deepEqual(kinds('electricity prices for households in Germany'), ['nrg_pc_204_c:nrg_prc'])
 })
 
-test('no companions for several countries (they describe one country)', () => {
-  assert.deepEqual(kinds('Renewable energy share in Spain, France and Germany'), [])
+test('several countries: the same related data, compared side by side', () => {
+  // Renewable share by sector for each of the three countries (no gas origins or price split).
+  assert.deepEqual(kinds('Renewable energy share in Spain, France and Germany'), ['nrg_ind_ren:nrg_bal'])
+  assert.deepEqual(kinds('energy import dependency of Germany and France'), ['nrg_ind_id:siec'])
+  const c = companionsFor(plan('Renewable energy share in Spain, France and Germany'), dict, s)[0]
+  assert.deepEqual([...(c.filters.geo as string[])].sort(), ['DE', 'ES', 'FR'])
+})
+
+test('electricity production: gross vs net, by type of plant, by operator, renewables vs the 2030 target', () => {
+  const p: Plan = { dataset: 'nrg_ind_peh', filters: { freq: 'A', plants: 'TOTAL', operator: 'TOTAL', nrg_bal: 'GEP', siec: ['CF', 'RA300'], unit: 'GWH', geo: ['DE', 'FR'] }, time: { kind: 'last', n: 10 }, intent: 'mix' }
+  const list = companionsFor(p, dict, s)
+  assert.deepEqual(list.map((c) => `${c.dim}:${([] as string[]).concat(c.codes as string[]).join(',')}`), [
+    'nrg_bal:GEP,NEP',
+    'plants:ELC,CHP',
+    'operator:PRR_MAIN,PRR_AUTO',
+    'nrg_bal:REN',
+  ])
+  assert.equal(list.at(-1)?.reference?.value, 42.5)
+  // Heat: CHP and heat-only plants.
+  const heat = companionsFor({ ...p, filters: { ...p.filters, nrg_bal: 'GHP', unit: 'TJ' } }, dict, s)
+  assert.deepEqual(heat.find((c) => c.dim === 'plants')?.codes, ['CHP', 'HEAT'])
+})
+
+test('one country: the renewable share is shown next to the EU-27 (the target line needs a comparison)', () => {
+  const p: Plan = { dataset: 'nrg_ind_peh', filters: { freq: 'A', plants: 'TOTAL', operator: 'TOTAL', nrg_bal: 'GEP', siec: ['CF', 'RA300'], unit: 'GWH', geo: 'DE' }, time: { kind: 'last', n: 10 }, intent: 'mix' }
+  assert.deepEqual(companionsFor(p, dict, s).find((c) => c.dataset === 'nrg_ind_ren')?.filters.geo, ['DE', 'EU27_2020'])
+})
+
+test('no renewables-target chart on consumption of one product (not a supply mix)', () => {
+  assert.ok(!kinds('Oil consumption in Spain in 2024').includes('nrg_ind_ren:nrg_bal'))
 })
 
 test('price components: VAT is not counted twice (taxes include it)', () => {

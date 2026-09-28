@@ -58,6 +58,11 @@ export function widgetProblem(w: WidgetSpec): string | null {
       return Array.isArray(w.items) && w.items.every((i) => text(i.name) && text(i.value)) ? null : 'breakdown: items'
     case 'text':
       return text(w.title) && text(w.body) && w.body.length > 0 ? null : 'text without a body'
+    case 'balance':
+      if (!Array.isArray(w.columns) || !w.columns.every((c) => text(c.code) && text(c.label))) return 'balance: columns'
+      return Array.isArray(w.rows) && w.rows.length > 0 && w.rows.every((r) => text(r.code) && text(r.label) && Number.isInteger(r.level) && values(r.values, w.columns.length))
+        ? null
+        : 'balance: rows do not match the columns'
     case 'table':
       if (!texts(w.columns)) return 'table: columns'
       return Array.isArray(w.rows) && w.rows.every((r) => text(r.label) && values(r.values, w.columns.length)) ? null : 'table: rows do not match the columns'

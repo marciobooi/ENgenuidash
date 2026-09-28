@@ -7,7 +7,7 @@ Front-end-only generative UI dashboard for Eurostat **energy** data (React 19, V
 
 ## Save tokens — input
 - Never read whole large files. Use `grep -n`, `sed -n 'a,bp'`, Read with offset/limit, or `jq` on JSON.
-  Blocked by .claude/settings.json + hook: public/models, dist, node_modules, package-lock.json,
+  Read tool denied: public/models, dist, node_modules. Hook blocks cat/less of those and package-lock.json,
   public/data/eurostat/energy/{knowledge,dictionary,codelists}.json (query them with jq/grep only).
 - Search before reading: find the symbol, then read only that range. Don't re-read files you just edited.
 - No subagents, workflows or parallel agents unless the user asks. Explore is for wide searches only.

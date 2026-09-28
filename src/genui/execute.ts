@@ -16,6 +16,7 @@ import { datasetDescription } from '../llm/knowledge'
 import { monthlyFilters } from './planner'
 import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeRange, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
+import { buildBalanceDashboard, type BalanceStrings } from './balance'
 
 /**
  * Executes a Plan: fetches the data from Eurostat and composes a DashboardSpec (plain JSON)
@@ -44,6 +45,7 @@ export interface DashStrings {
   sugMonthly: string
   sugMix: string
   sugExplain: string
+  balance: BalanceStrings
   sugUnit: string
   noteCached: string
   evolution: string
@@ -120,6 +122,8 @@ export async function buildDashboard(
   signal?: AbortSignal,
   chooseVariant?: ChooseVariant,
 ): Promise<DashboardSpec> {
+  // Energy balance sheet (enbal): its own table, not the charts of one series.
+  if (plan.balance) return buildBalanceDashboard(plan, dict, lang, s, signal)
   const ds = dict.datasets[plan.dataset]
   const geoCodes = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []
 

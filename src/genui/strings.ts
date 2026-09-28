@@ -25,6 +25,7 @@ export function dashStrings(t: Strings): DashStrings {
     sugMonthly: t.dSugMonthly,
     sugMix: t.dSugMix,
     sugExplain: t.dSugExplain,
+    balance: t.balance,
     sugUnit: t.dSugUnit,
     noteCached: t.dNoteCached,
     evolution: t.dEvolution,

@@ -4,7 +4,7 @@ import { AreaChart, BarChart, BubbleChart, DumbbellChart, HeatmapChart, HeroChar
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
-import { DataTable } from '../components/table'
+import { BalanceTable, DataTable } from '../components/table'
 import { AnswerCard } from './AnswerCard'
 import { BreakdownCard } from './BreakdownCard'
 import type { DashboardControls, DashboardSpec, Presentation, SectionKey, Suggestion, WidgetSpec } from './types'
@@ -31,6 +31,9 @@ export interface DashboardLabels {
   /** "More filters ({n})" / "Fewer filters": the toolbar controls folded away. */
   moreFilters: string
   fewerFilters: string
+  /** Energy balance sheets: the fuels control and the table's buttons. */
+  fuels?: string
+  balance?: { line: string; expand: string; collapse: string; expandAll: string; collapseAll: string }
 }
 
 /**
@@ -151,6 +154,21 @@ export function Dashboard({
         return <MapChart {...common} data={w.data} height={w.height} />
       case 'breakdown':
         return <BreakdownCard widget={w} />
+      case 'balance':
+        return (
+          <section className="chart-card">
+            <BalanceTable
+              caption={w.title}
+              unit={w.unit}
+              columns={w.columns}
+              rows={w.rows}
+              locale={lang}
+              decimals={w.decimals}
+              labels={{ line: '', expand: '{row}', collapse: '{row}', expandAll: '+', collapseAll: '−', ...labels.balance, missing: labels.missing }}
+            />
+            <SourceLine source={spec.source} labels={labels} />
+          </section>
+        )
       default:
         return null
     }
@@ -469,6 +487,25 @@ function Toolbar({
     for (const f of filters) {
       entries.push({ key: f.dim, label: f.label, node: <FilterField filter={f} onChange={onFilter} labels={multiSelectLabels} disabled={busy} /> })
     }
+  }
+  if (controls.fuels) {
+    entries.push({
+      key: 'fuels',
+      label: labels.fuels ?? '',
+      node: (
+        <EclSelect
+          id={`${periodId}-fuels`}
+          label={labels.fuels ?? ''}
+          value={controls.fuels.find((f) => f.active)?.label ?? ''}
+          disabled={busy}
+          options={controls.fuels.map((f) => ({ code: f.label, label: f.label }))}
+          onChange={(code) => {
+            const option = controls.fuels?.find((f) => f.label === code)
+            if (option) onSelect({ label: `${labels.fuels}: ${option.label}`, plan: option.plan })
+          }}
+        />
+      ),
+    })
   }
   if (controls.units && controls.units.length > 1) {
     entries.push({

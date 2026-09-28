@@ -40,7 +40,25 @@ export interface Plan {
    * over the starter plan (see route.ts).
    */
   fallback?: Plan
+  /**
+   * An energy balance sheet (as Eurostat's enbal visualisation): every balance line of nrg_bal_c
+   * for one country, year (focusPeriod; latest if unset) and unit, with one group of fuels as
+   * columns (see balance.ts).
+   */
+  balance?: { fuels: FuelGroup }
 }
+
+export type FuelGroup =
+  | 'main'
+  | 'coal'
+  | 'fossilGases'
+  | 'otherFossil'
+  | 'primaryOil'
+  | 'mainPetroleum'
+  | 'otherPetroleum'
+  | 'nonCombustible'
+  | 'combustible'
+  | 'electricityHeat'
 
 export type QuestionFocus =
   /** The highest (or lowest) country, source… or, with `period`, year ("which year…?", "when…?"). */
@@ -241,6 +259,15 @@ export type WidgetSpec = (
       source?: { code: string; title: string; url: string }
     }
   | {
+      /** Energy balance sheet: balance lines (a tree, rows) × fuels (columns), see balance.ts. */
+      type: 'balance'
+      title: string
+      unit: string
+      decimals: number
+      columns: { code: string; label: string }[]
+      rows: { code: string; label: string; level: number; parent?: string; values: (number | null)[]; flags?: (string | undefined)[] }[]
+    }
+  | {
       type: 'table'
       title: string
       columns: string[]
@@ -296,6 +323,8 @@ export interface DashboardControls {
   units?: { label: string; plan: Plan; active: boolean }[]
   /** Comparisons of many countries: all of them, or the top / bottom 5 or 10. */
   ranks?: { label: string; plan: Plan; active: boolean }[]
+  /** Energy balance sheets: the group of fuels shown as columns. */
+  fuels?: { label: string; plan: Plan; active: boolean }[]
 }
 
 export interface DashboardSpec {

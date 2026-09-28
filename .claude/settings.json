@@ -3,11 +3,7 @@
     "deny": [
       "Read(./public/models/**)",
       "Read(./dist/**)",
-      "Read(./node_modules/**)",
-      "Read(./package-lock.json)",
-      "Read(./public/data/eurostat/energy/knowledge.json)",
-      "Read(./public/data/eurostat/energy/dictionary.json)",
-      "Read(./public/data/eurostat/energy/codelists.json)"
+      "Read(./node_modules/**)"
     ]
   },
   "hooks": {

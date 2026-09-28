@@ -5,6 +5,7 @@ import { isExplainRequest } from './actions'
 import { planQuestion, refinePlan } from './planner'
 import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
+import { balancePlan, refineBalance } from './balance'
 import type { Clarification, Plan } from './types'
 
 /**
@@ -59,6 +60,15 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
   if (current && BACK.test(q)) return { kind: 'back' }
   // "Why did it rise in 2022?", "is that good?": about the figures on screen.
   if (current && ((WHY.test(q) && REFERS.test(q)) || JUDGE.test(q))) return { kind: 'explain' }
+
+  // Energy balance sheets (enbal): a new sheet, or another country, year, unit or fuels for the
+  // one on screen. Before the unknown-word check: "Total - main fuel families" is enbal's wording.
+  if (dict && codelists) {
+    const sheet = balancePlan(text, dict, codelists)
+    if (sheet) return current?.balance ? { kind: 'refine', plan: { ...current, ...sheet, balance: sheet.balance } } : { kind: 'plan', plan: sheet }
+    const changed = current?.balance ? refineBalance(current, text, dict, codelists) : null
+    if (changed) return { kind: 'refine', plan: changed }
+  }
 
   const verdict = ctx.classify(text, ctx.previous)
   // Content words ENgenuidash does not know ("date" in "what is the date of oil?").

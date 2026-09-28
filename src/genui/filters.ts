@@ -1,6 +1,7 @@
 import { codeLabel, pick, type DatasetInfo, type EnergyCodelists, type EnergyDictionary } from '../data/eurostat'
 import type { FilterControl } from '../components/filters'
 import type { Plan } from './types'
+import { BALANCE_GEOS } from './balance'
 
 /**
  * Toolbar filters for the dashboard on screen: countries, products, flows and the dataset's other
@@ -48,6 +49,14 @@ export function filterControls(
 ): FilterControl[] {
   const ds = dict.datasets[plan.dataset]
   if (!ds) return []
+  if (plan.balance) {
+    const label = (code: string) => {
+      const text = codeLabel(codelists, 'GEO', code, lang).replace(/\s*\(.*?\)\s*$/, '')
+      return code === 'EU27_2020' ? `EU-27 (${text})` : text
+    }
+    const options = BALANCE_GEOS.filter((c) => codesOf(ds, 'geo').includes(c)).map((code) => ({ code, label: label(code) }))
+    return [{ dim: 'geo', label: labels.geo, multiple: false, options: [options[0], ...options.slice(1).sort((a, b) => a.label.localeCompare(b.label, lang))], selected: [String(plan.filters.geo)] }]
+  }
   const isPlace = (dim: string) => dim === 'geo' || dim === 'partner'
   // The non-place dimension that varies, if any (products, flows…).
   const varying = Object.entries(plan.filters).find(([k, v]) => !isPlace(k) && Array.isArray(v) && v.length > 1)?.[0]

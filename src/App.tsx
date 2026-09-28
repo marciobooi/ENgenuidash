@@ -287,6 +287,8 @@ export default function App() {
               answer: t.dAnswer.title,
               moreFilters: t.moreFilters,
               fewerFilters: t.fewerFilters,
+              fuels: t.balance.fuels,
+              balance: t.balance,
               keyIndicators: t.keyIndicators,
               dataTable: t.dataTableShow,
               period: t.ctlPeriod,

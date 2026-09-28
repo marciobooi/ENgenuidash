@@ -92,3 +92,96 @@
     border-bottom-color: CanvasText;
   }
 }
+
+/* ---------- Energy balance sheet (BalanceTable) ---------- */
+
+.balance-table__tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.balance-table__scroll {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.balance-table__scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.balance-table__scroll thead th.data-table__sticky {
+  z-index: 3;
+}
+
+.balance-table__fuel {
+  min-width: 96px;
+  max-width: 140px;
+}
+
+.balance-table__line {
+  min-width: 260px;
+  max-width: 360px;
+  white-space: normal !important;
+}
+
+.balance-table__line > * {
+  vertical-align: middle;
+}
+
+.balance-table__row--l0 th,
+.balance-table__row--l0 td {
+  font-weight: 700;
+}
+
+.balance-table__row--l0 {
+  background: var(--ecl-color-primary-5, #f3f6fc);
+}
+
+.balance-table__row--l0 .data-table__sticky {
+  background: var(--ecl-color-primary-5, #f3f6fc);
+}
+
+.balance-table__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+  padding: 0;
+  border: 1px solid var(--ecl-color-primary);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ecl-color-primary);
+  cursor: pointer;
+}
+
+.balance-table__toggle:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+.balance-table__chevron {
+  transition: transform 0.15s ease;
+}
+
+.balance-table__toggle[aria-expanded='true'] .balance-table__chevron {
+  transform: rotate(90deg);
+}
+
+.balance-table__spacer {
+  display: inline-block;
+  width: 30px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balance-table__chevron {
+    transition: none;
+  }
+}

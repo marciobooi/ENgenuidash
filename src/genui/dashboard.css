@@ -741,3 +741,60 @@
   gap: 8px;
   color: var(--ecl-color-error, #d91c1c);
 }
+
+.balance-sheet__toggle {
+  margin: 4px 0 8px;
+}
+
+.balance-sheet__path ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
+.balance-sheet__path li + li::before {
+  content: '›';
+  margin-right: 4px;
+  color: var(--ecl-color-dark-80);
+}
+
+.balance-sheet__crumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ecl-color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.balance-sheet__crumb:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+.balance-sheet__drill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.balance-sheet__drill ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.balance-sheet__drill-label {
+  font-size: 0.875rem;
+  color: var(--ecl-color-dark-80);
+}

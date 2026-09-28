@@ -21,3 +21,21 @@ test('one caller giving up does not fail another waiting for the same data', asy
     restore()
   }
 })
+
+test('a request that fails once on the network is tried again, not reported as an outage', async () => {
+  const restore = installEurostatStub(read('dictionary.json'), read('codelists.json'))
+  const stub = globalThis.fetch
+  let calls = 0
+  globalThis.fetch = ((...args: Parameters<typeof fetch>) => {
+    calls++
+    return calls === 1 ? Promise.reject(new TypeError('net::ERR_TIMED_OUT')) : stub(...args)
+  }) as typeof fetch
+  try {
+    const result = await fetchEurostatData('nrg_ind_id', { filters: { geo: 'ES', unit: 'PC', siec: 'TOTAL' }, lastTimePeriod: 2 })
+    assert.ok(result)
+    assert.equal(calls, 2)
+  } finally {
+    globalThis.fetch = stub
+    restore()
+  }
+})

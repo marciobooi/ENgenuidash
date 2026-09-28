@@ -67,6 +67,13 @@ const CASES: [string, string | string[], Partial<Record<string, unknown>>?][] = 
   ['Gas prices for households in Spain in PPS', 'nrg_pc_202', { currency: 'PPS' }],
   ['Natural gas imports from Russia to the EU monthly', 'nrg_ti_gasm', { partner: 'RU' }],
   ['Energy consumption in Spain', 'nrg_bal_c', { geo: 'ES' }],
+  // Biofuels: the balances' "combustible renewables (biofuels)" is bioenergy, not all renewables.
+  ['what was the Combustible renewables (biofuels), 2022 in spain', 'nrg_bal_c', { siec: 'BIOE', geo: 'ES' }],
+  ['biofuels consumption in Sweden', 'nrg_bal_c', { siec: 'BIOE', nrg_bal: 'FC_E' }],
+  ['Biokraftstoffe in Deutschland', 'nrg_bal_c', { siec: 'BIOE', geo: 'DE' }],
+  ['biocarburants en France', 'nrg_bal_c', { siec: 'BIOE', geo: 'FR' }],
+  ['primary solid biofuels in Finland', 'nrg_bal_c', { siec: 'R5110-5150_W6000RI' }],
+  ['renewables in Spain', 'nrg_bal_c', { siec: 'RA000' }],
   // The hand-written routes still win for their topics.
   ['What is the energy import dependency of the EU?', 'nrg_ind_id'],
   ['Oil consumption in Spain in 2024', 'nrg_bal_c', { nrg_bal: 'FC_E', siec: 'O4000XBIO' }],

@@ -129,18 +129,28 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   })
 }
 
-/** A request Eurostat does not answer in this time counts as an outage (see load). */
-const TIMEOUT_MS = 45_000
+/**
+ * A request Eurostat does not answer in this time counts as a failure (see load). The big energy
+ * balances (nrg_bal_c, 21 million values) can take a while on a cold request.
+ */
+const TIMEOUT_MS = 60_000
+/** Pause before the one retry of a request that failed on the network. */
+const RETRY_AFTER_MS = 1_500
 
 async function load(code: string, url: string): Promise<EurostatResult> {
-  let res: Response
-  try {
-    res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
-  } catch {
-    // Network failure or no answer in time. During EC outages the API redirects to sorry.ec.europa.eu, which the
-    // browser reports as a failed (CORS) fetch. Fall back to the last cached copy.
-    return fromCache(code, url)
+  let res: Response | null = null
+  // A single timed-out or dropped connection is common and not yet an outage: try once more.
+  for (let attempt = 0; attempt < 2 && !res; attempt++) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, RETRY_AFTER_MS))
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+    } catch {
+      // Network failure or no answer in time.
+    }
   }
+  // Still nothing: during EC outages the API redirects to sorry.ec.europa.eu, which the browser
+  // reports as a failed (CORS) fetch. Fall back to the last cached copy.
+  if (!res) return fromCache(code, url)
   // 5xx / maintenance pages: also an outage, not a problem with the query.
   if (res.status >= 500 || !(res.headers.get('content-type') ?? '').includes('json')) return fromCache(code, url)
 

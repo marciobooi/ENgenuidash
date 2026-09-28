@@ -44,7 +44,28 @@ export function matches(p: Parsed, stem: string): boolean {
 }
 
 export const any = (p: Parsed, stems: string[]) => stems.some((s) => matches(p, s))
-export const find = <T extends Concept>(p: Parsed, list: T[]) => list.filter((c) => any(p, c.stems))
+/** The question without the words of these phrases ("combustible renewables" taken out). */
+function without(p: Parsed, phrases: string[]): Parsed {
+  let text = p.text
+  for (const s of phrases) text = text.replace(new RegExp(` ${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[a-z0-9-]*`, 'g'), ' ')
+  text = ` ${text.trim().replace(/\s+/g, ' ')} `
+  return { text, words: text.trim().split(' ').filter(Boolean) }
+}
+
+/**
+ * The concepts of a list the question names. A concept with `masks` hides the phrases it matched
+ * from those concepts only: "combustible renewables" is bioenergy, not also every renewable,
+ * while "renewables and biofuels" still names both, and "hydro power" still says electricity.
+ */
+export function find<T extends Concept>(p: Parsed, list: T[]): T[] {
+  const hidden = new Map<string, string[]>()
+  for (const c of list) {
+    if (!c.masks || !any(p, c.stems)) continue
+    const phrases = c.stems.filter((s) => s.includes(' ') && matches(p, s))
+    for (const id of c.masks) hidden.set(id, [...(hidden.get(id) ?? []), ...phrases])
+  }
+  return list.filter((c) => any(hidden.has(c.id) ? without(p, hidden.get(c.id)!) : p, c.stems))
+}
 
 // ---------- geography ----------
 

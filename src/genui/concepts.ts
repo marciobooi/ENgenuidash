@@ -7,6 +7,8 @@
 export interface Concept {
   id: string
   stems: string[]
+  /** Concepts this one's phrases stand in for ("combustible renewables" is not every renewable). */
+  masks?: string[]
 }
 
 /** Energy products → SIEC codes. */
@@ -22,7 +24,10 @@ export const PRODUCTS: (Concept & { siec: string })[] = [
   { id: 'hydro', siec: 'RA100', stems: ['hydro$', 'hydropower', 'hydroelectric', 'hydro power', 'wasserkraft', 'hydraul', 'hydroelectrique'] },
   { id: 'geothermal', siec: 'RA200', stems: ['geotherm'] },
   { id: 'biogas', siec: 'R5300', stems: ['biogas', 'biogaz'] },
-  { id: 'bioenergy', siec: 'BIOE', stems: ['bioenerg', 'biomass', 'biomasse'] },
+  { id: 'solidBiofuels', siec: 'R5110-5150_W6000RI', masks: ['bioenergy'], stems: ['solid biofuel', 'primary solid', 'feste biobrennstoff', 'biocarburants solides', 'biocarburant solide'] },
+  // Before "renewables": the energy balances call bioenergy "combustible renewables (biofuels)"
+  // (solid, liquid and gaseous biofuels and renewable waste).
+  { id: 'bioenergy', siec: 'BIOE', masks: ['renewables'], stems: ['combustible renewabl', 'brennbare erneuerbar', 'renouvelables combustibles', 'bioenerg', 'biomass', 'biomasse', 'biofuel', 'biobrennstoff', 'biokraftstoff', 'biocarburant', 'biocombustible'] },
   { id: 'renewables', siec: 'RA000', stems: ['renewabl', 'erneuerbar', 'renouvelable', 'green energy', 'grune energie'] },
   { id: 'nuclear', siec: 'N900H', stems: ['nuclear', 'nuklear', 'kernkraft', 'kernenergie', 'atom', 'nucleaire'] },
   { id: 'gas', siec: 'G3000', stems: ['natural gas', 'gaz naturel', 'gas', 'erdgas', 'gaz', 'gaspreis', 'gasverbrauch', 'gasversorgung', 'gasimport', 'gasspeicher', 'gaskraftwerk'] },

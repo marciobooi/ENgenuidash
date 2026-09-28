@@ -55,8 +55,9 @@ export function FilterField({
 }) {
   return f.multiple ? (
     <EclMultiSelect
-      // A new choice or option list remounts it (ECL owns the enhanced markup).
-      key={`${f.dim}:${f.selected.join()}:${f.options.length}`}
+      // A new choice, option list or language remounts it (ECL owns the enhanced markup and only
+      // reads the option names and its own texts when it initialises).
+      key={`${f.dim}:${f.selected.join()}:${f.options.map((o) => o.label).join('|')}:${labels.search}:${labels.apply}`}
       label={f.label}
       options={f.options}
       selected={f.selected}

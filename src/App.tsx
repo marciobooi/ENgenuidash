@@ -245,6 +245,7 @@ export default function App() {
   const chartLabels = {
     showTable: t.showTable,
     hideTable: t.hideTable,
+    tableCategory: t.tableCategory,
     downloadPng: t.downloadPng,
     downloadCsv: t.downloadCsv,
     loading: t.chartLoading,

@@ -1,5 +1,6 @@
 import type Highcharts from 'highcharts'
 import { useEffect, useRef, type RefObject } from 'react'
+import { applyMapLang, repairChartLang } from './chartLang'
 import { destroyChart, ensurePlugin, loadWebtools, webtoolsHighcharts } from './webtools'
 
 export type ChartStatus = 'loading' | 'ready' | 'error'
@@ -57,6 +58,8 @@ export function WebtoolsChart({
       }
       instanceRef.current = chart
       if (chartRef) chartRef.current = chart
+      // Webtools' translated screen-reader texts may carry broken templates: repair and re-read.
+      if (repairChartLang()) (chart as unknown as { accessibility?: { update(): void } }).accessibility?.update()
       onStatusRef.current?.('ready')
     }
 
@@ -67,6 +70,7 @@ export function WebtoolsChart({
           if (cancelled) return
           const H = webtoolsHighcharts()
           if (!H?.mapChart) throw new Error('The map module is not available.')
+          applyMapLang(lang)
           done(H.mapChart(container, optionsRef.current))
         })
         .catch((err: Error) => {
@@ -84,6 +88,7 @@ export function WebtoolsChart({
     loadWebtools()
       .then((wt) => {
         if (cancelled) return
+        repairChartLang()
         wt.render(container, {
           service: 'charts',
           version: '2.0',

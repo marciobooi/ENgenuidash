@@ -1,3 +1,4 @@
+import { DESCRIPTIONS, type Description } from '../llm/descriptions'
 import {
   fetchEurostatData,
   pick,
@@ -853,21 +854,32 @@ export async function buildDashboard(
   if (answer) widgets.unshift(answer)
   const described = await explainer
   if (described?.text) {
+    // Edited, translated versions of Eurostat's descriptions (llm/descriptions.ts); Eurostat's
+    // own text is English only: without a version here, other languages get a sentence of
+    // their own first (the dataset's translated title and years) and the quote marked English.
+    const edited = DESCRIPTIONS[described.id]
+    const l = lang as keyof Description['text']
     widgets.push({
       type: 'text',
       title: s.aboutIndicator,
-      // Eurostat's descriptions are in English: other languages get a sentence of their own
-      // first (the dataset's translated title and years), and the quote is marked as English.
-      ...(lang !== 'en'
-        ? {
-            lead: fill(s.aboutLead, { title: pick(ds.title, lang, ds.code), code: ds.code, from: ds.dataStart ?? '', to: ds.dataEnd ?? '' }),
-            bodyLang: 'en',
-            bodyLabel: s.aboutInEnglish,
-          }
-        : {}),
-      body: described.text,
+      ...(edited?.text[l]
+        ? { body: edited.text[l] }
+        : lang !== 'en'
+          ? {
+              lead: fill(s.aboutLead, { title: pick(ds.title, lang, ds.code), code: ds.code, from: ds.dataStart ?? '', to: ds.dataEnd ?? '' }),
+              bodyLang: 'en',
+              bodyLabel: s.aboutInEnglish,
+              body: described.text,
+            }
+          : { body: described.text }),
       ...(described.url
-        ? { source: { code: ds.code, title: `${described.title} › ${lang === 'en' ? described.section : s.dataDescription}`, url: described.url } }
+        ? {
+            source: {
+              code: ds.code,
+              title: `${edited?.title[l] ?? described.title} › ${lang === 'en' ? described.section : s.dataDescription}`,
+              url: described.url,
+            },
+          }
         : {}),
     })
   }

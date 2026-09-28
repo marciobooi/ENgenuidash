@@ -313,8 +313,18 @@ export async function datasetDescription(code: string, maxSentences = 2): Promis
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim()
-  const sentences = text.match(/[^.!?]+[.!?]+(?=\s|$)/g) ?? [text]
-  return { ...p, text: sentences.slice(0, maxSentences).join(' ').replace(/\s+/g, ' ').trim() }
+  return { ...p, text: sentences(text).slice(0, maxSentences).join(' ') }
+}
+
+/**
+ * Sentences of a text. A sentence ends at . ! or ? followed by a space and a capital (or a
+ * quote, bracket or digit), so "e.g. natural gas" and "i.e. the" stay inside their sentence.
+ */
+export function sentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9“"‘'(])/)
+    .map((x) => x.trim())
+    .filter(Boolean)
 }
 
 /**

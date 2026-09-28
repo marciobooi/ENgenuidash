@@ -113,13 +113,14 @@ test('the tax view (price before/after taxes) switches both ways and keeps the c
   const base = planQuestion('gas prices for industry in the Netherlands', dict, codelists)
   const plain = (base as { kind: 'plan'; plan: Plan }).plan
   assert.equal(plain.dataset, 'nrg_pc_203')
-  for (const q of ['non components', 'without components', 'before and after taxes', 'tax view']) {
+  for (const q of ['non components', 'without components', 'before and after taxes', 'tax view', 'now normal tax instead components please']) {
     const p = planOf(route(q, plain))
     assert.ok(p?.prices?.view === 'taxes', q)
     assert.equal(p.dataset, 'nrg_pc_203', q)
     assert.equal(p.filters.geo, 'NL', q)
   }
   const taxes = planOf(route('before and after taxes', plain))!
+  assert.equal(planOf(route('now normal tax instead components please', planOf(route('now in components', taxes))!))?.prices?.view, 'taxes')
   const back = planOf(route('now in components', taxes))!
   assert.equal(back.dataset, 'nrg_pc_203_c')
   assert.equal(back.prices?.view, undefined)

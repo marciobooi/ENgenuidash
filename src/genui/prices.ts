@@ -76,8 +76,10 @@ const STRUCTURE =
 const TO_COMPONENTS =
   /^ (now )?((in|with|as|show( me)?|add( all)?( the)?) )?(components?|(all )?(the )?taxe?s?( breakdown| components)?|(the )?(price )?(breakdown|composition|components)) ?$/
 // A follow-up asking for the price split by tax level instead of components.
-const TO_TAXES =
-  /^ (now )?((in|with|as|show( me)?|by) )?(non ?components?|without components|not in components|no components|(the )?tax (view|levels?)|(the )?price (before|with) and (after|without) tax(es)?|before and after tax(es)?|with and without tax(es)?|ohne bestandteile|vor und nach steuern|sans composantes|avant et apres taxes) ?$/
+const TAX_VIEW =
+  /(non ?components?|(without|instead of|not in|not|no|except) (the )?(price )?components?|(normal|standard|regular|plain|simple|basic|original) (tax|taxes|price|prices|view|version|one)|(the )?tax (view|levels?)|(before|with) and (after|without) tax(es)?|ohne bestandteile|normaler preis|vor und nach steuern|sans composantes|prix normal|avant et apres taxes)/
+// Short follow-ups only: a long sentence is a new question.
+const TO_TAXES = { test: (text: string) => text.trim().split(/\s+/).length <= 10 && TAX_VIEW.test(text) }
 const GAS = / (gas|gaz|erdgas)( |$)/
 
 function productOf(p: Parsed): PriceProduct {
@@ -410,6 +412,8 @@ export async function buildPricesDashboard(
   const top = countryFocus ? [...selected, ...euRow] : ranked.slice(0, 15)
   // Tax items a country does not levy (all zero) are left out of the legend.
   const seriesOf = (rows: typeof ranked) => (rows[0]?.parts ?? []).map(({ code, name }) => ({ name, data: rows.map((r) => r.parts.find((x) => x.code === code)?.value ?? 0) })).filter((x) => x.data.some((v) => v !== 0))
+  // Every chart lists the same components: those with a value for a country or the EU shown.
+  const shown = new Set(seriesOf(top).map((x) => x.name))
   w.countries = {
     type: 'bar',
     title: t.countries,
@@ -490,7 +494,7 @@ export async function buildPricesDashboard(
         title: fill(t.history, { geo: focus.name }),
         subtitle: `${productName} · ${consumerName}`,
         categories: focusYears,
-        series: focus.parts.map(({ name }, i) => ({ name, data: focusYears.map((y) => focusAt(y)?.[i]?.value ?? null) })).filter((x) => x.data.some((v) => v)),
+        series: focus.parts.map(({ name }, i) => ({ name, data: focusYears.map((y) => focusAt(y)?.[i]?.value ?? null) })).filter((x) => shown.has(x.name)),
         stacked: true,
         highlight: year,
         unit: symbol,

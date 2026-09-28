@@ -12,6 +12,9 @@ interface PointLike {
   x?: number
   y?: number | null
   z?: number | null
+  /** Real values of a bubble drawn at the edge of a shortened axis (BubbleChart). */
+  realX?: number
+  realY?: number
   value?: number | null
   options?: { value?: number | null }
 }
@@ -64,7 +67,7 @@ export function chartTable(chart: Highcharts.Chart, rowHeader: string): ChartTab
     const title = (a: Highcharts.Axis | undefined) => (a?.options.title?.text as string | undefined) ?? ''
     return {
       head: [rowHeader, title(chart.xAxis[0]), title(chart.yAxis[0]), bubble.name],
-      rows: points(bubble).map((p) => ({ label: p.name ?? '', cells: [num(p.x), num(p.y), num(p.z)] })),
+      rows: points(bubble).map((p) => ({ label: p.name ?? '', cells: [num(p.realX ?? p.x), num(p.realY ?? p.y), num(p.z)] })),
     }
   }
 

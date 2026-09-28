@@ -76,3 +76,15 @@ test('a wide table is turned so the longer dimension runs down the rows', async 
   const tall = transpose(wide)
   assert.equal(readable(tall), tall)
 })
+
+test('a bubble drawn at the edge of a shortened axis keeps its real value in the table', () => {
+  const t = chartTable(
+    fake({
+      xAxis: [{ options: { title: { text: 'Import' } } }],
+      yAxis: [{ options: { title: { text: 'Renewables' } } }],
+      series: [{ type: 'bubble', name: 'Use', options: {}, points: [{ name: 'Norway', x: -135, y: 60, z: 5, realX: -600, realY: 60 }] }],
+    }),
+    'C',
+  )
+  assert.deepEqual(t, { head: ['C', 'Import', 'Renewables', 'Use'], rows: [{ label: 'Norway', cells: [-600, 60, 5] }] })
+})

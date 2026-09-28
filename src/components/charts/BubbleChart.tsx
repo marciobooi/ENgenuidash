@@ -1,5 +1,6 @@
 import type Highcharts from 'highcharts'
 import { ChartFrame, type ChartFrameProps } from './ChartFrame'
+import { outlierCap } from './scale'
 import { PALETTE } from './theme'
 
 export interface BubbleAxis {
@@ -25,6 +26,22 @@ const withUnit = (unit: string) => (unit === '%' ? '%' : unit ? ` ${unit}` : '')
  * Uses Highcharts' bubble series (Highcharts "more", served by Webtools).
  */
 export function BubbleChart({ points, x, y, z, reference, decimals = 1, ...frame }: BubbleChartProps) {
+  // One country far from the others (a large exporter at −600 % import dependency) would squeeze
+  // everyone else into a corner: such a bubble is drawn at the edge of a shorter axis, with an
+  // arrow and its real value in the label; the tooltip gives the real values.
+  const capX = outlierCap(points.map((p) => p.x))
+  const capY = outlierCap(points.map((p) => p.y))
+  const clamp = (v: number, cap: number | null) => (cap != null && Math.abs(v) > cap ? Math.sign(v) * cap : v)
+  const whole = new Intl.NumberFormat(frame.lang ?? 'en', { maximumFractionDigits: 0 })
+  const data = points.map((p) => {
+    const px = clamp(p.x, capX)
+    const py = clamp(p.y, capY)
+    const outside = [
+      px !== p.x ? `${p.x < 0 ? '◂' : '▸'} ${whole.format(p.x)}${withUnit(x.unit)}` : '',
+      py !== p.y ? `${p.y < 0 ? '▾' : '▴'} ${whole.format(p.y)}${withUnit(y.unit)}` : '',
+    ].filter(Boolean)
+    return { name: p.name, x: px, y: py, z: p.z, realX: p.x, realY: p.y, label: outside.length ? `${p.name} (${outside.join(', ')})` : p.name }
+  })
   const line = (value: number | undefined) =>
     value == null
       ? []
@@ -47,8 +64,8 @@ export function BubbleChart({ points, x, y, z, reference, decimals = 1, ...frame
       useHTML: true,
       headerFormat: '',
       pointFormat:
-        `<b>{point.name}</b><br/>${x.label}: <b>{point.x:,.${decimals}f}${withUnit(x.unit)}</b>` +
-        `<br/>${y.label}: <b>{point.y:,.${decimals}f}${withUnit(y.unit)}</b>` +
+        `<b>{point.name}</b><br/>${x.label}: <b>{point.realX:,.${decimals}f}${withUnit(x.unit)}</b>` +
+        `<br/>${y.label}: <b>{point.realY:,.${decimals}f}${withUnit(y.unit)}</b>` +
         `<br/>${z.label}: <b>{point.z:,.0f}${withUnit(z.unit)}</b>`,
     },
     plotOptions: {
@@ -58,10 +75,10 @@ export function BubbleChart({ points, x, y, z, reference, decimals = 1, ...frame
         color: PALETTE[0],
         marker: { fillOpacity: 0.55, lineWidth: 1, lineColor: PALETTE[0] },
         // Few countries: every bubble keeps its name, even when two overlap.
-        dataLabels: { enabled: true, allowOverlap: points.length <= 12, format: '{point.name}', style: { color: 'var(--ecl-color-dark-100)', fontWeight: '400', textOutline: 'none' }, y: -18 },
+        dataLabels: { enabled: true, allowOverlap: points.length <= 12, format: '{point.label}', style: { color: 'var(--ecl-color-dark-100)', fontWeight: '400', textOutline: 'none' }, y: -18 },
       },
     },
-    series: [{ type: 'bubble', name: frame.title, data: points.map((p) => ({ ...p })) }],
+    series: [{ type: 'bubble', name: frame.title, data }],
   }
   return <ChartFrame {...frame} options={options} />
 }

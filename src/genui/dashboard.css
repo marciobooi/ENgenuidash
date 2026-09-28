@@ -120,6 +120,24 @@
 
 .dash__cell {
   min-width: 0;
+  /* Cards side by side are as tall as the tallest: the chart is centred, the source at the bottom. */
+  display: flex;
+  flex-direction: column;
+}
+
+.dash__cell > .chart-card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash__cell > .chart-card > .chart-card__body {
+  margin-block: auto;
+}
+
+.dash__cell > .chart-card > .chart-card__source,
+.dash__cell > .chart-card > .dash__source {
+  margin-top: auto;
 }
 
 .dash__table {

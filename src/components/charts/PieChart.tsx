@@ -74,7 +74,8 @@ export function PieChart({
           enabled: true,
           distance: 16,
           format: '{point.name}: {point.percentage:.0f}%',
-          style: { color: 'var(--ecl-color-dark-80)', fontWeight: '400', textOutline: 'none', fontSize: '12px' },
+          // One line (a wrapped label can land on the ring); the legend has the full names.
+          style: { color: 'var(--ecl-color-dark-80)', fontWeight: '400', textOutline: 'none', fontSize: '12px', width: 170, whiteSpace: 'nowrap', textOverflow: 'ellipsis' },
           connectorColor: 'var(--ecl-color-dark-40)',
         },
       },

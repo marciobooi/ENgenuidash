@@ -1,5 +1,6 @@
 import type { EnergyDictionary } from '../data/eurostat'
 import type { Plan, TimeRange } from '../genui/types'
+import { FUEL_GROUPS } from '../genui/balance'
 
 /**
  * Shareable dashboards: the URL carries the question (readable) and the plan (exact, including
@@ -27,8 +28,8 @@ function fromBase64Url(raw: string): string {
 
 /** The plan in its shareable form: what is needed to rebuild the dashboard, nothing else. */
 export function encodePlan(plan: Plan): string {
-  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts } = plan
-  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts }))
+  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance } = plan
+  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance }))
 }
 
 /** The plan from a link, or null when it is not a valid plan for our datasets. */
@@ -70,6 +71,9 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   if (typeof p.monthlyDataset === 'string' && dict.datasets[p.monthlyDataset]) plan.monthlyDataset = p.monthlyDataset
   if (typeof p.chart === 'string' && CHARTS.includes(p.chart)) plan.chart = p.chart as Plan['chart']
   if (p.parts === false) plan.parts = false
+  // An energy balance sheet (without it, the link would ask for every line × every fuel).
+  const balance = p.balance as Plan['balance']
+  if (balance && typeof balance.fuels === 'string' && balance.fuels in FUEL_GROUPS) plan.balance = { fuels: balance.fuels }
   const focus = p.focus as Plan['focus']
   if (focus?.kind === 'change') plan.focus = { kind: 'change' }
   else if (focus?.kind === 'which') plan.focus = { kind: 'which', ...(focus.lowest ? { lowest: true } : {}), ...(focus.period ? { period: true } : {}) }

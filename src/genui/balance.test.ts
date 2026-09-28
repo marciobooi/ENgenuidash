@@ -79,3 +79,9 @@ test('follow-ups change the sheet on screen', () => {
   const other = planOf(route('household electricity prices in Spain', sheet))
   assert.ok(other && !other.balance)
 })
+
+test('a shared link keeps the balance sheet', async () => {
+  const { encodePlan, decodePlan } = await import('../app/shareLink')
+  const sheet = planOf(route('energy balance of Germany 2023 for coal'))!
+  assert.deepEqual(decodePlan(encodePlan(sheet), dict)?.balance, { fuels: 'coal' })
+})

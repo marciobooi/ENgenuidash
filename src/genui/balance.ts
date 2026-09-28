@@ -181,6 +181,13 @@ export async function buildBalanceDashboard(
     flags: columns.map((c) => values.get(`${l.code}|${c.code}`)?.flag),
   }))
   const decimals = 0
+  // Short names for the charts: "Oil and petroleum products (excluding biofuel portion)" → "Oil and
+  // petroleum products", "Final consumption - transport sector - energy use" → "Transport sector".
+  const short = (text: string) => {
+    const parts = text.replace(/\s*\(.*?\)/g, '').split(' - ')
+    const name = parts.length >= 3 ? parts[1] : parts.join(' - ')
+    return name.charAt(0).toUpperCase() + name.slice(1)
+  }
   const fmt = new Intl.NumberFormat(lang, { maximumFractionDigits: decimals })
   const title = fill(s.balance.title, { geo: geoName, year })
   const groupName = s.balance.groups[group]
@@ -198,12 +205,12 @@ export async function buildBalanceDashboard(
   if (kpis.length) widgets.push({ type: 'kpis', items: kpis })
   widgets.push({ type: 'balance', title: `${title} · ${groupName}`, unit: symbol, decimals, columns, rows })
   const parts = columns.filter((c) => c.code !== 'TOTAL')
-  const slices = parts.map((c) => ({ name: c.label, y: cell('GIC', c.code) ?? 0 })).filter((x) => x.y > 0)
+  const slices = parts.map((c) => ({ name: short(c.label), y: cell('GIC', c.code) ?? 0 })).filter((x) => x.y > 0)
   if (slices.length >= 2) {
     widgets.push({ type: 'pie', title: group === 'main' ? s.balance.gicByFuel : `${label('nrg_bal', 'GIC')}: ${groupName}`, subtitle: `${geoName}, ${year}`, slices, unit: symbol, size: 'half', role: 'composition' })
   }
   const total = hasTotal ? 'TOTAL' : columns[0]?.code
-  const sectors = (SUB_LINES.FC_E ?? []).map((code) => ({ name: label('nrg_bal', code), value: total ? cell(code, total) : null })).filter((x) => x.value != null && x.value > 0)
+  const sectors = (SUB_LINES.FC_E ?? []).map((code) => ({ name: short(label('nrg_bal', code)), value: total ? cell(code, total) : null })).filter((x) => x.value != null && x.value > 0)
   if (total && sectors.length >= 2) {
     widgets.push({
       type: 'bar',

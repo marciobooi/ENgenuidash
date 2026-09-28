@@ -24,7 +24,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
-import ComponentsGallery from './ComponentsGallery'
 import { Header } from './Header'
 import { ChatModal } from './app/ChatModal'
 import { ChatThread } from './app/ChatThread'
@@ -66,7 +65,9 @@ const PRESET_ICONS: Record<PresetId, LucideIcon> = {
   energyPoverty: Snowflake,
 }
 
-// Development-only evaluation page (#/eval); the import is dropped from production builds.
+// Pages off the main path, loaded only when opened: the components gallery (#/components) and
+// the development-only evaluation page (#/eval, whose import is dropped from production builds).
+const ComponentsGallery = lazy(() => import('./ComponentsGallery'))
 const EvalPage = import.meta.env.DEV ? lazy(() => import('./eval/EvalPage')) : null
 
 /**
@@ -262,7 +263,11 @@ export default function App() {
   // and welcome screens keep the one-screen layout (conversation above, input below).
   const scrollsWithWindow = route === '#/components' || (!!EvalPage && route === '#/eval') || !!current
   if (route === '#/components') {
-    page = <ComponentsGallery locale={lang} t={t} />
+    page = (
+      <Suspense>
+        <ComponentsGallery locale={lang} t={t} />
+      </Suspense>
+    )
   } else if (EvalPage && route === '#/eval') {
     page = (
       <Suspense>

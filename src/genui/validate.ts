@@ -69,6 +69,7 @@ export function widgetProblem(w: WidgetSpec): string | null {
     case 'text':
       return text(w.title) && text(w.body) && w.body.length > 0 ? null : 'text without a body'
     case 'balance':
+      if (!text(w.query?.geo) || !text(w.query?.unit) || !text(w.query?.year)) return 'balance: query'
       if (!Array.isArray(w.columns) || !w.columns.every((c) => text(c.code) && text(c.label))) return 'balance: columns'
       return Array.isArray(w.rows) && w.rows.length > 0 && w.rows.every((r) => text(r.code) && text(r.label) && Number.isInteger(r.level) && values(r.values, w.columns.length))
         ? null

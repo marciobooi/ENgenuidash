@@ -700,3 +700,44 @@
   font-weight: 700;
   color: var(--ecl-color-dark-80);
 }
+
+/* ---------- Energy balance sheet: the charts of one line ---------- */
+.balance-sheet {
+  display: grid;
+  gap: 16px;
+}
+
+.balance-sheet__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.balance-sheet__title {
+  margin: 0;
+  font-size: 1.125rem;
+  scroll-margin-top: 16px;
+}
+
+.balance-sheet__title:focus {
+  outline: none;
+}
+
+.balance-sheet__title:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+.balance-sheet__line {
+  color: var(--ecl-color-primary);
+}
+
+.balance-sheet__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ecl-color-error, #d91c1c);
+}

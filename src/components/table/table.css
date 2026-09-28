@@ -185,3 +185,42 @@
     transition: none;
   }
 }
+
+.balance-table__line {
+  /* Label, then the chart button at the right end of the row header. */
+  position: relative;
+  padding-right: 40px !important;
+}
+
+.balance-table__chart {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--ecl-color-primary);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ecl-color-primary);
+  cursor: pointer;
+}
+
+.balance-table__chart[aria-pressed='true'] {
+  background: var(--ecl-color-primary);
+  color: #fff;
+}
+
+.balance-table__chart:focus-visible {
+  outline: 3px solid var(--ecl-color-secondary);
+  outline-offset: 2px;
+}
+
+.balance-table__row--active th,
+.balance-table__row--active td {
+  box-shadow: inset 0 -2px 0 var(--ecl-color-primary);
+}

@@ -4,7 +4,8 @@ import { AreaChart, BarChart, BubbleChart, DumbbellChart, HeatmapChart, HeroChar
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
-import { BalanceTable, DataTable } from '../components/table'
+import { DataTable } from '../components/table'
+import { BalanceSheet, type BalanceSheetLabels } from './BalanceSheet'
 import { AnswerCard } from './AnswerCard'
 import { BreakdownCard } from './BreakdownCard'
 import type { DashboardControls, DashboardSpec, Presentation, SectionKey, Suggestion, WidgetSpec } from './types'
@@ -33,7 +34,7 @@ export interface DashboardLabels {
   fewerFilters: string
   /** Energy balance sheets: the fuels control and the table's buttons. */
   fuels?: string
-  balance?: { line: string; expand: string; collapse: string; expandAll: string; collapseAll: string }
+  balance?: BalanceSheetLabels
 }
 
 /**
@@ -155,20 +156,16 @@ export function Dashboard({
       case 'breakdown':
         return <BreakdownCard widget={w} />
       case 'balance':
-        return (
-          <section className="chart-card">
-            <BalanceTable
-              caption={w.title}
-              unit={w.unit}
-              columns={w.columns}
-              rows={w.rows}
-              locale={lang}
-              decimals={w.decimals}
-              labels={{ line: '', expand: '{row}', collapse: '{row}', expandAll: '+', collapseAll: '−', ...labels.balance, missing: labels.missing }}
-            />
-            <SourceLine source={spec.source} labels={labels} />
-          </section>
-        )
+        return labels.balance ? (
+          <BalanceSheet
+            widget={w}
+            lang={lang}
+            labels={labels.balance}
+            missing={labels.missing}
+            chartLabels={chartLabels}
+            source={<SourceLine source={spec.source} labels={labels} />}
+          />
+        ) : null
       default:
         return null
     }

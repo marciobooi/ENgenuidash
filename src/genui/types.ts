@@ -262,6 +262,8 @@ export type WidgetSpec = (
       /** Energy balance sheet: balance lines (a tree, rows) × fuels (columns), see balance.ts. */
       type: 'balance'
       title: string
+      /** The sheet's selection, for the charts of one line (fetched when the reader picks a line). */
+      query: { geo: string; unit: string; year: string }
       unit: string
       decimals: number
       columns: { code: string; label: string }[]

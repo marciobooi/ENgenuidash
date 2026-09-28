@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChartColumn, ChevronRight } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import './table.css'
 
@@ -19,6 +19,8 @@ export interface BalanceTableLabels {
   expandAll: string
   collapseAll: string
   missing: string
+  /** "Show the charts of {row}". */
+  showCharts?: string
 }
 
 /**
@@ -35,6 +37,8 @@ export function BalanceTable({
   decimals = 0,
   labels,
   initiallyOpen = ['NRGSUP'],
+  chartLine,
+  onChart,
 }: {
   caption: string
   unit?: string
@@ -44,6 +48,9 @@ export function BalanceTable({
   decimals?: number
   labels: BalanceTableLabels
   initiallyOpen?: string[]
+  /** The line whose charts are shown, and how to pick another (a chart button on every line). */
+  chartLine?: string
+  onChart?: (code: string) => void
 }) {
   const id = useId()
   const [open, setOpen] = useState<Set<string>>(() => new Set(initiallyOpen))
@@ -94,7 +101,7 @@ export function BalanceTable({
               const expandable = parents.has(r.code)
               const isOpen = open.has(r.code)
               return (
-                <tr key={r.code} className={`balance-table__row balance-table__row--l${Math.min(r.level, 3)}`}>
+                <tr key={r.code} className={`balance-table__row balance-table__row--l${Math.min(r.level, 3)}${chartLine === r.code ? ' balance-table__row--active' : ''}`}>
                   <th scope="row" className="data-table__sticky balance-table__line" style={{ paddingLeft: `${12 + r.level * 16}px` }}>
                     {expandable ? (
                       <button
@@ -109,7 +116,19 @@ export function BalanceTable({
                     ) : (
                       <span className="balance-table__spacer" aria-hidden="true" />
                     )}
-                    <span>{r.label}</span>
+                    <span className="balance-table__label">{r.label}</span>
+                    {onChart && (
+                      <button
+                        type="button"
+                        className="balance-table__chart"
+                        aria-pressed={chartLine === r.code}
+                        aria-label={(labels.showCharts ?? '{row}').replace('{row}', r.label)}
+                        title={(labels.showCharts ?? '{row}').replace('{row}', r.label)}
+                        onClick={() => onChart(r.code)}
+                      >
+                        <ChartColumn size={14} aria-hidden="true" />
+                      </button>
+                    )}
                   </th>
                   {r.values.map((v, i) => (
                     <td key={columns[i]?.code ?? i} className="data-table__num">

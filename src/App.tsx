@@ -246,6 +246,8 @@ export default function App() {
     showTable: t.showTable,
     hideTable: t.hideTable,
     tableCategory: t.tableCategory,
+    tableSwap: t.tableSwap,
+    tableSize: t.tableSize,
     downloadPng: t.downloadPng,
     downloadCsv: t.downloadCsv,
     loading: t.chartLoading,

@@ -1,7 +1,7 @@
 import type Highcharts from 'highcharts'
-import { CircleAlert, ImageDown, Sheet, Table2 } from 'lucide-react'
+import { ArrowLeftRight, CircleAlert, ImageDown, Sheet, Table2 } from 'lucide-react'
 import { useId, useRef, useState, type ReactNode } from 'react'
-import { chartTable, type ChartTable } from './chartTable'
+import { chartTable, readable, transpose, type ChartTable } from './chartTable'
 import { Tooltip } from '../tooltip'
 import { BASE_OPTIONS } from './baseOptions'
 import { mergeOptions } from './merge'
@@ -34,6 +34,10 @@ export interface ChartActionLabels {
   hideTable: string
   /** Header of the first column of the data table. */
   tableCategory: string
+  /** Button that turns the table's rows into columns and back. */
+  tableSwap: string
+  /** Size of the table, e.g. "12 rows × 4 columns". */
+  tableSize: string
   downloadPng: string
   downloadCsv: string
   loading: string
@@ -48,6 +52,8 @@ const DEFAULT_LABELS: ChartActionLabels = {
   showTable: 'Show data table',
   hideTable: 'Hide data table',
   tableCategory: 'Category',
+  tableSwap: 'Swap rows and columns',
+  tableSize: '{rows} rows × {columns} columns',
   downloadPng: 'Download image (PNG)',
   downloadCsv: 'Download data (CSV)',
   loading: 'Loading chart…',
@@ -90,7 +96,7 @@ export function ChartFrame({
       requestAnimationFrame(() => chartRef.current?.reflow())
       return
     }
-    if (chartRef.current) setTable(chartTable(chartRef.current, l.tableCategory))
+    if (chartRef.current) setTable(readable(chartTable(chartRef.current, l.tableCategory)))
   }
   const [status, setStatus] = useState<ChartStatus>('loading')
   const [error, setError] = useState<string>()
@@ -153,7 +159,7 @@ export function ChartFrame({
       <a className="chart-card__skip" href={`#${id}-end`}>
         {l.skipChart}: {title}
       </a>
-      {table && <DataTable table={table} lang={lang} caption={title} />}
+      {table && <DataTable table={table} lang={lang} caption={title} labels={l} onSwap={() => setTable(transpose(table))} />}
       <div className="chart-card__body" style={{ minHeight: height }} aria-busy={status === 'loading'} hidden={tableOpen}>
         <WebtoolsChart
           options={merged}
@@ -200,10 +206,36 @@ export function ChartFrame({
 }
 
 /** The chart's data as an ECL table, in place of the plot. */
-function DataTable({ table, lang, caption }: { table: ChartTable; lang: string; caption: string }) {
+function DataTable({
+  table,
+  lang,
+  caption,
+  labels,
+  onSwap,
+}: {
+  table: ChartTable
+  lang: string
+  caption: string
+  labels: ChartActionLabels
+  onSwap: () => void
+}) {
   const numbers = new Intl.NumberFormat(lang, { maximumFractionDigits: 2 })
+  const size = labels.tableSize
+    .replace('{rows}', numbers.format(table.rows.length))
+    .replace('{columns}', numbers.format(table.head.length - 1))
   return (
-    <div className="chart-card__table">
+    <div className="chart-card__table-wrap">
+      <div className="chart-card__table-bar">
+        <span>{size}</span>
+        {table.head.length > 2 && (
+          <button type="button" className="chart-card__table-swap" onClick={onSwap}>
+            <ArrowLeftRight size={14} aria-hidden="true" />
+            {labels.tableSwap}
+          </button>
+        )}
+      </div>
+      {/* Scrolls in both directions; the header row and the first column stay in view. */}
+      <div className="chart-card__table" tabIndex={0} role="region" aria-label={`${caption} (${size})`}>
       <table className="ecl-table ecl-table--zebra">
         <caption className="sr-only">{caption}</caption>
         <thead className="ecl-table__head">
@@ -230,6 +262,7 @@ function DataTable({ table, lang, caption }: { table: ChartTable; lang: string; 
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

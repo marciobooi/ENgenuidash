@@ -16,6 +16,22 @@ interface PointLike {
   options?: { value?: number | null }
 }
 
+/** Rows become columns and columns rows (the first column header stays in place). */
+export function transpose(t: ChartTable): ChartTable {
+  return {
+    head: [t.head[0], ...t.rows.map((r) => r.label)],
+    rows: t.head.slice(1).map((label, j) => ({ label, cells: t.rows.map((r) => r.cells[j] ?? null) })),
+  }
+}
+
+/**
+ * The table the way it reads best: the longer dimension down the rows (a few countries over
+ * thirty years lists the years, not thirty columns), so it scrolls vertically, not sideways.
+ */
+export function readable(t: ChartTable): ChartTable {
+  return t.head.length - 1 > t.rows.length && t.rows.length > 0 ? transpose(t) : t
+}
+
 /**
  * Reads the table from the rendered chart, so it always matches what is drawn (views switched in
  * the chart, stacked parts, pie slices, heat map cells, bubbles). Decorative series (the thin

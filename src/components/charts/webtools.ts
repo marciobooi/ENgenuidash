@@ -36,8 +36,26 @@ declare global {
 
 let loading: Promise<Webtools> | null = null
 
+/**
+ * Webtools warns on every larger chart that it will not show its own data table with it
+ * ("dataset is too big to display the data table together with the chart"). That table is
+ * turned off here (exporting.showTable: false): the chart card shows its own, which scrolls and
+ * handles any size. Only that one message is dropped; every other warning still shows.
+ */
+function quietTableWarning() {
+  const warn = console.warn
+  if ((warn as { quiet?: boolean }).quiet) return
+  const quiet = (...args: unknown[]) => {
+    if (typeof args[0] === 'string' && args[0].includes('too big to display the data table')) return
+    warn.apply(console, args)
+  }
+  quiet.quiet = true
+  console.warn = quiet
+}
+
 /** Loads load.js once and resolves when `$wt` is ready to render. */
 export function loadWebtools(timeoutMs = 15000): Promise<Webtools> {
+  quietTableWarning()
   if (window.$wt?.render) return Promise.resolve(window.$wt)
   loading ??= new Promise<Webtools>((resolve, reject) => {
     const started = performance.now()

@@ -310,14 +310,70 @@
 }
 
 /* The chart's data table, shown in place of the plot. */
+.chart-card__table-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 6px;
+  font-size: 0.8125rem;
+  color: var(--ecl-color-dark-80);
+}
+.chart-card__table-swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--ecl-color-dark-40);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ecl-color-dark-100);
+  font: inherit;
+  cursor: pointer;
+}
+.chart-card__table-swap:hover {
+  background: var(--ecl-color-dark-5, #f3f6fc);
+}
+.chart-card__table-swap:focus-visible,
+.chart-card__table:focus-visible {
+  outline: 2px solid var(--ecl-color-primary-100, #004494);
+  outline-offset: 2px;
+}
 .chart-card__table {
   max-height: 480px;
   overflow: auto;
-  margin: 4px 0;
+  border: 1px solid var(--ecl-color-dark-20, #e3e3e3);
+  border-radius: 4px;
 }
 .chart-card__table .ecl-table {
   width: 100%;
+  margin: 0;
   font-size: 0.8125rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.chart-card__table th,
+.chart-card__table td {
+  white-space: nowrap;
+}
+/* Header row and first column stay in view while scrolling. */
+.chart-card__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ecl-color-dark-5, #f3f6fc);
+}
+.chart-card__table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  text-align: left;
+}
+.chart-card__table thead th:first-child {
+  left: 0;
+  z-index: 3;
 }
 .chart-card__table td.ecl-table__cell {
   text-align: right;

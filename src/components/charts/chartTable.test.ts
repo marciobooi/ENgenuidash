@@ -60,3 +60,19 @@ test('broken template endings from Webtools translations are repaired', async ()
   assert.equal(lang.a.b, '{#eq series.points.length 1}Punkt{else}Punkte{/eq}')
   assert.equal(repairTemplates(lang), false)
 })
+
+test('a wide table is turned so the longer dimension runs down the rows', async () => {
+  const { readable, transpose } = await import('./chartTable')
+  const wide = { head: ['C', '2020', '2021', '2022'], rows: [{ label: 'Malta', cells: [1, 2, 3] }] }
+  assert.deepEqual(readable(wide), {
+    head: ['C', 'Malta'],
+    rows: [
+      { label: '2020', cells: [1] },
+      { label: '2021', cells: [2] },
+      { label: '2022', cells: [3] },
+    ],
+  })
+  assert.deepEqual(transpose(transpose(wide)), wide)
+  const tall = transpose(wide)
+  assert.equal(readable(tall), tall)
+})

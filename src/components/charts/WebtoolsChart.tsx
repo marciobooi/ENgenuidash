@@ -1,6 +1,7 @@
 import type Highcharts from 'highcharts'
 import { useEffect, useRef, type RefObject } from 'react'
 import { applyMapLang, repairChartLang } from './chartLang'
+import { fallbackOptions, loadOwnHighcharts } from './ownHighcharts'
 import { destroyChart, ensurePlugin, loadWebtools, webtoolsHighcharts } from './webtools'
 
 export type ChartStatus = 'loading' | 'ready' | 'error'
@@ -67,6 +68,34 @@ export function WebtoolsChart({
       onStatusRef.current?.('ready')
     }
 
+    const cleanup = () => {
+      cancelled = true
+      if (instanceRef.current) destroyChart(instanceRef.current)
+      instanceRef.current = null
+      if (chartRef) chartRef.current = null
+      container.innerHTML = ''
+    }
+
+    // Europa Webtools only serves europa.eu and localhost; anywhere else the charts are drawn by
+    // the Highcharts package (loaded on demand), with the same options.
+    const drawOwn = (map: boolean) =>
+      loadOwnHighcharts()
+        .then((H) => {
+          if (cancelled) return
+          applyMapLang(lang)
+          drawnWith = optionsRef.current
+          const options = fallbackOptions(drawnWith)
+          if (map && !H.mapChart) throw new Error('The map module is not available.')
+          const chart = map ? H.mapChart!(container, options) : H.chart(container, options)
+          instanceRef.current = chart
+          if (chartRef) chartRef.current = chart
+          if (drawnWith !== optionsRef.current) chart.update(fallbackOptions(optionsRef.current), true, true)
+          onStatusRef.current?.('ready')
+        })
+        .catch((err: Error) => {
+          if (!cancelled) onStatusRef.current?.('error', err.message)
+        })
+
     if (kind === 'map') {
       // Maps: load Webtools' map module, then draw with Highcharts.mapChart from that same build.
       ensurePlugin('map')
@@ -78,16 +107,9 @@ export function WebtoolsChart({
           drawnWith = optionsRef.current
           done(H.mapChart(container, drawnWith))
         })
-        .catch((err: Error) => {
-          if (!cancelled) onStatusRef.current?.('error', err.message)
-        })
-      return () => {
-        cancelled = true
-        if (instanceRef.current) destroyChart(instanceRef.current)
-        instanceRef.current = null
-        if (chartRef) chartRef.current = null
-        container.innerHTML = ''
-      }
+        // Webtools refuses this domain: the bundled Highcharts draws the map.
+        .catch(() => drawOwn(true))
+      return cleanup
     }
 
     loadWebtools()
@@ -106,17 +128,9 @@ export function WebtoolsChart({
           ready: done,
         })
       })
-      .catch((err: Error) => {
-        if (!cancelled) onStatusRef.current?.('error', err.message)
-      })
+      .catch(() => drawOwn(false))
 
-    return () => {
-      cancelled = true
-      if (instanceRef.current) destroyChart(instanceRef.current)
-      instanceRef.current = null
-      if (chartRef) chartRef.current = null
-      container.innerHTML = ''
-    }
+    return cleanup
   }, [lang, chartRef, retryKey, kind, pluginKey])
 
   // Apply later option changes to the live chart.

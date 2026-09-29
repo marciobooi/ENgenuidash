@@ -55,6 +55,8 @@ function quietTableWarning() {
 
 /** Loads load.js once and resolves when `$wt` is ready to render. */
 export function loadWebtools(timeoutMs = 15000): Promise<Webtools> {
+  // ?charts=own draws with the bundled Highcharts, as on a domain Webtools refuses (testing, demos).
+  if (new URLSearchParams(window.location.search).get('charts') === 'own') return Promise.reject(new Error('Europa Webtools switched off (?charts=own).'))
   quietTableWarning()
   if (window.$wt?.render) return Promise.resolve(window.$wt)
   loading ??= new Promise<Webtools>((resolve, reject) => {

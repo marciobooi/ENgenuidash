@@ -29,6 +29,10 @@ const PROFILE =
   / (energy|country|energie|energetique) (profiles?|overview|scorecard|dashboard|fact ?sheet|report card|profil\w*|uebersicht|ubersicht|tableau de bord)| (profiles?|overview|scorecard|fact ?sheet|report card) (of|for|on) | (key|main|headline|all) (the )?(energy )?indicators |energie dashboard| energy (use |consumption )?(per|pro|par) (capita|person|head|kopf|habitant) |energieprofil|energieubersicht|profil energetique|endash /
 // "per capita", "per person", "per head", "pro Kopf", "par habitant".
 const PER_CAPITA_WORDS = / (per (capita|person|head|inhabitant|citizen)|pro kopf|par habitants?|par personne|per capita) /
+// Who consumes: households, or industry (the non-household consumers).
+const HOUSEHOLD_WORDS = / (households?|domestic|residential|haushalte?|privathaushalte|menages?) /
+const INDUSTRY_WORDS = / (industry|industrial|non households?|non domestic|industrie|industrielle?s?) /
+const focusOf = (text: string): 'households' | 'industry' | undefined => (INDUSTRY_WORDS.test(text) ? 'industry' : HOUSEHOLD_WORDS.test(text) ? 'households' : undefined)
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
 /** The profile a question asks for ("energy profile of Germany"), or null. */
@@ -45,7 +49,7 @@ export function profilePlan(text: string, dict: EnergyDictionary, codelists: Ene
     time: year ? { kind: 'range', since: String(year), until: String(year) } : { kind: 'last', n: 20 },
     focusPeriod: year ? String(year) : undefined,
     intent: 'snapshot',
-    profile: PER_CAPITA_WORDS.test(p.text) ? { perCapita: true } : {},
+    profile: { ...(PER_CAPITA_WORDS.test(p.text) ? { perCapita: true as const } : {}), ...(focusOf(p.text) ? { focus: focusOf(p.text) } : {}) },
   }
 }
 
@@ -57,14 +61,22 @@ export function refineProfile(current: Plan, text: string, dict: EnergyDictionar
   const geo = places.codes.find((c) => PROFILE_GEOS.includes(c)) ?? (places.eu ? EU : undefined)
   const year = detectTime(p).years.at(-1)
   const per = PER_CAPITA_WORDS.test(p.text) ? true : / (totals?|absolute|gesamt|totaux) /.test(p.text) ? false : undefined
-  const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|per|capita|person|head|pro|kopf|par|habitant|habitants|totals|total|totaux|absolute|gesamt|as|it|this|\d{4})$/.test(w))
+  const consumer = / (all consumers|everyone|everything|alle|tous) /.test(p.text) ? null : focusOf(p.text)
+  const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|households?|industry|industrial|consumers?|all|everyone|domestic|residential|haushalte?|industrie|menages?|tous|alle|per|capita|person|head|pro|kopf|par|habitant|habitants|totals|total|totaux|absolute|gesamt|as|it|this|\d{4})$/.test(w))
   const known = rest.every((w) => detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)
-  if (!(geo || year || per !== undefined) || (!known && !PROFILE.test(p.text))) return null
+  if (!(geo || year || per !== undefined || consumer !== undefined) || (!known && !PROFILE.test(p.text))) return null
   return {
     ...current,
     filters: { ...current.filters, ...(geo ? { geo } : {}) },
     ...(year ? { time: { kind: 'range', since: String(year), until: String(year) }, focusPeriod: String(year) } : {}),
-    ...(per !== undefined ? { profile: per ? { perCapita: true as const } : {} } : {}),
+    ...(per !== undefined || consumer !== undefined
+      ? {
+          profile: {
+            ...((per ?? !!current.profile.perCapita) ? { perCapita: true as const } : {}),
+            ...((consumer === undefined ? current.profile.focus : (consumer ?? undefined)) ? { focus: consumer === undefined ? current.profile.focus : (consumer ?? undefined) } : {}),
+          },
+        }
+      : {}),
     notes: [],
   }
 }
@@ -105,9 +117,19 @@ const PER_CAPITA: Indicator[] = [
   { key: 'elcPc', dataset: 'nrg_ind_peh', filters: { siec: 'TOTAL', nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, unit: 'kWh', good: 'neutral', decimals: 0, per: 1e6 },
 ]
 
+// One kind of consumer: households, or industry (the non-household consumers), in total and per person.
+const consumption = (key: string, nrg_bal: string, per?: number, siec = 'TOTAL', good: Indicator['good'] = 'down'): Indicator => ({ key, dataset: 'nrg_bal_c', filters: { siec, nrg_bal, unit: 'KTOE' }, unit: per ? 'kgoe' : 'ktoe', good, decimals: 0, ...(per ? { per } : {}) })
+const FOCUS_INDICATORS: Record<'households' | 'industry', Indicator[]> = {
+  households: [consumption('hh', 'FC_OTH_HH_E'), consumption('hhPc', 'FC_OTH_HH_E', 1e6), consumption('hhElc', 'FC_OTH_HH_E', undefined, 'E7000', 'neutral'), consumption('hhGas', 'FC_OTH_HH_E', undefined, 'G3000', 'neutral'), INDICATORS[7]],
+  industry: [consumption('ind', 'FC_IND_E'), consumption('indPc', 'FC_IND_E', 1e6), consumption('indElc', 'FC_IND_E', undefined, 'E7000', 'neutral'), consumption('indGas', 'FC_IND_E', undefined, 'G3000', 'neutral'), INDICATORS[3]],
+}
+
 // Products and sectors of ENDASH's consumption and production charts.
 const PRODUCTS = ['C0000X0350-0370', 'C0350-0370', 'P1000', 'S2000', 'G3000', 'O4000XBIO', 'RA000', 'W6100_6220', 'N900H', 'E7000', 'H8000']
 const SECTORS = ['FC_IND_E', 'FC_TRA_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_OTH_AF_E', 'FC_OTH_FISH_E', 'FC_OTH_NSP_E']
+const EU_MEMBERS = PROFILE_GEOS.slice(1, 28)
+// The indicators worth ranking: relative ones (shares, intensities, per person), not sizes.
+const RANKED = ['ren', 'ei', 'ep', 'dep', 'fossil', 'poverty', 'pecPc', 'fecPc', 'hhPc', 'traPc', 'indPc']
 const TRANSPORT_FUELS = ['G3000', 'O4630', 'O4652XR5210B', 'O4671XR5220B', 'R5210P', 'R5210B', 'R5220P', 'R5220B', 'R5290', 'R5300', 'E7000']
 const INDUSTRY_FUELS = ['C0000X0350-0370', 'C0350-0370', 'E7000', 'G3000', 'H8000', 'N900H', 'O4000XBIO', 'P1000', 'RA000', 'S2000', 'W6100_6220']
 const GHG_SECTORS = ['CRF1A1', 'CRF1A2', 'CRF1A3', 'CRF1A4A', 'CRF1A4B', 'CRF1A4C', 'CRF1A5']
@@ -186,6 +208,7 @@ function profileControls(plan: Plan, dict: EnergyDictionary, year: string, t: Pr
   const years = Array.from({ length: 15 }, (_, k) => String(end - k))
   if (!years.includes(year)) years.push(year)
   const per = !!plan.profile?.perCapita
+  const focus = plan.profile?.focus
   return {
     years: years.map((y) => ({ label: y, plan: at(y), active: y === year })),
     choices: [
@@ -193,8 +216,17 @@ function profileControls(plan: Plan, dict: EnergyDictionary, year: string, t: Pr
         key: 'view',
         label: t.view,
         options: [
-          { label: t.viewTotals, plan: { ...plan, profile: {} }, active: !per },
-          { label: t.viewPerCapita, plan: { ...plan, profile: { perCapita: true } }, active: per },
+          { label: t.viewTotals, plan: { ...plan, profile: { ...(focus ? { focus } : {}) } }, active: !per },
+          { label: t.viewPerCapita, plan: { ...plan, profile: { ...(focus ? { focus } : {}), perCapita: true } }, active: per },
+        ],
+      },
+      {
+        key: 'consumer',
+        label: t.consumer,
+        options: [
+          { label: t.consumerAll, plan: { ...plan, profile: { ...(per ? { perCapita: true as const } : {}) } }, active: !focus },
+          { label: t.consumerHouseholds, plan: { ...plan, profile: { ...(per ? { perCapita: true as const } : {}), focus: 'households' } }, active: focus === 'households' },
+          { label: t.consumerIndustry, plan: { ...plan, profile: { ...(per ? { perCapita: true as const } : {}), focus: 'industry' } }, active: focus === 'industry' },
         ],
       },
     ],
@@ -219,17 +251,18 @@ export async function buildProfileDashboard(
     dict.datasets[dataset] ? fetchEurostatData(dataset, { filters: { geo: geos, ...filters }, lang, signal, ...query }).catch(() => null) : Promise.resolve(null)
 
   const perCapita = !!plan.profile?.perCapita
-  const list = perCapita ? PER_CAPITA : INDICATORS
+  const focus = plan.profile?.focus
+  const list = focus ? FOCUS_INDICATORS[focus] : perCapita ? PER_CAPITA : INDICATORS
   // Population on 1 January (demo_pjan is not in the dictionary: asked for directly).
-  const population = perCapita ? await fetchEurostatData('demo_pjan', { filters: { geo: geos, age: 'TOTAL', sex: 'T', unit: 'NR' }, lang, signal, ...timeQuery }).catch(() => null) : null
+  const population = perCapita || focus ? await fetchEurostatData('demo_pjan', { filters: { geo: geos, age: 'TOTAL', sex: 'T', unit: 'NR' }, lang, signal, ...timeQuery }).catch(() => null) : null
   const [indicatorData, sectors, products, electricity] = await Promise.all([
     Promise.all(list.map((i) => ask(i.dataset, i.filters))),
-    ask('nrg_bal_c', { siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, window(4)),
-    ask('nrg_bal_c', { siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, window(4)),
-    ask('nrg_ind_peh', { geo: [geo], siec: ELECTRICITY, nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, window(4)),
+    focus ? null : ask('nrg_bal_c', { siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, window(4)),
+    focus ? null : ask('nrg_bal_c', { siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, window(4)),
+    focus ? null : ask('nrg_ind_peh', { geo: [geo], siec: ELECTRICITY, nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, window(4)),
   ])
   // The rest of ENDASH's breakdowns (totals view): how the country compares with the EU, and what its consumption is made of.
-  const more = perCapita
+  const more = perCapita || focus
     ? []
     : await Promise.all([
         ask('nrg_ind_ren', { nrg_bal: RENEWABLE_USES, unit: 'PC' }, window(4)),
@@ -240,11 +273,19 @@ export async function buildProfileDashboard(
         ask('nrg_bal_c', { geo: [geo], siec: INDUSTRY_FUELS, nrg_bal: 'FC_IND_E', unit: 'KTOE' }, window(4)),
         ask('nrg_bal_c', { geo: [geo], siec: PRODUCTS, nrg_bal: 'GAE', unit: 'KTOE' }, window(4)),
       ])
+  // One kind of consumer: what it uses, by purpose (households) and by fuel, against the EU.
+  const [uses, fuels] = focus
+    ? await Promise.all([
+        focus === 'households' ? ask('nrg_d_hhq', { geo: [geo], siec: 'TOTAL', nrg_bal: HOUSEHOLD_USES, unit: 'TJ' }, window(4)) : Promise.resolve(null),
+        ask('nrg_bal_c', { siec: focus === 'households' ? PRODUCTS : INDUSTRY_FUELS, nrg_bal: focus === 'households' ? 'FC_OTH_HH_E' : 'FC_IND_E', unit: 'KTOE' }, window(4)),
+      ])
+    : [null, null]
   const [renewablesByUse, dependencyByFuel, ghg, households, transport, industry, available] = more
   const geoName = (indicatorData.find(Boolean)?.dimensions.geo?.codes.find((c) => c.code === geo)?.label ?? geo).replace(/\s*\(.*?\)\s*$/, '')
   const nf = (d: number) => new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d })
 
   const kpis: KpiSpec[] = []
+  const kpiKeys: string[] = []
   const widgets: WidgetSpec[] = []
   const summary: string[] = []
   const insights: Insight[] = []
@@ -266,6 +307,7 @@ export async function buildProfileDashboard(
     const delta = first && first !== year ? value - own.get(first)! : undefined
     values[ind.key] = { value, eu, year, delta, ind }
     if (year > latestYear) latestYear = year
+    kpiKeys.push(ind.key)
     kpis.push({
       label: t.indicators[ind.key],
       value,
@@ -276,7 +318,7 @@ export async function buildProfileDashboard(
       goodDirection: ind.good === 'up' || ind.good === 'down' ? ind.good : 'neutral',
       trend: years.slice(-15).map((y) => own.get(y) ?? null),
     })
-    if (years.length > 2 && ['ren', 'dep', 'fossil', 'ei', 'pecPc', 'hhPc', 'elcPc'].includes(ind.key)) {
+    if (years.length > 2 && ['ren', 'dep', 'fossil', 'ei', 'pecPc', 'hhPc', 'elcPc', 'hh', 'ind', 'indPc'].includes(ind.key)) {
       const euSeries = seriesOf(result, EU, ind.per, population)
       const shown = years.slice(-20)
       trendCharts.push({
@@ -293,6 +335,30 @@ export async function buildProfileDashboard(
     }
   })
   if (!kpis.length) throw new NoDataError(DATASET)
+
+  // Where the country stands among the EU-27 in the same year (indicators that are not just a matter of size).
+  if (EU_MEMBERS.includes(geo)) {
+    const peers = EU_MEMBERS.filter((g) => g !== geo)
+    await Promise.all(
+      list.map(async (ind) => {
+        const item = values[ind.key]
+        const k = kpiKeys.indexOf(ind.key)
+        if (!item || k < 0 || !RANKED.includes(ind.key) || ind.good === 'neutral') return
+        const exact = { sinceTimePeriod: item.year, untilTimePeriod: item.year }
+        const [all, people] = await Promise.all([
+          ask(ind.dataset, { ...ind.filters, geo: EU_MEMBERS }, exact),
+          ind.per ? fetchEurostatData('demo_pjan', { filters: { geo: EU_MEMBERS, age: 'TOTAL', sex: 'T', unit: 'NR' }, lang, signal, ...exact }).catch(() => null) : Promise.resolve(null),
+        ])
+        if (!all) return
+        const at = (g: string) => seriesOf(all, g, ind.per, people).get(item.year)
+        const mine = at(geo)
+        const others = peers.map(at).filter((x): x is number => x != null)
+        if (mine == null || others.length < 5) return
+        const better = others.filter((x) => (ind.good === 'up' ? x > mine : x < mine)).length
+        kpis[k].caption = [kpis[k].caption, fill(t.rank, { n: String(better + 1), total: String(others.length + 1) })].filter(Boolean).join(' · ')
+      }),
+    )
+  }
 
   // Consumption and production: how they are made up.
   const parts: [string, EurostatResult | null, string, string, string][] = [
@@ -313,7 +379,10 @@ export async function buildProfileDashboard(
     const found = compareBar(result, dim, geos, names, percent, until)
     if (found) bars.push({ type: 'bar', title, subtitle: found.year, categories: found.categories, series: found.series, unit, size: 'half', role: 'related', source: { code: dataset, url: linkFor(dataset, lang) }, ...(found.categories.length > 6 ? { horizontal: true } : {}) })
   }
-  if (!perCapita) {
+  if (focus) {
+    addBar(focus === 'households' ? t.householdFuelShare : t.industryFuelShare, fuels, 'siec', 'nrg_bal_c', '%', true)
+  }
+  if (!perCapita && !focus) {
     addBar(t.renewablesByUse, renewablesByUse, 'nrg_bal', 'nrg_ind_ren', '%', false)
     addBar(t.dependencyByFuel, dependencyByFuel, 'siec', 'nrg_ind_id', '%', false)
     addBar(t.sectorShare, sectors, 'nrg_bal', 'nrg_bal_c', '%', true)
@@ -324,6 +393,8 @@ export async function buildProfileDashboard(
     const found = result ? latestSlices(result, geo, dim, until) : null
     if (found) extraPies.push({ type: 'pie', title, subtitle: `${geoName} · ${found.year}`, slices: found.slices, unit, size: 'half', source: { code: dataset, url: linkFor(dataset, lang) } })
   }
+  if (focus === 'households') addPie(t.households, uses, 'nrg_bal', 'nrg_d_hhq', 'TJ')
+  if (focus) addPie(focus === 'households' ? t.householdFuels : t.industry, fuels, 'siec', 'nrg_bal_c', 'ktoe')
   addPie(t.ghg, ghg ?? null, 'src_crf', 'env_air_gge', 'kt CO₂e')
   addPie(t.households, households ?? null, 'nrg_bal', 'nrg_d_hhq', 'TJ')
   addPie(t.transport, transport ?? null, 'siec', 'nrg_bal_c', 'ktoe')
@@ -334,6 +405,8 @@ export async function buildProfileDashboard(
 
   // Summary and insights: what stands out, from the numbers.
   const v = values
+  const lead = focus === 'households' ? v.hh : focus === 'industry' ? v.ind : undefined
+  if (lead) summary.push(fill(focus === 'households' ? t.leadHouseholds : t.leadIndustry, { geo: geoName, year: lead.year, value: `${nf(0).format(lead.value)} ktoe`, eu: lead.eu != null ? `(${fill(t.euValue, { value: `${nf(0).format(lead.eu)} ktoe` })})` : '' }).replace(/\s+\./, '.'))
   if (perCapita && v.pecPc) summary.push(fill(t.leadPerCapita, { geo: geoName, year: v.pecPc.year, value: `${nf(0).format(v.pecPc.value)} kgoe`, eu: v.pecPc.eu != null ? `(${fill(t.euValue, { value: `${nf(0).format(v.pecPc.eu)} kgoe` })})` : '' }).replace(/\s+\./, '.'))
   if (v.ren) summary.push(fill(t.leadRenewables, { geo: geoName, year: v.ren.year, value: `${nf(1).format(v.ren.value)} %`, eu: v.ren.eu != null ? `(${fill(t.euValue, { value: `${nf(1).format(v.ren.eu)} %` })})` : '' }).replace(/\s+\./, '.'))
   if (v.dep) summary.push(fill(t.leadDependency, { geo: geoName, year: v.dep.year, value: `${nf(1).format(v.dep.value)} %` }))
@@ -349,11 +422,13 @@ export async function buildProfileDashboard(
     }
   }
 
-  const title = fill(perCapita ? t.titlePerCapita : t.title, { geo: geoName })
+  const title = fill(focus === 'households' ? t.titleHouseholds : focus === 'industry' ? t.titleIndustry : perCapita ? t.titlePerCapita : t.title, { geo: geoName })
   const suggestions: Suggestion[] = []
   if (geo !== EU) suggestions.push({ label: t.sugEu, plan: { ...plan, filters: { ...plan.filters, geo: EU } } })
   else suggestions.push({ label: t.sugCountry, plan: { ...plan, filters: { ...plan.filters, geo: 'DE' } } })
-  suggestions.push({ label: perCapita ? t.sugTotals : t.sugPerCapita, plan: { ...plan, profile: perCapita ? {} : { perCapita: true } } })
+  suggestions.push({ label: perCapita ? t.sugTotals : t.sugPerCapita, plan: { ...plan, profile: { ...(focus ? { focus } : {}), ...(perCapita ? {} : { perCapita: true as const }) } } })
+  if (focus !== 'households') suggestions.push({ label: t.sugHouseholds, plan: { ...plan, profile: { ...(perCapita ? { perCapita: true as const } : {}), focus: 'households' } } })
+  if (focus !== 'industry') suggestions.push({ label: t.sugIndustry, plan: { ...plan, profile: { ...(perCapita ? { perCapita: true as const } : {}), focus: 'industry' } } })
   const sugPlans = suggestions
   sugPlans.push({ label: s.sugExplain, explain: true })
 
@@ -365,7 +440,7 @@ export async function buildProfileDashboard(
     notes: [],
     widgets,
     layout: ['summary', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
-    presentation: { template: 'profile', kpiStyle: 'cards', controls: ['geo', 'year', 'view'], primaryControls: 3, accent: 'teal' },
+    presentation: { template: 'profile', kpiStyle: 'cards', controls: ['geo', 'year', 'consumer', 'view'], primaryControls: 4, accent: 'teal' },
     source: { code: DATASET, title: t.sourceTitle, url: linkFor(DATASET, lang) },
     suggestions: sugPlans,
     controls: profileControls(plan, dict, until ?? latestYear, t),

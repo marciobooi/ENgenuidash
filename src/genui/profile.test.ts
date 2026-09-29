@@ -91,3 +91,20 @@ test('per capita is asked for by wording, and toggled on the profile on screen',
   assert.deepEqual(per?.profile, { perCapita: true })
   assert.deepEqual(refineProfile(per!, 'totals', dict, codelists)?.profile, {})
 })
+
+test('households and industry are their own profile, in totals and per person', async () => {
+  const { profilePlan } = await import('./profile')
+  const hh = profilePlan(' energy profile of households in germany ', dict, codelists)!
+  assert.equal(hh.profile?.focus, 'households')
+  assert.equal(profilePlan(' industry energy profile of france ', dict, codelists)?.profile?.focus, 'industry')
+  const d = await buildDashboard(hh, dict, 'en', s)
+  assert.match(d.title, /^Households/)
+  const kpis = d.widgets.find((w) => w.type === 'kpis')
+  assert.ok(kpis && kpis.type === 'kpis' && kpis.items.some((k) => k.label === 'Households, per person'))
+  assert.ok(d.widgets.some((w) => w.type === 'pie' && w.title.includes('by purpose')))
+  const base = profilePlan(' energy profile of germany ', dict, codelists)!
+  assert.equal(refineProfile(base, 'households', dict, codelists)?.profile?.focus, 'households')
+  assert.equal(refineProfile(hh, 'all consumers', dict, codelists)?.profile?.focus, undefined)
+  const ind = await buildDashboard({ ...base, profile: { focus: 'industry' } }, dict, 'en', s)
+  assert.match(ind.title, /^Industry/)
+})

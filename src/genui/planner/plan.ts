@@ -44,6 +44,9 @@ import { topicFromDictionary, ORIGIN, BREAKDOWN_DIMS, defaultCode } from './topi
 // generation: coal, gas, oil, nuclear, hydro, wind, solar, renewable combustible fuels).
 const CURATED_MIX: Record<string, string[]> = {
   nrg_cb_pem: ['C0000', 'G3000', 'O4000XBIO', 'N9000', 'RA100', 'RA300', 'RA400', 'CF_R'],
+  // Gross production from combustible fuels: no total across fuels exists, so a question naming no fuel is
+  // the mix of the main ones (natural gas, lignite, hard coal, biomass, biogas, oil, waste, gases).
+  nrg_ind_pehcf: ['G3000', 'C0220', 'C0129', 'R5100', 'R5300', 'O4680', 'W6210', 'W6220', 'C0371', 'O4671', 'O4690', 'O4610', 'C0350'],
 }
 // Greenhouse gas emissions by source sector (the sector codes overlap: CRF1 contains CRF1A1…): the energy
 // sectors, when the question is about energy; otherwise the four main sectors (land use is a sink, so it
@@ -239,6 +242,16 @@ export function planQuestion(
   for (const [dim, code] of Object.entries(ds.defaults)) if (code && filters[dim] === undefined) filters[dim] = code
 
   let efficiencyTarget = false
+  // A dataset with no total across its products, and no product named: the mix of its main products,
+  // not the first code of the list (which was anthracite, produced in three countries).
+  const productDim = ds.dimensions.find((d) => d.id === 'siec')
+  // (a wide list of products read from a generic word - "fuels" - is no fuel named either)
+  const widePick = !products.length && ([seriesProducts ?? filters.siec ?? []].flat() as string[]).length >= 8
+  if (((!seriesProducts && !filters.siec) || widePick) && productDim && !productDim.codes.includes('TOTAL') && CURATED_MIX[dataset]) {
+    seriesProducts = CURATED_MIX[dataset].filter((c) => productDim.codes.includes(c))
+    mix = true
+  }
+
   // Validate filters against the dataset and fill every remaining dimension.
   const finalFilters: Plan['filters'] = {}
   for (const dim of ds.dimensions) {

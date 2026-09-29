@@ -78,6 +78,7 @@ export interface DashStrings {
   mixShift: string
   differenceFromEu: string
   topTen: string
+  zeroFor: string
   mixGainer: string
   mixLoser: string
   mixDiversity: string
@@ -884,7 +885,7 @@ export async function buildDashboard(
   }
 
   // Countries (or other rows) without data leave each chart and are named under it.
-  widgets.splice(0, widgets.length, ...widgets.map((w) => dropEmptyRows(w, s.noDataFor)))
+  widgets.splice(0, widgets.length, ...widgets.map((w) => dropEmptyRows(w, s.noDataFor, s.zeroFor)))
 
   // Data table: every series; for a single-year comparison or mix only that year's column,
   // otherwise every period.

@@ -197,3 +197,16 @@ test('greenhouse gas emissions: emission words beat "intensity"; sector question
   assert.equal(plans('greenhouse gas emissions in Germany').filters.src_crf, 'TOTXMEMO')
   assert.equal(plans('CO2 emissions from energy').filters.airpol, 'CO2')
 })
+
+test('a dataset with no total across fuels opens the mix of its main fuels, unless a fuel is named', () => {
+  const plans = (q: string) => (planQuestion(q, dict, codelists) as { plan: Plan }).plan
+  const mixPlan = plans('Gross production of electricity and derived heat from combustible fuels by type of plant and operator')
+  assert.equal(mixPlan.dataset, 'nrg_ind_pehcf')
+  assert.ok([mixPlan.filters.siec].flat().length >= 5, JSON.stringify(mixPlan.filters.siec))
+  assert.ok(![mixPlan.filters.siec].flat().includes('C0110'), 'anthracite is not the default')
+  assert.equal(mixPlan.intent, 'mix')
+  // A fuel named: that fuel.
+  const gas = plans('gross electricity production from natural gas in Germany')
+  assert.notEqual(gas.dataset, 'nrg_ind_pehcf_x')
+  assert.ok(![gas.filters.siec].flat().includes('C0110'))
+})

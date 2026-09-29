@@ -51,6 +51,7 @@ export function dashStrings(t: Strings): DashStrings {
     mixShift: t.dMixShift,
     differenceFromEu: t.dDifferenceFromEu,
     topTen: t.dTopTen,
+    zeroFor: t.dZeroFor,
     mixGainer: t.dMixGainer,
     mixLoser: t.dMixLoser,
     mixDiversity: t.dMixDiversity,

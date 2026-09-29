@@ -26,3 +26,20 @@ test('dumbbell rows with neither value leave the chart', () => {
   assert.deepEqual(out.categories, ['A', 'C'])
   assert.equal(out.note, 'No data for B in this selection.')
 })
+
+test('a ranking drops the rows that are zero everywhere and names them; a chart that shrinks to a few bars is half a row again', () => {
+  const countries = Array.from({ length: 14 }, (_, i) => `C${i}`)
+  const values = countries.map((_, i) => (i < 3 ? 100 - i : 0))
+  const w = dropEmptyRows({ type: 'bar', title: 'r', categories: countries, series: [{ name: 's', data: values }], horizontal: true, size: 'full', role: 'ranking' }, 'No data for {names}.', 'Zero: {names}.') as Extract<WidgetSpec, { type: 'bar' }>
+  assert.deepEqual(w.categories, ['C0', 'C1', 'C2'])
+  assert.equal(w.size, 'half')
+  assert.match(w.note ?? '', /^Zero: C3, C4/)
+  // A change (signed) of zero is a value, not an absence.
+  const change = dropEmptyRows({ type: 'bar', title: 'c', categories: countries, series: [{ name: 's', data: values }], signed: true, role: 'change' }, 'No data for {names}.', 'Zero: {names}.') as Extract<WidgetSpec, { type: 'bar' }>
+  assert.equal(change.categories.length, 14)
+  // Switchable views lose the countries with no value in that view.
+  const views = [{ label: '2015', title: 'x', categories: ['A', 'B', 'C'], data: [5, null, -2] as (number | null)[] }]
+  const v = dropEmptyRows({ type: 'bar', title: 'v', categories: ['A', 'B', 'C'], series: [{ name: 's', data: [5, null, -2] }], views } as unknown as WidgetSpec, 'No data for {names}.', 'Zero: {names}.') as Extract<WidgetSpec, { type: 'bar' }>
+  assert.deepEqual(v.categories, ['A', 'C'])
+  assert.deepEqual(v.views?.[0].categories, ['A', 'C'])
+})

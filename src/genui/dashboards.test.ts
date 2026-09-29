@@ -91,7 +91,8 @@ test('top 5: no map for five countries, an evolution line, and a note', async ()
 
 test('a mix: donut with the total, sources ranked, stacked and share areas', async () => {
   const d = await dash('Electricity mix in Germany')
-  assert.deepEqual(kinds(d), ['pie', 'breakdown', 'area', 'area', 'bar'])
+  // (…and how the mix shifted since the first year, next to the shares over time.)
+  assert.deepEqual(kinds(d), ['pie', 'breakdown', 'area', 'area', 'dumbbell', 'bar'])
   assert.ok((charts(d)[0] as Extract<WidgetSpec, { type: 'pie' }>).centerLabel)
   // Related: the renewable share next to the EU-27, with the EU 2030 target line.
   const ren = titled(d, 'Renewable share of energy consumption') as Extract<WidgetSpec, { type: 'bar' }>

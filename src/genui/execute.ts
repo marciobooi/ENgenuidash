@@ -74,6 +74,11 @@ export interface DashStrings {
   /** Mix of several countries: shares and quantities per country. */
   mixByCountry: string
   byPartAndCountry: string
+  mixShift: string
+  mixGainer: string
+  mixLoser: string
+  mixDiversity: string
+  mixDiversityCaption: string
   /** "Share of Wind over time" (several countries of a mix). */
   shareOfPartOverTime: string
   mixRanking: string
@@ -524,6 +529,9 @@ export async function buildDashboard(
     const totalShown = slices.reduce((n, r) => n + r.y, 0)
     // (only periods with every part: a year before a source was reported is no total)
     const totalSeries = comparableSum(series.map((x) => x.data))
+    // How evenly the total is spread over its sources: 1 / sum of squared shares (the number of
+    // equal sources that would give the same concentration).
+    const effective = totalShown > 0 ? 1 / slices.reduce((n, r) => n + (r.y / totalShown) ** 2, 0) : 0
     widgets.push({
       type: 'kpis',
       items: [
@@ -536,6 +544,7 @@ export async function buildDashboard(
           caption: `${fmt.number((r.y / totalShown) * 100, 1)}%`,
           trend: r.x.data,
         })),
+        ...(slices.length >= 5 ? [{ label: s.mixDiversity, value: effective, decimals: 1, caption: s.mixDiversityCaption, goodDirection: 'neutral' as const }] : []),
       ],
     })
     // 1. Composition (donut with total) + sources breakdown.
@@ -578,8 +587,28 @@ export async function buildDashboard(
     })
     // 2. Stacked evolution and shares over time (only for a view over time).
     if (!plan.focusPeriod && periods.length > 2) {
+      // How the mix shifted: each part's share at the first period with every part, and now.
+      const firstIndex = periods.findIndex((_, k) => series.every((x) => x.data[k] != null))
+      const shareAt = (data: (number | null)[], k: number) => {
+        const all = parts.reduce((n, x) => n + (x.data[k] ?? 0), 0)
+        return all > 0 ? Math.round(((data[k] ?? 0) / all) * 1000) / 10 : 0
+      }
+      const shift = firstIndex >= 0 && firstIndex < focusIndex && parts.length >= 4
       widgets.push({ type: 'area', title: s.evolution, subtitle, categories: periodLabels, series: parts, stacked: true, size: 'full', role: 'evolution' })
-      widgets.push({ type: 'area', title: s.sharesOverTime, subtitle: '%', categories: periodLabels, series: parts, stacked: 'percent', size: 'full', unit: '%', role: 'evolution' })
+      widgets.push({ type: 'area', title: s.sharesOverTime, subtitle: '%', categories: periodLabels, series: parts, stacked: 'percent', size: shift ? 'half' : 'full', unit: '%', role: 'evolution' })
+      if (shift) {
+        widgets.push({
+          type: 'dumbbell',
+          title: fill(s.mixShift, { from: periodLabels[firstIndex], to: periodLabels[focusIndex] }),
+          subtitle: '%',
+          categories: parts.map((x) => x.name),
+          from: { name: periodLabels[firstIndex], data: parts.map((x) => shareAt(x.data, firstIndex)) },
+          to: { name: periodLabels[focusIndex], data: parts.map((x) => shareAt(x.data, focusIndex)) },
+          unit: '%',
+          size: 'half',
+          role: 'change',
+        })
+      }
     }
     if (slices[0]) {
       summary.push(fill(s.summaryMix, { period, top: slices[0].x.name, share: fmt.number((slices[0].y / totalShown) * 100, 1) }))

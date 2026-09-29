@@ -44,6 +44,10 @@ export interface CompanionStrings {
   perPerson: string
   /** "No data for {names} in this selection." */
   noDataFor: string
+  /** The ranking of countries by the total of a breakdown. */
+  countriesRanking: string
+  /** Each country's mix (100% bars). */
+  mixAcrossCountries: string
 }
 
 export interface Companion {
@@ -60,6 +64,8 @@ export interface Companion {
   priceSplit?: { otherTaxes: string; overTime: string }
   unit?: string
   top?: number
+  /** Only the first N rows (a ranking), without an "Others" bar. */
+  rank?: number
   /** Dashed reference line (e.g. the EU 2030 renewable target). */
   reference?: { value: number; label: string }
 }
@@ -81,6 +87,10 @@ const PRODUCTION_DATASETS = ['nrg_ind_peh', 'nrg_bal_peh']
 const SUPPLY_FLOWS = ['GAE', 'GIC', 'NRGSUP', 'PPRD']
 // Several countries: up to this many compared in a companion.
 const MAX_COUNTRIES = 8
+
+// "How the mix differs by country": the EU-27 and the larger economies (plus the country asked for).
+const MIX_COUNTRIES = ['EU27_2020', 'DE', 'FR', 'IT', 'ES', 'PL', 'NL', 'BE', 'SE', 'AT', 'RO', 'CZ', 'PT', 'EL', 'FI', 'DK', 'IE', 'HU']
+const UNIT_TEXT: Record<string, string> = { KTOE: 'ktoe', MTOE: 'Mtoe', GWH: 'GWh', TJ: 'TJ', TJ_GCV: 'TJ (GCV)', THS_T: 'thousand t', MIO_M3: 'million m³' }
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? undefined : v)
 const list = (v: string | string[] | undefined) => ([] as string[]).concat(v ?? [])
@@ -137,11 +147,24 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
   // Producing or supplying energy → how renewable it is, against the EU 2030 target.
   const supplyMix =
     PRODUCTION_DATASETS.includes(plan.dataset) ||
-    (['nrg_bal_s', 'nrg_bal_c'].includes(plan.dataset) && list(f.siec).length > 1 && SUPPLY_FLOWS.includes(one(f.nrg_bal) ?? ''))
+    (['nrg_bal_s', 'nrg_bal_c', 'ten00121', 'ten00122'].includes(plan.dataset) && list(f.siec).length > 1 && SUPPLY_FLOWS.includes(one(f.nrg_bal) ?? ''))
   if (supplyMix && hasAll('nrg_ind_ren', geos)) {
     // One country is shown next to the EU-27, so the target line has something to compare.
     const withEu = several || geos[0] === 'EU27_2020' || !has('nrg_ind_ren', 'geo', 'EU27_2020') ? geo : [geos[0], 'EU27_2020']
     out.push({ dataset: 'nrg_ind_ren', filters: { unit: 'PC', geo: withEu }, dim: 'nrg_bal', codes: ['REN'], title: s.renTarget, view: 'bar', unit: '%', reference: { value: EU_REN_TARGET_2030, label: s.renTargetLine } })
+  }
+  // A full breakdown by product of one flow (final consumption in industry by type of fuel, the
+  // energy mix...): which countries use the most, and how each country's mix differs. Not for a
+  // specific question (a few products, or another chart type asked for).
+  const products = list(f.siec)
+  const flow = one(f.nrg_bal)
+  const unit = one(f.unit) ?? ''
+  const sizes = dict.datasets[plan.dataset]
+  if (!several && products.length >= 5 && !plan.chart && flow && unit && sizes && has(plan.dataset, 'siec', 'TOTAL') && !PRODUCTION_DATASETS.includes(plan.dataset)) {
+    const geoCodes = sizes.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+    out.push({ dataset: plan.dataset, filters: { nrg_bal: flow, siec: 'TOTAL', unit }, dim: 'geo', codes: 'partners', title: s.countriesRanking, view: 'bar', rank: 12, ...(UNIT_TEXT[unit] ? { unit: UNIT_TEXT[unit] } : {}) })
+    const countries = [...new Set([...MIX_COUNTRIES, ...geos])].filter((c) => geoCodes.includes(c))
+    if (countries.length >= 5) out.push({ dataset: plan.dataset, filters: { nrg_bal: flow, unit, geo: countries }, dim: 'siec', codes: products.filter((c) => c !== 'TOTAL'), title: s.mixAcrossCountries, view: 'pie' })
   }
   return out
 }
@@ -313,6 +336,7 @@ export function toWidget(c: Companion, result: EurostatResult, lang: string, for
     .map((k) => ({ name: c.dim === 'nrg_bal' || c.dim === 'nrg_prc' ? shortLabel(k.label) : k.label.replace(/\s*\(.*?\)\s*$/, ''), y: value(k.code, time.code) }))
     .filter((x): x is { name: string; y: number } => x.y != null && x.y > 0)
     .sort((a, b) => b.y - a.y)
+  if (c.rank) rows = rows.slice(0, c.rank)
   if (c.top && rows.length > c.top) {
     const rest = rows.slice(c.top - 1).reduce((n, x) => n + x.y, 0)
     rows = [...rows.slice(0, c.top - 1), { name: lang === 'de' ? 'Andere' : lang === 'fr' ? 'Autres' : 'Others', y: rest }]
@@ -348,7 +372,9 @@ function compareCountries(c: Companion, result: EurostatResult, lang: string, pl
   const value = (geo: string, code: string, time: string) =>
     result.observations.find((o) => o.keys.geo === geo && o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
   // The latest period where most countries have every part.
-  const complete = (t: string) => places.filter((p) => codes.every((k) => value(p.code, k.code, t) != null)).length
+  // (A mix of many parts: a part a country does not report is zero, so a few parts are enough.)
+  const enough = c.view === 'pie' && codes.length > 6 ? 3 : codes.length
+  const complete = (t: string) => places.filter((p) => codes.filter((k) => value(p.code, k.code, t) != null).length >= enough).length
   const time = [...times].reverse().find((t) => complete(t.code) >= Math.max(2, Math.ceil(places.length / 2)))
   if (!time || !codes.length) return null
   const shown = places.filter((p) => codes.some((k) => value(p.code, k.code, time.code) != null))
@@ -376,11 +402,25 @@ function compareCountries(c: Companion, result: EurostatResult, lang: string, pl
       horizontal: true, size: 'half', source, ...unit, ...(c.reference ? { reference: c.reference } : {}), role: 'related',
     }
   }
+  let series = codes.map((k) => ({ name: partName(k), data: shown.map((p) => value(p.code, k.code, time.code)) }))
+  let order = shown.map((_, i) => i)
+  if (c.view === 'pie') {
+    const sum = (d: (number | null)[]) => d.reduce<number>((n, v) => n + (v ?? 0), 0)
+    // More parts than colours: the five largest overall, the rest as "Other".
+    if (series.length > 6) {
+      series = [...series].sort((x, y) => sum(y.data) - sum(x.data))
+      const rest = series.slice(5)
+      series = [...series.slice(0, 5), { name: lang === 'de' ? 'Andere' : lang === 'fr' ? 'Autres' : 'Other', data: shown.map((_, i) => (rest.every((r) => r.data[i] == null) ? null : rest.reduce((n, r) => n + (r.data[i] ?? 0), 0))) }]
+    }
+    // Many countries: the EU-27 first, then by the share of the largest part.
+    const share = (i: number) => (series[0].data[i] ?? 0) / (series.reduce((n, x) => n + (x.data[i] ?? 0), 0) || 1)
+    if (shown.length > 6) order = order.sort((x, y) => (shown[x].code === 'EU27_2020' ? -1 : 0) - (shown[y].code === 'EU27_2020' ? -1 : 0) || share(y) - share(x))
+  }
   return {
     type: 'bar',
     title,
-    categories: shown.map(placeName),
-    series: codes.map((k) => ({ name: partName(k), data: shown.map((p) => value(p.code, k.code, time.code)) })),
+    categories: order.map((i) => placeName(shown[i])),
+    series: series.map((x) => ({ name: x.name, data: order.map((i) => x.data[i]) })),
     horizontal: c.view === 'pie',
     ...(c.view === 'pie' ? { stacked: 'percent' as const } : {}),
     size: 'half',

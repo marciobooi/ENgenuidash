@@ -71,3 +71,36 @@ test('price components: VAT is not counted twice (taxes include it)', () => {
   assert.ok(Math.abs(total - 0.3852) < 0.001, `sum ${total}`)
   assert.ok(slices.some((x) => x.name === 'Other taxes and levies' && Math.abs(x.y - 0.0626) < 0.0001))
 })
+
+test('a full breakdown by product gets country context; a specific question does not', () => {
+  // The overview (a starter topic's question): which countries use the most, how each mix differs.
+  for (const q of ['Final energy consumption in industry by type of fuel', 'Final energy consumption in transport by type of fuel', 'Final energy consumption by product']) {
+    const ks = kinds(q)
+    assert.ok(ks.some((k) => k.endsWith(':geo')) && ks.some((k) => k.endsWith(':siec')), `${q}: ${ks.join(', ')}`)
+  }
+  // The energy mix also keeps the renewable share against the EU target.
+  assert.ok(kinds('energy mix of Germany').includes('nrg_ind_ren:nrg_bal'))
+  // Specific: one product, or another chart asked for, or several countries.
+  assert.deepEqual(kinds('diesel consumption in transport in Germany').filter((k) => k.endsWith(':geo')), [])
+  const asLine = { ...plan('Final energy consumption in industry by type of fuel'), chart: 'line' as const }
+  assert.deepEqual(companionsFor(asLine, dict, s).filter((c) => c.dim === 'geo'), [])
+})
+
+test('the mix by country groups many products into five plus other and starts with the EU', () => {
+  const c = companionsFor(plan('Final energy consumption in transport by type of fuel'), dict, s).find((x) => x.dim === 'siec')!
+  const products = c.codes as string[]
+  assert.equal(products.length, 13)
+  const times = [{ code: '2024', label: '2024' }]
+  const geos = ['DE', 'FR', 'IT', 'ES', 'PL', 'NL', 'BE', 'EU27_2020'].map((code) => ({ code, label: code }))
+  const result = {
+    label: 'x',
+    dimensions: { siec: { label: 's', codes: products.map((code) => ({ code, label: code })) }, geo: { label: 'g', codes: geos }, time: { label: 't', codes: times } },
+    observations: geos.flatMap((g, i) => products.map((p, j) => ({ keys: { geo: g.code, siec: p, time: '2024' }, value: (j + 1) * (i + 1), flag: undefined }))),
+  } as unknown as EurostatResult
+  const w = toWidget(c, result, 'en', String) as WidgetSpec
+  assert.equal(w.type, 'bar')
+  const bar = w as Extract<WidgetSpec, { type: 'bar' }>
+  assert.equal(bar.series.length, 6)
+  assert.equal(bar.series[5].name, 'Other')
+  assert.equal(bar.categories[0], 'EU-27')
+})

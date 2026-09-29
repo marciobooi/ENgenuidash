@@ -9,6 +9,7 @@ import {
   FLOWS,
   INDUSTRY_WORDS,
   METRICS,
+  EMISSION_WORDS,
   MIX_WORDS,
   TARGET_WORDS,
   MONTHLY,
@@ -44,6 +45,11 @@ import { topicFromDictionary, ORIGIN, BREAKDOWN_DIMS, defaultCode } from './topi
 const CURATED_MIX: Record<string, string[]> = {
   nrg_cb_pem: ['C0000', 'G3000', 'O4000XBIO', 'N9000', 'RA100', 'RA300', 'RA400', 'CF_R'],
 }
+// Greenhouse gas emissions by source sector (the sector codes overlap: CRF1 contains CRF1A1…): the energy
+// sectors, when the question is about energy; otherwise the four main sectors (land use is a sink, so it
+// is not a share of the whole).
+const ENERGY_SECTORS = ['CRF1A1', 'CRF1A2', 'CRF1A3', 'CRF1A4A', 'CRF1A4B', 'CRF1A4C', 'CRF1A5']
+const MAIN_SECTORS = ['CRF1', 'CRF2', 'CRF3', 'CRF5']
 const BY_TYPE_OF = /\bby (the )?(type|types|kind|kinds|category|categories|form|forms) of (fuel|fuels|product|products|energy|energies|source|sources|carrier|carriers|commodity|commodities)\b/
 
 export type PlanResult =
@@ -124,7 +130,7 @@ export function planQuestion(
     dataset = 'nrg_ind_ren'
     const sub = isElectricity ? 'REN_ELC' : flows.some((f) => f.id === 'transport') ? 'REN_TRA' : any(p, ['heat', 'heating', 'cooling', 'warme', 'heizen', 'kuhl', 'chauffage', 'refroid']) ? 'REN_HEAT_CL' : 'REN'
     filters.nrg_bal = sub
-  } else if (metrics.has('intensity')) {
+  } else if (metrics.has('intensity') && !any(p, EMISSION_WORDS)) {
     dataset = 'nrg_ind_ei'
     filters.nrg_bal = 'EI_GDP_PPS'
   } else if (metrics.has('perCapita')) {
@@ -250,6 +256,15 @@ export function planQuestion(
     }
     const v = keep(ds, dim.id, wanted ? ([] as string[]).concat(wanted) : [], defaultCode(ds, dim.id, codelists))
     if (v) finalFilters[dim.id] = Array.isArray(v) ? v[0] : v
+  }
+
+  // Emissions by source sector: a breakdown of the sectors, not the total line (and when the question
+  // is about energy - "of energy consumption" - the energy sectors).
+  // ("CO2 emissions" are CO2 alone, not every greenhouse gas.)
+  if (dataset === 'env_air_gge' && any(p, ['co2', 'carbon dioxide', 'kohlendioxid', 'dioxyde de carbone']) && !any(p, ['greenhouse', 'ghg', 'treibhausgas', 'gaz a effet de serre'])) finalFilters.airpol = 'CO2'
+  if (dataset === 'env_air_gge' && finalFilters.src_crf === 'TOTXMEMO' && (mix || any(p, ['intensity', 'energy consumption', 'energy use', 'by sector', 'by sectors', 'by activity', 'nach sektor', 'nach sektoren', 'par secteur', 'par secteurs']))) {
+    finalFilters.src_crf = any(p, ['energy', 'energie', 'energetique']) ? ENERGY_SECTORS : MAIN_SECTORS
+    mix = true
   }
 
   // "…the 2030 efficiency target": primary and final energy consumption in Mtoe, each against its 2030

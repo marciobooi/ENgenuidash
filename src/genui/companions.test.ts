@@ -96,3 +96,14 @@ test('the mix by country groups many products into five plus other and starts wi
   assert.equal(bar.series[5].name, 'Other')
   assert.equal(bar.categories[0], 'EU-27')
 })
+
+test('an emissions breakdown gets the same country context, on the source sectors', () => {
+  const ks = kinds('Greenhouse gas emissions by source sector')
+  assert.ok(ks.includes('env_air_gge:geo') && ks.includes('env_air_gge:src_crf'), ks.join(', '))
+  const rank = companionsFor(plan('Greenhouse gas emissions by source sector'), dict, s).find((c) => c.dim === 'geo')!
+  assert.equal(rank.filters.src_crf, 'TOTXMEMO')
+  assert.equal(rank.filters.airpol, 'GHG')
+  assert.equal(rank.title, s.countriesEmit)
+  // The total alone (not a breakdown) gets none.
+  assert.deepEqual(kinds('greenhouse gas emissions in Germany'), [])
+})

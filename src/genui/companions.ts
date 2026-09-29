@@ -47,6 +47,7 @@ export interface CompanionStrings {
   noDataFor: string
   /** The ranking of countries by the total of a breakdown. */
   countriesRanking: string
+  countriesEmit: string
   /** Each country's mix (100% bars). */
   mixAcrossCountries: string
   /** Renewables and the EU 2030 target: the gap of each country, and the way there. */
@@ -74,6 +75,17 @@ export interface CompanionStrings {
   effAgainst: string
   effAgainstNote: string
   effLevel: string
+  /** Greenhouse gas emissions against the EU's 2030 target (net emissions, -55% against 1990). */
+  ghgGap: string
+  ghgGapNote: string
+  ghgGauge: string
+  ghgGaugeNote: string
+  ghgMark: string
+  ghgProgress: string
+  /** "Straight path to {value} in 2030 (1990 = 100)". */
+  ghgPath: string
+  ghgPace: string
+  ghgReached: string
 }
 
 export interface Companion {
@@ -116,7 +128,20 @@ const MAX_COUNTRIES = 8
 
 // "How the mix differs by country": the EU-27 and the larger economies (plus the country asked for).
 const MIX_COUNTRIES = ['EU27_2020', 'DE', 'FR', 'IT', 'ES', 'PL', 'NL', 'BE', 'SE', 'AT', 'RO', 'CZ', 'PT', 'EL', 'FI', 'DK', 'IE', 'HU']
-const UNIT_TEXT: Record<string, string> = { KTOE: 'ktoe', MTOE: 'Mtoe', GWH: 'GWh', TJ: 'TJ', TJ_GCV: 'TJ (GCV)', THS_T: 'thousand t', MIO_M3: 'million m³' }
+const UNIT_TEXT: Record<string, string> = { KTOE: 'ktoe', MTOE: 'Mtoe', GWH: 'GWh', TJ: 'TJ', TJ_GCV: 'TJ (GCV)', THS_T: 'thousand t', MIO_T: 'Mt', MIO_M3: 'million m³' }
+// The measures with a breakdown by parts: what the parts are (dim), their total, the dimensions fixed for it.
+const BREAKDOWNS = [
+  { dim: 'siec', total: 'TOTAL', fixed: ['nrg_bal', 'unit'], min: 5, emission: false },
+  { dim: 'src_crf', total: 'TOTXMEMO', fixed: ['airpol', 'unit'], min: 4, emission: true },
+]
+
+/** Greenhouse gas emissions: net emissions against the EU's 2030 target. */
+function needsEmissionsTarget(plan: Plan): boolean {
+  return plan.dataset === 'env_air_gge' && plan.filters.airpol === 'GHG'
+}
+
+// The European Climate Law: net greenhouse gas emissions down by 55% by 2030 against 1990.
+const EU_GHG_CUT_2030 = 55
 
 /** Energy efficiency: primary and final energy consumption against the 2030 levels. */
 function needsEfficiencyTarget(plan: Plan): boolean {
@@ -189,18 +214,19 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
   }
   // (Producing or supplying energy → the renewable share against the 2030 target is its own section:
   // buildRenewableTarget, with a gauge, a bullet chart, the gap of every country and the way there.)
-  // A full breakdown by product of one flow (final consumption in industry by type of fuel, the
-  // energy mix...): which countries use the most, and how each country's mix differs. Not for a
-  // specific question (a few products, or another chart type asked for).
-  const products = list(f.siec)
-  const flow = one(f.nrg_bal)
-  const unit = one(f.unit) ?? ''
-  const sizes = dict.datasets[plan.dataset]
-  if (!several && products.length >= 5 && !plan.chart && flow && unit && sizes && has(plan.dataset, 'siec', 'TOTAL') && !PRODUCTION_DATASETS.includes(plan.dataset)) {
-    const geoCodes = sizes.dimensions.find((d) => d.id === 'geo')?.codes ?? []
-    out.push({ dataset: plan.dataset, filters: { nrg_bal: flow, siec: 'TOTAL', unit }, dim: 'geo', codes: 'partners', title: s.countriesRanking, view: 'bar', rank: 12, ...(UNIT_TEXT[unit] ? { unit: UNIT_TEXT[unit] } : {}) })
+  // A full breakdown of one measure (products of an energy flow; source sectors of an emission): which
+  // countries have the most, and how each country's mix differs. Not for a specific question (a few parts,
+  // or another chart type asked for).
+  for (const b of BREAKDOWNS) {
+    const parts = list(f[b.dim])
+    const fixed = Object.fromEntries(b.fixed.map((k) => [k, one(f[k])]))
+    const info = dict.datasets[plan.dataset]
+    if (several || parts.length < b.min || plan.chart || !info || !b.fixed.every((k) => fixed[k]) || !has(plan.dataset, b.dim, b.total) || PRODUCTION_DATASETS.includes(plan.dataset)) continue
+    const geoCodes = info.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+    const unit = String(fixed.unit)
+    out.push({ dataset: plan.dataset, filters: { ...(fixed as Record<string, string>), [b.dim]: b.total }, dim: 'geo', codes: 'partners', title: b.emission ? s.countriesEmit : s.countriesRanking, view: 'bar', rank: 12, ...(UNIT_TEXT[unit] ? { unit: UNIT_TEXT[unit] } : {}) })
     const countries = [...new Set([...MIX_COUNTRIES, ...geos])].filter((c) => geoCodes.includes(c))
-    if (countries.length >= 5) out.push({ dataset: plan.dataset, filters: { nrg_bal: flow, unit, geo: countries }, dim: 'siec', codes: products.filter((c) => c !== 'TOTAL'), title: s.mixAcrossCountries, view: 'pie' })
+    if (countries.length >= 5) out.push({ dataset: plan.dataset, filters: { ...(fixed as Record<string, string>), geo: countries }, dim: b.dim, codes: parts.filter((c) => c !== b.total), title: s.mixAcrossCountries, view: 'pie' })
   }
   return out
 }
@@ -253,6 +279,7 @@ export async function buildCompanions(
   const bubble = await buildBubble(plan, dict, lang, s, year, signal).catch(() => null)
   if (bubble) widgets.push(bubble)
   if (needsRenewableTarget(plan)) widgets.push(...(await buildRenewableTarget(plan, dict, lang, s, signal).catch(() => [])))
+  if (needsEmissionsTarget(plan)) widgets.push(...(await buildEmissionsTarget(plan, dict, lang, s, signal).catch(() => [])))
   if (needsEfficiencyTarget(plan)) widgets.push(...(await buildEfficiencyTarget(plan, dict, lang, s, signal).catch(() => [])))
   return widgets
 }
@@ -445,6 +472,113 @@ async function buildEfficiencyTarget(plan: Plan, dict: EnergyDictionary, lang: s
   }
 
   // (Eurostat reports the distance to the 2030 levels for the EU as a whole only, so there is no ranking of countries.)
+  return widgets
+}
+
+// ---------- greenhouse gas emissions and the EU 2030 target ----------
+
+/**
+ * Net greenhouse gas emissions (with land use) against the EU's 2030 target, a cut of 55% on 1990
+ * (European Climate Law): where each country asked for stands (a gauge, and a bullet chart with the
+ * EU-27), the gap of every EU country, and the way there - emissions as an index (1990 = 100) with
+ * the straight path to 45 in 2030 and the pace it needs against the last five years. The target is
+ * EU-wide, so the countries' gaps are an indication.
+ */
+async function buildEmissionsTarget(plan: Plan, dict: EnergyDictionary, lang: string, s: CompanionStrings, signal?: AbortSignal): Promise<WidgetSpec[]> {
+  const geos = list(plan.filters.geo)
+  const geoCodes = dict.datasets.env_air_gge?.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+  if (!geos.length || !geos.every((g) => geoCodes.includes(g))) return []
+  const many = geos.length > MAX_COUNTRIES
+  const shown = many ? [] : [...new Set([...geos, 'EU27_2020'])].filter((g) => geoCodes.includes(g))
+  const focusGeos = geos.length <= 2 ? geos : geos.slice(0, 1)
+  const all = await fetchEurostatData('env_air_gge', { filters: { airpol: 'GHG', src_crf: 'TOTXMEMO', unit: 'MIO_T', geo: [...new Set([...shown, ...EU27])] }, lang, signal })
+  const nf = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  const target = EU_GHG_CUT_2030
+  const source = { code: 'env_air_gge', url: `https://ec.europa.eu/eurostat/databrowser/view/env_air_gge/default/table?lang=${lang}` }
+  const years = (all.dimensions.time?.codes ?? []).map((t) => t.code).sort()
+  const value = (g: string, y: string) => all.observations.find((o) => o.keys.geo === g && o.keys.time === y)?.value ?? null
+  const label = (g: string) => (g === 'EU27_2020' ? 'EU-27' : (all.dimensions.geo?.codes.find((c) => c.code === g)?.label ?? g).replace(/\s*\(.*?\)\s*$/, ''))
+  const index = (g: string, y: string) => {
+    const base = value(g, '1990')
+    const v = value(g, y)
+    return base && v != null ? Math.round((v / base) * 1000) / 10 : null
+  }
+  const cut = (g: string, y: string) => {
+    const i = index(g, y)
+    return i == null ? null : Math.round((100 - i) * 10) / 10
+  }
+  const latestOf = (g: string) => [...years].reverse().find((y) => y > '1990' && index(g, y) != null)
+  const widgets: WidgetSpec[] = []
+  const name = (g: string) => label(g)
+
+  // 1. The gap of every EU country to the target cut (ahead is positive).
+  const year = [...years].reverse().find((y) => EU27.filter((g) => cut(g, y) != null).length >= 20)
+  if (year) {
+    const rows = EU27.map((g) => ({ name: name(g), gap: cut(g, year) == null ? null : Math.round(((cut(g, year) as number) - target) * 10) / 10 }))
+      .filter((r): r is { name: string; gap: number } => r.gap != null)
+      .sort((a, b) => b.gap - a.gap)
+    widgets.push({
+      type: 'bar',
+      title: `${s.ghgGap} (${year})`,
+      subtitle: s.ghgGapNote.replace('{target}', nf.format(target)),
+      categories: rows.map((r) => r.name),
+      series: [{ name: s.ghgGap, data: rows.map((r) => r.gap) }],
+      horizontal: true,
+      unit: 'pp',
+      decimals: 1,
+      size: 'half',
+      source,
+      role: 'related',
+    })
+  }
+  if (many) return widgets
+
+  // 0. Where each country asked for stands: a gauge each (one or two: A against B), and a bullet
+  // chart of all shown against the target cut.
+  const note = s.ghgGaugeNote.replace('{target}', nf.format(target))
+  for (const g of focusGeos) {
+    const y = latestOf(g)
+    const v = y ? cut(g, y) : null
+    if (!y || v == null) continue
+    widgets.push({ type: 'gauge', title: s.ghgGauge, subtitle: note, value: Math.max(0, v), label: `${label(g)}, ${y}`, max: 70, targets: [{ value: target, label: s.ghgMark.replace('{value}', nf.format(target)) }], unit: '%', size: 'half', source, role: 'related' })
+  }
+  const common = [...years].reverse().find((y) => y > '1990' && shown.every((g) => cut(g, y) != null))
+  if (common) {
+    widgets.push({
+      type: 'progress',
+      title: `${s.ghgGauge} (${common})`,
+      subtitle: note,
+      categories: shown.map(label),
+      values: shown.map((g) => cut(g, common)),
+      targets: [{ value: target, label: s.ghgMark.replace('{value}', nf.format(target)) }],
+      max: 70,
+      unit: '%',
+      size: focusGeos.length === 2 ? 'full' : 'half',
+      source,
+      role: 'related',
+    })
+  }
+
+  // 2. The way there: the index (1990 = 100) and the straight path to 45 in 2030 for each country asked for.
+  const upTo = years.filter((y) => y >= '1990')
+  const lastYear = upTo[upTo.length - 1]
+  if (upTo.length > 5 && focusGeos.every((g) => latestOf(g))) {
+    const categories = [...upTo, ...Array.from({ length: Math.max(0, 2030 - Number(lastYear)) }, (_, i) => String(Number(lastYear) + i + 1))]
+    const series = shown.map((g) => ({ name: label(g), data: categories.map((y) => (upTo.includes(y) ? index(g, y) : null)) }))
+    const aim = 100 - target
+    const pace: string[] = []
+    for (const g of focusGeos) {
+      const y = latestOf(g) as string
+      const last = Number(y)
+      const now = index(g, y) as number
+      const pathName = s.ghgPath.replace('{value}', nf.format(aim))
+      series.push({ name: focusGeos.length > 1 ? `${label(g)}: ${pathName}` : pathName, data: categories.map((c) => (Number(c) < last || Number(c) > 2030 ? null : Math.round((now + ((aim - now) * (Number(c) - last)) / Math.max(1, 2030 - last)) * 10) / 10)) })
+      const before = index(g, String(last - 5))
+      const text = now <= aim ? s.ghgReached : before == null ? '' : s.ghgPace.replace('{need}', nf.format((aim - now) / Math.max(1, 2030 - last))).replace('{year}', y).replace('{recent}', nf.format((now - before) / 5))
+      if (text) pace.push(focusGeos.length > 1 ? `${label(g)}: ${text}` : text)
+    }
+    widgets.push({ type: 'line', title: s.ghgProgress, subtitle: pace.join(' '), categories, series, size: 'full', role: 'related' })
+  }
   return widgets
 }
 

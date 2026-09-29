@@ -180,3 +180,20 @@ test('an efficiency target question opens primary and final consumption in Mtoe,
     assert.equal(p.focusPeriod, undefined, q)
   }
 })
+
+test('greenhouse gas emissions: emission words beat "intensity"; sector questions get a sector breakdown', () => {
+  const plans = (q: string) => (planQuestion(q, dict, codelists) as { plan: Plan }).plan
+  const energy = plans('Greenhouse gas emissions intensity of energy consumption')
+  assert.equal(energy.dataset, 'env_air_gge')
+  assert.equal(energy.intent, 'mix')
+  assert.deepEqual(energy.filters.src_crf, ['CRF1A1', 'CRF1A2', 'CRF1A3', 'CRF1A4A', 'CRF1A4B', 'CRF1A4C', 'CRF1A5'])
+  for (const q of ['Greenhouse gas emissions by source sector', 'greenhouse gas emissions by sector in the EU']) {
+    const p = plans(q)
+    assert.equal(p.dataset, 'env_air_gge', q)
+    assert.deepEqual(p.filters.src_crf, ['CRF1', 'CRF2', 'CRF3', 'CRF5'], q)
+    assert.equal(p.intent, 'mix', q)
+  }
+  // Not a sector question: the total; CO2 alone when asked for CO2.
+  assert.equal(plans('greenhouse gas emissions in Germany').filters.src_crf, 'TOTXMEMO')
+  assert.equal(plans('CO2 emissions from energy').filters.airpol, 'CO2')
+})

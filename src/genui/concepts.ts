@@ -207,3 +207,6 @@ export function plannerTerms(): string[] {
 
 // A question about a target ("the 2030 target", "on track"): where the indicator stands against it.
 export const TARGET_WORDS = ['target', 'targets', 'goal', 'goals', 'on track', 'ziel', 'ziele', 'zielen', 'objectif', 'objectifs']
+
+// Greenhouse gas emissions (whatever else the question says: "emissions intensity" is not energy intensity).
+export const EMISSION_WORDS = ['greenhouse', 'ghg', 'emission', 'emissions', 'co2', 'carbon dioxide', 'treibhausgas', 'treibhausgase', 'treibhausgasemissionen', 'emissionen', 'gaz a effet de serre', 'emissions de gaz']

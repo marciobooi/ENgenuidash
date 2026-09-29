@@ -68,13 +68,14 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
   if (dict && codelists) {
     const sheet = balancePlan(text, dict, codelists)
     if (sheet) return current?.balance ? { kind: 'refine', plan: { ...current, ...sheet, balance: sheet.balance } } : { kind: 'plan', plan: sheet }
-    const changed = current?.balance ? refineBalance(current, text, dict, codelists) : null
-    if (changed) return { kind: 'refine', plan: changed }
     // Energy trade by partner (entrade): a new trade dashboard, or a change of the one on screen.
+    // Before the balance's follow-ups: "show trade between Spain and Germany" is not "add Spain".
     const traded = current?.trade ? refineTrade(current, text, dict, codelists) : null
     if (traded) return { kind: 'refine', plan: traded }
     const trade = tradePlan(text, dict, codelists)
     if (trade) return { kind: 'plan', plan: trade }
+    const changed = current?.balance ? refineBalance(current, text, dict, codelists) : null
+    if (changed) return { kind: 'refine', plan: changed }
     // Energy price structure (enprices): a new breakdown, a change of the one on screen, or "now
     // in components"/"add all taxes" for the plain (non-decomposed) price dashboard on screen.
     const priced = current?.prices ? refinePrices(current, text, dict, codelists) : null

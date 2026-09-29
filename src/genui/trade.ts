@@ -49,7 +49,7 @@ export function tradeOf(dataset: string): { flow: TradeFlow; fuel: TradeFuel } |
 // A question about partners: "by partner (country)", "by (country of) origin", "where does X import
 // gas from", "suppliers", "trade partners", "energy trade", in English, German and French.
 const PARTNERS =
-  / (by partners?( countries| country)?|by (country of )?origin|by destination|per partner|partner countr(y|ies)|trade partners?|trading partners?|suppliers?|supplying countries|where (does|do|did) .*(import|export|buy|get|come)|where .* (comes?|came) from|come from|comes from|energy trade|trade of|trade in|nach partner(land|landern)?|nach herkunft\w*|nach bestimmung\w*|handelspartner|lieferland|lieferlander|woher|herkunftsland\w*|energiehandel|par partenaire|par pays (partenaire|d origine|de destination)|par origine|par provenance|fournisseurs?|partenaires commerciaux|d ou (viennent|vient|provient|proviennent)|commerce (de l energie|d energie|du gaz|du petrole|du charbon|de l electricite)) /
+  / (by partners?( countries| country)?|by (country of )?origin|by destination|per partner|partner countr(y|ies)|trade partners?|trading partners?|suppliers?|supplying countries|where (does|do|did) .*(import|export|buy|get|come)|where .* (comes?|came) from|come from|comes from|energy trade|trade between|trade with|trade of|trade in|nach partner(land|landern)?|nach herkunft\w*|nach bestimmung\w*|handelspartner|lieferland|lieferlander|woher|herkunftsland\w*|energiehandel|par partenaire|par pays (partenaire|d origine|de destination)|par origine|par provenance|fournisseurs?|partenaires commerciaux|d ou (viennent|vient|provient|proviennent)|commerce (de l energie|d energie|du gaz|du petrole|du charbon|de l electricite)) /
 const EXPORTS = /\b(export\w*|ausfuhr\w*|exportation\w*|exporte\w*)\b/
 const FUEL_WORDS: [TradeFuel, RegExp][] = [
   ['electricity', / (electricity|power|heat|strom|elektrizitat|warme|electricite|chaleur) /],
@@ -87,7 +87,9 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
   const siec = fromPlanner && siecOf ? siecOf : DATASETS[fuel].siec
   const places = detectGeos(p, codelists)
   const geos = codesOf(dict, dataset, 'geo')
-  const geo = places.codes.find((c) => geos.includes(c)) ?? 'EU27_2020'
+  // Two countries asked for ("between Spain and Germany"): the trade between them.
+  const named = places.codes.filter((c) => geos.includes(c) && isCountry(c))
+  const geo = named.length >= 2 ? named.slice(0, 2) : (places.codes.find((c) => geos.includes(c)) ?? 'EU27_2020')
   const year = detectTime(p).years.at(-1)
   return {
     dataset,
@@ -95,7 +97,7 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
     time: { kind: 'all' },
     ...(year ? { focusPeriod: String(year) } : {}),
     intent: 'snapshot',
-    trade: { flow, fuel },
+    trade: { flow, fuel, ...(Array.isArray(geo) && !fromPlanner && !fuelOf(p) ? { auto: true as const } : {}) },
   }
 }
 
@@ -106,7 +108,7 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
 export function refineTrade(current: Plan, text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   if (!current.trade) return null
   const p = parse(text.replace(/[-–,?]/g, ' '))
-  const words = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|des|the|la|le|les|das|die|der|what|about|now|jetzt|maintenant|show|zeige|montre|\d{4})$/.test(w))
+  const words = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|des|the|la|le|les|das|die|der|what|about|now|jetzt|maintenant|show|zeige|montre|between|zwischen|entre|with|mit|avec|trade|handel|commerce|\d{4})$/.test(w))
   const places = detectGeos(p, codelists)
   const year = detectTime(p).years.at(-1)
   const flow: TradeFlow | undefined = EXPORTS.test(p.text) ? 'exp' : /\b(import\w*|einfuhr\w*|importation\w*)\b/.test(p.text) ? 'imp' : undefined
@@ -117,7 +119,8 @@ export function refineTrade(current: Plan, text: string, dict: EnergyDictionary,
   const dataset = DATASETS[next.fuel][next.flow]
   const ds = dict.datasets[dataset]
   const geos = codesOf(dict, dataset, 'geo')
-  const geo = places.codes.find((c) => geos.includes(c)) ?? (places.eu ? 'EU27_2020' : String(current.filters.geo))
+  const named = places.codes.filter((c) => geos.includes(c) && isCountry(c))
+  const geo = named.length >= 2 ? named.slice(0, 2) : (places.codes.find((c) => geos.includes(c)) ?? (places.eu ? 'EU27_2020' : current.filters.geo))
   const sameFuel = next.fuel === current.trade.fuel
   const siec = sameFuel && codesOf(dict, dataset, 'siec').includes(String(current.filters.siec)) ? String(current.filters.siec) : DATASETS[next.fuel].siec
   const unit = requestedUnit(p, ds) ?? (ds.units.includes(String(current.filters.unit)) ? String(current.filters.unit) : DEFAULT_UNIT[next.fuel])
@@ -156,7 +159,9 @@ export async function buildTradeDashboard(
   const t = s.trade
   const trade = plan.trade!
   const dataset = DATASETS[trade.fuel][trade.flow]
-  const geo = String(plan.filters.geo ?? 'EU27_2020')
+  const between = ([] as string[]).concat(plan.filters.geo ?? []).filter(isCountry)
+  if (between.length >= 2) return buildBetweenDashboard(plan, between[0], between[1], dict, lang, s, signal)
+  const geo = ([] as string[]).concat(plan.filters.geo ?? 'EU27_2020')[0]
   const unit = String(plan.filters.unit ?? DEFAULT_UNIT[trade.fuel])
   const siec = String(plan.filters.siec ?? DATASETS[trade.fuel].siec)
   const result = await fetchEurostatData(dataset, { filters: { geo, siec, unit }, lang, signal })
@@ -344,6 +349,196 @@ export async function buildTradeDashboard(
   return spec
 }
 
+/**
+ * Trade between two countries ("show energy trade between Spain and Germany for 2022"): what each
+ * imports from the other (the import datasets' partner breakdown, both ways), the net flow, and how
+ * much each one's imports depend on the other.
+ */
+async function buildBetweenDashboard(
+  plan: Plan,
+  a: string,
+  b: string,
+  dict: EnergyDictionary,
+  lang: string,
+  s: { trade: TradeStrings; sugExplain: string },
+  signal?: AbortSignal,
+): Promise<DashboardSpec> {
+  try {
+    return await buildBetween(plan, a, b, dict, lang, s, signal)
+  } catch (error) {
+    if (!(error instanceof NoDataError) || !plan.trade?.auto) throw error
+    // The fuel was not named and these two do not trade it: the first fuel they do trade.
+    for (const fuel of ['electricity', 'oil', 'gas', 'solid', 'bio'] as TradeFuel[]) {
+      if (fuel === plan.trade.fuel) continue
+      const next: Plan = { ...plan, dataset: DATASETS[fuel].imp, filters: { ...plan.filters, siec: DATASETS[fuel].siec, unit: DEFAULT_UNIT[fuel] }, trade: { flow: 'imp', fuel } }
+      try {
+        return await buildBetween(next, a, b, dict, lang, s, signal, plan.trade.fuel)
+      } catch (e) {
+        if (!(e instanceof NoDataError)) throw e
+      }
+    }
+    throw error
+  }
+}
+
+async function buildBetween(
+  plan: Plan,
+  a: string,
+  b: string,
+  dict: EnergyDictionary,
+  lang: string,
+  s: { trade: TradeStrings; sugExplain: string },
+  signal?: AbortSignal,
+  /** The fuel first tried, when these two do not trade it and this one is shown instead. */
+  missing?: TradeFuel,
+): Promise<DashboardSpec> {
+  const t = s.trade
+  const w = t.between
+  const trade = plan.trade!
+  const dataset = DATASETS[trade.fuel].imp
+  const unit = String(plan.filters.unit ?? DEFAULT_UNIT[trade.fuel])
+  const siec = String(plan.filters.siec ?? DATASETS[trade.fuel].siec)
+  const result = await fetchEurostatData(dataset, { filters: { geo: [a, b], siec, unit }, lang, signal })
+
+  // reporter → partner → year → value
+  const byGeo = new Map<string, Map<string, Map<string, number | null>>>()
+  for (const o of result.observations) {
+    const partners = byGeo.get(o.keys.geo) ?? new Map()
+    const byYear = partners.get(o.keys.partner) ?? new Map()
+    byYear.set(o.keys.time, o.value)
+    partners.set(o.keys.partner, byYear)
+    byGeo.set(o.keys.geo, partners)
+  }
+  const flowOf = (from: string, to: string, y: string) => byGeo.get(from)?.get(to)?.get(y) ?? 0
+  const years = (result.dimensions.time?.codes ?? []).map((c) => c.code).sort()
+  const withData = years.filter((y) => flowOf(a, b, y) > 0 || flowOf(b, a, y) > 0)
+  if (!withData.length) throw new NoDataError(dataset)
+  const year = plan.focusPeriod && withData.includes(plan.focusPeriod) ? plan.focusPeriod : withData.at(-1)!
+  const label = (dim: string, code: string) => result.dimensions[dim]?.codes.find((c) => c.code === code)?.label ?? code
+  const nameA = label('geo', a).replace(/\s*\(.*?\)\s*$/, '')
+  const nameB = label('geo', b).replace(/\s*\(.*?\)\s*$/, '')
+  const product = label('siec', siec)
+  const productLower = lang === 'de' ? product : product.charAt(0).toLowerCase() + product.slice(1)
+  const symbol = UNIT_SYMBOL[unit] ?? unit
+  const fuel = t.fuels[trade.fuel]
+
+  const ab = flowOf(a, b, year)
+  const ba = flowOf(b, a, year)
+  const peakOf = (y: string) => flowOf(a, b, y) + flowOf(b, a, y)
+  const biggest = Math.max(ab, ba)
+  const decimals = biggest >= 1000 ? 0 : biggest >= 10 ? 1 : 2
+  const nf = new Intl.NumberFormat(lang, { maximumFractionDigits: decimals })
+  const pct = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  const fmtPct = (v: number) => `${pct.format(v)}${lang === 'en' ? '%' : ' %'}`
+  const fmt = (v: number) => `${nf.format(v)} ${symbol}`
+
+  // Each country's imports from every partner, for the year: totals, ranks and top sources.
+  const partnersOf = (geo: string, y: string) =>
+    [...(byGeo.get(geo)?.entries() ?? [])]
+      .filter(([code]) => isCountry(code) && code !== geo)
+      .map(([code, byYear]) => ({ code, value: byYear.get(y) ?? 0 }))
+      .filter((x) => x.value > 0)
+      .sort((x, y2) => y2.value - x.value)
+  const nowA = partnersOf(a, year)
+  const nowB = partnersOf(b, year)
+  const totalA = nowA.reduce((sum, x) => sum + x.value, 0)
+  const totalB = nowB.reduce((sum, x) => sum + x.value, 0)
+  const share = (v: number, of: number) => (of > 0 ? (100 * v) / of : 0)
+  const prev = withData.includes(String(Number(year) - 1)) ? String(Number(year) - 1) : undefined
+  const delta = (now: number, before: number) => (before > 0 ? (100 * (now - before)) / before : undefined)
+
+  const kpis: KpiSpec[] = [
+    { label: fill(w.from, { a: nameA, b: nameB }), value: ab, unit: symbol, decimals, ...(prev && delta(ab, flowOf(a, b, prev)) != null ? { delta: delta(ab, flowOf(a, b, prev)), deltaUnit: '%', deltaLabel: fill(t.vs, { year: prev }) } : {}), goodDirection: 'neutral', trend: withData.slice(-10).map((y) => flowOf(a, b, y)) },
+    { label: fill(w.from, { a: nameB, b: nameA }), value: ba, unit: symbol, decimals, ...(prev && delta(ba, flowOf(b, a, prev)) != null ? { delta: delta(ba, flowOf(b, a, prev)), deltaUnit: '%', deltaLabel: fill(t.vs, { year: prev }) } : {}), goodDirection: 'neutral', trend: withData.slice(-10).map((y) => flowOf(b, a, y)) },
+    { label: fill(w.net, { a: ab >= ba ? nameA : nameB }), value: Math.abs(ab - ba), unit: symbol, decimals, caption: fill(w.netCaption, ab >= ba ? { a: nameA, b: nameB } : { a: nameB, b: nameA }), goodDirection: 'neutral' },
+    { label: fill(w.inShare, { a: nameA, b: nameB }), value: share(ab, totalA), unit: '%', decimals: 1, goodDirection: 'neutral' },
+    { label: fill(w.inShare, { a: nameB, b: nameA }), value: share(ba, totalB), unit: '%', decimals: 1, goodDirection: 'neutral' },
+  ]
+
+  const widgets: WidgetSpec[] = [{ type: 'kpis', items: kpis }]
+  widgets.push({
+    type: 'bar',
+    title: fill(w.overTime, { a: nameA, b: nameB }),
+    subtitle: `${fuel} · ${symbol}`,
+    categories: withData,
+    series: [
+      { name: fill(w.from, { a: nameA, b: nameB }), data: withData.map((y) => flowOf(a, b, y)) },
+      { name: fill(w.from, { a: nameB, b: nameA }), data: withData.map((y) => flowOf(b, a, y)) },
+    ],
+    unit: symbol,
+    decimals,
+    size: 'full',
+    role: 'evolution',
+  })
+  for (const [geoName, now, total] of [[nameA, nowA, totalA], [nameB, nowB, totalB]] as const) {
+    const top = now.slice(0, TOP_BARS)
+    if (top.length < 2) continue
+    widgets.push({
+      type: 'bar',
+      title: fill(w.sources, { a: geoName }),
+      subtitle: `${fuel}, ${year}`,
+      categories: top.map((x) => label('partner', x.code).replace(/\s*\(.*?\)\s*$/, '')),
+      series: [{ name: geoName, data: top.map((x) => x.value) }],
+      horizontal: true,
+      unit: symbol,
+      decimals: total >= 1000 ? 0 : 1,
+      size: 'half',
+      role: 'ranking',
+    })
+  }
+  if (withData.length > 1) {
+    const totalAt = (geo: string, y: string) => partnersOf(geo, y).reduce((sum, x) => sum + x.value, 0)
+    widgets.push({
+      type: 'line',
+      title: w.shareTime,
+      subtitle: fuel,
+      categories: withData,
+      series: [
+        { name: fill(w.inShare, { a: nameA, b: nameB }), data: withData.map((y) => (totalAt(a, y) > 0 ? share(flowOf(a, b, y), totalAt(a, y)) : null)) },
+        { name: fill(w.inShare, { a: nameB, b: nameA }), data: withData.map((y) => (totalAt(b, y) > 0 ? share(flowOf(b, a, y), totalAt(b, y)) : null)) },
+      ],
+      highlight: year,
+      unit: '%',
+      size: 'full',
+      role: 'change',
+    })
+  }
+
+  const summary = [ab + ba > 0 ? fill(w.lead, { year, a: nameA, b: nameB, product: productLower, ab: fmt(ab), ba: fmt(ba), x: ab >= ba ? nameA : nameB }) : fill(w.leadNone, { product: productLower, a: nameA, b: nameB, year })]
+  const insights: Insight[] = []
+  for (const [geoName, other, now, total] of [[nameA, nameB, nowA, totalA], [nameB, nameA, nowB, totalB]] as const) {
+    const otherCode = other === nameB ? b : a
+    const n = now.findIndex((x) => x.code === otherCode) + 1
+    if (n > 0) insights.push({ tone: 'neutral', parts: [fill(w.rank, { b: other, a: geoName, n: String(n), product: productLower, share: fmtPct(share(now[n - 1].value, total)) })] })
+  }
+  const peakYear = withData.reduce((best, y) => (peakOf(y) > peakOf(best) ? y : best), withData[0])
+  if (withData.length > 2) insights.push({ tone: 'record', parts: [fill(w.peak, { peakYear, peak: fmt(peakOf(peakYear)) })] })
+
+  const title = fill(w.title, { fuel, a: nameA, b: nameB, year })
+  const { spec } = sanitizeSpec({
+    title,
+    subtitle: `${productLower} · ${symbol}`,
+    summary,
+    insights,
+    notes: missing ? [fill(w.fallbackFuel, { fuel: t.fuels[missing].toLowerCase(), other: fuel.toLowerCase(), a: nameA, b: nameB })] : [],
+    widgets,
+    layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
+    presentation: { template: 'trade', kpiStyle: 'cards', controls: ['geo', 'year', 'fuel', 'product', 'unit'], primaryControls: 4, accent: 'teal' },
+    unit: symbol,
+    source: { code: dataset, title: result.label, url: `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=${lang}` },
+    suggestions: [
+      { label: fill(w.focus, { geo: nameA }), plan: { ...plan, filters: { ...plan.filters, geo: a } } },
+      { label: fill(w.focus, { geo: nameB }), plan: { ...plan, filters: { ...plan.filters, geo: b } } },
+      { label: s.sugExplain, explain: true },
+    ],
+    controls: await tradeControls({ ...plan, dataset }, dict, withData, year, t, lang),
+    context: [title, ...summary, ...insights.map((i) => i.parts.join(''))].join('\n'),
+    plan: { ...plan, dataset, focusPeriod: year, trade: { flow: 'imp', fuel: trade.fuel } },
+    shown: { geo: [a, b] },
+  })
+  return spec
+}
+
 async function tradeControls(
   plan: Plan,
   dict: EnergyDictionary,
@@ -360,7 +555,8 @@ async function tradeControls(
     const unit = ds.units.includes(String(plan.filters.unit)) ? String(plan.filters.unit) : DEFAULT_UNIT[next.fuel]
     const siec = sameFuel ? String(plan.filters.siec) : DATASETS[next.fuel].siec
     const geos = codesOf(dict, dataset, 'geo')
-    return { ...plan, dataset, filters: { geo: geos.includes(String(plan.filters.geo)) ? plan.filters.geo : 'EU27_2020', siec, unit }, trade: next }
+    const kept = ([] as string[]).concat(plan.filters.geo ?? []).filter((g) => geos.includes(g))
+    return { ...plan, dataset, filters: { geo: kept.length > 1 ? kept.slice(0, 2) : (kept[0] ?? 'EU27_2020'), siec, unit }, trade: next }
   }
   const ds = dict.datasets[plan.dataset]
   const siecNames = codesOf(dict, plan.dataset, 'siec')
@@ -373,7 +569,8 @@ async function tradeControls(
     years: [...years].reverse().slice(0, 15).map((y) => ({ label: y, plan: { ...plan, focusPeriod: y }, active: y === year })),
     units: ds.units.map((u) => ({ label: UNIT_SYMBOL[u] ?? u, plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: plan.filters.unit === u })),
     choices: [
-      { key: 'flow', label: t.flow, options: (['imp', 'exp'] as TradeFlow[]).map((f) => ({ label: t.flows[f], plan: at({ flow: f, fuel: trade.fuel }), active: trade.flow === f })) },
+      // Both directions are shown for two countries: no flow to choose.
+      ...(([] as string[]).concat(plan.filters.geo ?? []).filter(isCountry).length >= 2 ? [] : [{ key: 'flow', label: t.flow, options: (['imp', 'exp'] as TradeFlow[]).map((f) => ({ label: t.flows[f], plan: at({ flow: f, fuel: trade.fuel }), active: trade.flow === f })) }]),
       { key: 'fuel', label: t.fuel, options: (Object.keys(DATASETS) as TradeFuel[]).map((f) => ({ label: t.fuels[f], plan: at({ flow: trade.flow, fuel: f }), active: trade.fuel === f })) },
       {
         key: 'product',

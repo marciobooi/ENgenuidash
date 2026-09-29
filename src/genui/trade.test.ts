@@ -80,3 +80,18 @@ test('a shared trade link keeps the dashboard', async () => {
   const p = planOf(route('where does Germany import oil from?'))!
   assert.deepEqual(decodePlan(encodePlan(p), dict)?.trade, { flow: 'imp', fuel: 'oil' })
 })
+
+test('trade between two countries opens a bilateral dashboard, even from a balance sheet', () => {
+  const planOf = (r: Route) => (r.kind === 'plan' || r.kind === 'refine' ? r.plan : null)
+  const sheet = planOf(route('energy balances for Total - main fuel families, 2024 in europe'))
+  for (const current of [null, sheet]) {
+    const p = planOf(route('show trade between spain and germany for 2022', current))
+    assert.ok(p?.trade, `${current ? 'from a balance' : 'fresh'}: ${JSON.stringify(p)}`)
+    assert.deepEqual([...([] as string[]).concat(p.filters.geo!)].sort(), ['DE', 'ES'])
+    assert.equal(p.focusPeriod, '2022')
+  }
+  // On a trade dashboard, naming two countries keeps both; one country keeps one.
+  const one = planOf(route('imports of natural gas by partner Germany 2022'))!
+  assert.equal(([] as string[]).concat(planOf(route('between spain and germany', one))!.filters.geo!).length, 2)
+  assert.equal(planOf(route('and France?', one))!.filters.geo, 'FR')
+})

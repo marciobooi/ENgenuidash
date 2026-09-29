@@ -127,6 +127,9 @@ const FOCUS_INDICATORS: Record<'households' | 'industry', Indicator[]> = {
 // Products and sectors of ENDASH's consumption and production charts.
 const PRODUCTS = ['C0000X0350-0370', 'C0350-0370', 'P1000', 'S2000', 'G3000', 'O4000XBIO', 'RA000', 'W6100_6220', 'N900H', 'E7000', 'H8000']
 const SECTORS = ['FC_IND_E', 'FC_TRA_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_OTH_AF_E', 'FC_OTH_FISH_E', 'FC_OTH_NSP_E']
+// RED III (Directive (EU) 2023/2413): a binding 42.5% renewables by 2030, with 2.5 points more as an aim.
+const REN_TARGET = 42.5
+const REN_AIM = 45
 const EU_MEMBERS = PROFILE_GEOS.slice(1, 28)
 // The indicators worth ranking: relative ones (shares, intensities, per person), not sizes.
 const RANKED = ['ren', 'ei', 'ep', 'dep', 'fossil', 'poverty', 'pecPc', 'fecPc', 'hhPc', 'traPc', 'indPc']
@@ -281,6 +284,8 @@ export async function buildProfileDashboard(
       ])
     : [null, null]
   const [renewablesByUse, dependencyByFuel, ghg, households, transport, industry, available] = more
+  // Distance to the 2030 energy efficiency targets (Eurostat carries them as *_DT2030 next to each measure).
+  const efficiency = perCapita || focus ? null : await ask('nrg_ind_eff', { nrg_bal: ['FEC_EED', 'PEC_EED', 'FEC_DT2030', 'PEC_DT2030'], unit: 'MTOE' }, timeQuery)
   const geoName = (indicatorData.find(Boolean)?.dimensions.geo?.codes.find((c) => c.code === geo)?.label ?? geo).replace(/\s*\(.*?\)\s*$/, '')
   const nf = (d: number) => new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d })
 
@@ -401,7 +406,57 @@ export async function buildProfileDashboard(
   addPie(t.industry, industry ?? null, 'siec', 'nrg_bal_c', 'ktoe')
   addPie(t.available, available ?? null, 'siec', 'nrg_bal_c', 'ktoe')
 
-  widgets.push({ type: 'kpis', items: kpis }, ...trendCharts, ...bars, ...pies, ...extraPies)
+  // Gauges: how far from the EU's 2030 goals (renewables share; final and primary energy consumption).
+  const gauges: WidgetSpec[] = []
+  if (!perCapita && !focus) {
+    const r = values.ren
+    if (r) {
+      const gap = r.value - REN_TARGET
+      gauges.push({
+        type: 'gauge',
+        title: t.gaugeRenewables,
+        subtitle: `${fill(t.gaugeRenewablesNote, { target: nf(1).format(REN_TARGET), aim: nf(1).format(REN_AIM) })}. ${fill(gap < 0 ? t.pointsBelow : t.pointsAbove, { value: nf(1).format(Math.abs(gap)) })}`,
+        value: r.value,
+        label: `${geoName}, ${r.year}`,
+        max: Math.max(50, Math.ceil((r.value + 1) / 10) * 10),
+        targets: [{ value: REN_TARGET, label: `${nf(1).format(REN_TARGET)}%` }, { value: REN_AIM, label: '' }],
+        unit: '%',
+        goal: 'reach',
+        size: 'half',
+        source: { code: 'nrg_ind_ren', url: linkFor('nrg_ind_ren', lang) },
+      })
+    }
+    for (const m of ['FEC', 'PEC'] as const) {
+      const at = (code: string) => {
+        const byYear = new Map<string, number>()
+        for (const o of efficiency?.observations ?? []) if (o.keys.geo === EU && o.keys.nrg_bal === code && o.value != null) byYear.set(o.keys.time, o.value)
+        return byYear
+      }
+      const now = at(`${m}_EED`)
+      const distance = at(`${m}_DT2030`)
+      const year = [...now.keys()].filter((y) => distance.has(y)).sort().at(-1)
+      if (!year) continue
+      const value = now.get(year)!
+      const target = value - distance.get(year)!
+      if (!(target > 0)) continue
+      const over = value - target
+      gauges.push({
+        type: 'gauge',
+        title: m === 'FEC' ? t.gaugeFinal : t.gaugePrimary,
+        subtitle: `${t.gaugeConsumptionNote}. ${fill(over > 0 ? t.aboveTarget : t.underTarget, { value: nf(1).format(Math.abs(over)), pct: nf(1).format(Math.abs((100 * over) / target)) })}`,
+        value,
+        label: `${t.eu}, ${year}`,
+        max: Math.ceil((Math.max(value, target) * 1.25) / 10) * 10,
+        targets: [{ value: Math.round(target * 10) / 10, label: `${nf(1).format(target)} Mtoe` }],
+        unit: 'Mtoe',
+        goal: 'stay-under',
+        size: 'half',
+        source: { code: 'nrg_ind_eff', url: linkFor('nrg_ind_eff', lang) },
+      })
+    }
+  }
+
+  widgets.push({ type: 'kpis', items: kpis }, ...gauges, ...trendCharts, ...bars, ...pies, ...extraPies)
 
   // Summary and insights: what stands out, from the numbers.
   const v = values

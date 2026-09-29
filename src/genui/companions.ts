@@ -359,6 +359,7 @@ async function buildRenewableTarget(plan: Plan, dict: EnergyDictionary, lang: st
         widgets.push({
           type: 'gauge',
           title: s.renGauge,
+          goal: 'reach',
           subtitle: note,
           value: val(g) as number,
           label: `${label(g)}, ${year0}`,
@@ -551,7 +552,7 @@ async function buildEmissionsTarget(plan: Plan, dict: EnergyDictionary, lang: st
     const y = latestOf(g)
     const v = y ? cut(g, y) : null
     if (!y || v == null) continue
-    widgets.push({ type: 'gauge', title: s.ghgGauge, subtitle: note, value: Math.max(0, v), label: `${label(g)}, ${y}`, max: 70, targets: [{ value: target, label: s.ghgMark.replace('{value}', nf.format(target)) }], unit: '%', size: 'half', source, role: 'related' })
+    widgets.push({ type: 'gauge', goal: 'stay-under', title: s.ghgGauge, subtitle: note, value: Math.max(0, v), label: `${label(g)}, ${y}`, max: 70, targets: [{ value: target, label: s.ghgMark.replace('{value}', nf.format(target)) }], unit: '%', size: 'half', source, role: 'related' })
   }
   const common = [...years].reverse().find((y) => y > '1990' && shown.every((g) => cut(g, y) != null))
   if (common) {

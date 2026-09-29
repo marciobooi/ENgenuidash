@@ -11,13 +11,29 @@ export interface GaugeChartProps extends ChartFrameProps, ValueFormat {
   max: number
   /** Marks on the scale; only the ones with a label are named. */
   targets: ReferenceLine[]
+  /** What the first mark asks: to be reached ("reach") or not to be exceeded ("stay-under"); colours the scale green, amber and red. */
+  goal?: 'reach' | 'stay-under'
+}
+
+const GREEN = { bar: '#2e7d32', band: '#cfe8d1' }
+const AMBER = { bar: '#e0a100', band: '#fdebc2' }
+const RED = { bar: '#c62828', band: '#f5cfcf' }
+
+/** The zones of the scale, from the first mark: how far short (or over) is still close. */
+function zones(goal: GaugeChartProps['goal'], target: number, max: number) {
+  if (!goal || !(target > 0)) return null
+  return goal === 'reach'
+    ? [{ from: 0, to: target * 0.75, c: RED }, { from: target * 0.75, to: target, c: AMBER }, { from: target, to: max, c: GREEN }]
+    : [{ from: 0, to: target, c: GREEN }, { from: target, to: target * 1.1, c: AMBER }, { from: target * 1.1, to: max, c: RED }]
 }
 
 /**
  * One value against its target(s) (a solid gauge, a speedometer): how far along it is. Drawn with
  * the Highcharts "solid-gauge" module (served by Webtools as the "solid-gauge" plugin).
  */
-export function GaugeChart({ value, label, max, targets, valueSuffix = '', decimals = 1, ...frame }: GaugeChartProps) {
+export function GaugeChart({ value, label, max, targets, goal, valueSuffix = '', decimals = 1, ...frame }: GaugeChartProps) {
+  const bands = zones(goal, targets[0]?.value ?? 0, max)
+  const status = bands?.find((b) => value >= b.from && value <= b.to)?.c
   const named = targets.filter((t) => t.label)
   const options: Highcharts.Options = {
     chart: { type: 'solidgauge', height: 300 },
@@ -36,13 +52,16 @@ export function GaugeChart({ value, label, max, targets, valueSuffix = '', decim
       tickWidth: 0,
       tickPositions: [0, ...named.map((t) => t.value), max],
       labels: {
-        y: 18,
+        // outside the arc, so the mark's name is not drawn over the bar and its tick
+        distance: 14,
+        allowOverlap: true,
         style: { fontSize: '0.75rem' },
         formatter() {
           const t = named.find((x) => x.value === this.value)
           return t ? t.label : `${this.value}${valueSuffix}`
         },
       },
+      plotBands: bands?.map((b) => ({ from: b.from, to: b.to, color: b.c.band, innerRadius: '62%', outerRadius: '100%' })),
       plotLines: targets.map((t) => ({ value: t.value, width: 3, color: 'var(--ecl-color-dark-80)', zIndex: 5 })),
     },
     legend: { enabled: false },
@@ -61,7 +80,7 @@ export function GaugeChart({ value, label, max, targets, valueSuffix = '', decim
       },
     },
     // (the gauge series types are not in Highcharts' core type definitions)
-    series: [{ type: 'solidgauge', name: label, data: [value], color: PALETTE[0] } as unknown as Highcharts.SeriesOptionsType],
+    series: [{ type: 'solidgauge', name: label, data: [{ y: value, color: status?.bar ?? PALETTE[0] }], color: status?.bar ?? PALETTE[0] } as unknown as Highcharts.SeriesOptionsType],
   }
   return <ChartFrame {...frame} options={options} plugins={['solid-gauge']} />
 }

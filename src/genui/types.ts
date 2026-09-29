@@ -284,6 +284,8 @@ export type WidgetSpec = (
       label: string
       max: number
       targets: { value: number; label: string }[]
+      /** Colours the scale from the first mark: reach it (renewables) or stay under it (consumption). */
+      goal?: 'reach' | 'stay-under'
       size?: WidgetSize
       unit?: string
       source?: WidgetSource

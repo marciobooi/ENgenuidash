@@ -159,7 +159,7 @@ export function Dashboard({
       case 'progress':
         return <ProgressChart {...common} categories={w.categories} values={w.values} targets={w.targets} max={w.max} />
       case 'gauge':
-        return <GaugeChart {...common} value={w.value} label={w.label} max={w.max} targets={w.targets} />
+        return <GaugeChart {...common} value={w.value} label={w.label} max={w.max} targets={w.targets} goal={w.goal} />
       case 'bubble':
         return <BubbleChart {...common} points={w.points} x={w.x} y={w.y} z={w.z} reference={w.reference} />
       case 'map':

@@ -10,6 +10,7 @@ import {
   INDUSTRY_WORDS,
   METRICS,
   MIX_WORDS,
+  TARGET_WORDS,
   MONTHLY,
   PRODUCTS,
   TAX_EXCLUDED_WORDS,
@@ -231,6 +232,7 @@ export function planQuestion(
   if (askedUnit) filters.unit = askedUnit
   for (const [dim, code] of Object.entries(ds.defaults)) if (code && filters[dim] === undefined) filters[dim] = code
 
+  let efficiencyTarget = false
   // Validate filters against the dataset and fill every remaining dimension.
   const finalFilters: Plan['filters'] = {}
   for (const dim of ds.dimensions) {
@@ -248,6 +250,14 @@ export function planQuestion(
     }
     const v = keep(ds, dim.id, wanted ? ([] as string[]).concat(wanted) : [], defaultCode(ds, dim.id, codelists))
     if (v) finalFilters[dim.id] = Array.isArray(v) ? v[0] : v
+  }
+
+  // "…the 2030 efficiency target": primary and final energy consumption in Mtoe, each against its 2030
+  // level (the dashboard's target section), rather than the dataset's first measure.
+  if (dataset === 'nrg_ind_eff' && any(p, TARGET_WORDS) && ds.units.includes('MTOE')) {
+    finalFilters.nrg_bal = ['FEC_EED', 'PEC_EED'].filter((c) => ds.dimensions.find((d) => d.id === 'nrg_bal')?.codes.includes(c))
+    finalFilters.unit = 'MTOE'
+    efficiencyTarget = true
   }
 
   // Geography. ("by country of origin" is a partner breakdown, not every EU country.)
@@ -329,6 +339,8 @@ export function planQuestion(
   }
   if (allCountries && intent !== 'trend') intent = 'compare'
   if (mix && !Array.isArray(finalFilters.geo)) intent = time.years.length === 1 || !time.range ? 'mix' : intent
+  // Two measures against their 2030 levels: how they moved, not a comparison for one period.
+  if (efficiencyTarget) intent = 'trend'
 
   // "Show monthly data" is offered for annual balances only (prices and indicators have none).
   const monthlyDataset = monthlyKey && dataset === 'nrg_bal_c' ? MONTHLY[monthlyKey].dataset : undefined
@@ -346,6 +358,8 @@ export function planQuestion(
       top: top ?? topPartners,
       monthlyDataset,
       notes,
+      // (primary and final consumption are two measures, not parts of a total: lines, no shares)
+      ...(efficiencyTarget ? { parts: false as const } : {}),
       ...(fromDictionary ? { retry: { question, tried: exclude } } : {}),
     },
   }

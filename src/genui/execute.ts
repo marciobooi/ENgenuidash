@@ -75,6 +75,7 @@ export interface DashStrings {
   mixByCountry: string
   byPartAndCountry: string
   mixShift: string
+  differenceFromEu: string
   mixGainer: string
   mixLoser: string
   mixDiversity: string
@@ -472,6 +473,23 @@ export async function buildDashboard(
         size: many ? 'full' : 'half',
         role: 'change',
         ...(views.length > 1 ? { views, viewLabel: s.comparedWith } : {}),
+      })
+    }
+    // Rates, shares and prices: how far each country is from the EU-27 (size does not matter here).
+    if (!additive && euValue != null && ranked.length >= 6) {
+      const gaps = ranked.map((r) => ({ name: r.x.name, gap: Math.round((r.value - euValue) * 10 ** (fmt.decimals + 1)) / 10 ** (fmt.decimals + 1) })).sort((p, q) => q.gap - p.gap)
+      widgets.push({
+        type: 'bar',
+        title: fill(s.differenceFromEu, { period }),
+        subtitle: isPercent ? 'pp' : unit,
+        categories: gaps.map((g) => g.name),
+        series: [{ name: s.differenceFromEu.replace(', {period}', ''), data: gaps.map((g) => g.gap) }],
+        horizontal: false,
+        signed: true,
+        unit: isPercent ? 'pp' : unit,
+        decimals: isPercent ? 1 : fmt.decimals,
+        size: 'full',
+        role: 'change',
       })
     }
     if (many && !additive) {
@@ -1186,7 +1204,8 @@ function suggest(plan: Plan, dict: EnergyDictionary, s: DashStrings): Suggestion
         filters: { ...plan.filters, geo: EU27.filter((c) => geoCodes.includes(c)) },
         allCountries: true,
         intent: 'compare',
-        time: plan.focusPeriod ? plan.time : { kind: 'last', n: 2 },
+        // (ten periods: the evolution, the heatmap and the changes over the years need them)
+        time: plan.focusPeriod ? plan.time : { kind: 'last', n: 10 },
         notes: [],
       },
     })

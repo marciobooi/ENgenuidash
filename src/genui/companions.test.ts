@@ -29,24 +29,18 @@ test('several countries: the same related data, compared side by side', () => {
   assert.deepEqual([...(c.filters.geo as string[])].sort(), ['DE', 'ES', 'FR'])
 })
 
-test('electricity production: gross vs net, by type of plant, by operator, renewables vs the 2030 target', () => {
+test('electricity production: gross vs net, by type of plant, by operator', () => {
   const p: Plan = { dataset: 'nrg_ind_peh', filters: { freq: 'A', plants: 'TOTAL', operator: 'TOTAL', nrg_bal: 'GEP', siec: ['CF', 'RA300'], unit: 'GWH', geo: ['DE', 'FR'] }, time: { kind: 'last', n: 10 }, intent: 'mix' }
   const list = companionsFor(p, dict, s)
   assert.deepEqual(list.map((c) => `${c.dim}:${([] as string[]).concat(c.codes as string[]).join(',')}`), [
     'nrg_bal:NEP,GEP', // net → gross (dumbbell for several countries)
     'plants:ELC,CHP',
     'operator:PRR_MAIN,PRR_AUTO',
-    'nrg_bal:REN',
+    // (the renewable share against the 2030 target is its own section: gauge, bullet, gap, way there)
   ])
-  assert.equal(list.at(-1)?.reference?.value, 42.5)
   // Heat: CHP and heat-only plants.
   const heat = companionsFor({ ...p, filters: { ...p.filters, nrg_bal: 'GHP', unit: 'TJ' } }, dict, s)
   assert.deepEqual(heat.find((c) => c.dim === 'plants')?.codes, ['CHP', 'HEAT'])
-})
-
-test('one country: the renewable share is shown next to the EU-27 (the target line needs a comparison)', () => {
-  const p: Plan = { dataset: 'nrg_ind_peh', filters: { freq: 'A', plants: 'TOTAL', operator: 'TOTAL', nrg_bal: 'GEP', siec: ['CF', 'RA300'], unit: 'GWH', geo: 'DE' }, time: { kind: 'last', n: 10 }, intent: 'mix' }
-  assert.deepEqual(companionsFor(p, dict, s).find((c) => c.dataset === 'nrg_ind_ren')?.filters.geo, ['DE', 'EU27_2020'])
 })
 
 test('no renewables-target chart on consumption of one product (not a supply mix)', () => {
@@ -78,8 +72,6 @@ test('a full breakdown by product gets country context; a specific question does
     const ks = kinds(q)
     assert.ok(ks.some((k) => k.endsWith(':geo')) && ks.some((k) => k.endsWith(':siec')), `${q}: ${ks.join(', ')}`)
   }
-  // The energy mix also keeps the renewable share against the EU target.
-  assert.ok(kinds('energy mix of Germany').includes('nrg_ind_ren:nrg_bal'))
   // Specific: one product, or another chart asked for, or several countries.
   assert.deepEqual(kinds('diesel consumption in transport in Germany').filter((k) => k.endsWith(':geo')), [])
   const asLine = { ...plan('Final energy consumption in industry by type of fuel'), chart: 'line' as const }

@@ -169,8 +169,13 @@ export interface TimeIntent {
   monthly: boolean
 }
 
+// A year that names a target ("the 2030 target", "targets for 2030", "Ziel 2030", "objectif 2030") is
+// not a period of data: nothing is reported for it yet.
+const TARGET_YEAR = /\b(?:19|20)\d\d(?:\s+[a-z]+){0,2}?\s+(?:targets?|goals?|ziele?|zielen|objectifs?)\b|\b(?:targets?|goals?|ziele?|zielen|objectifs?)\s+(?:(?:for|of|in|by|fur|pour|de|bis)\s+)?(?:19|20)\d\d\b/g
+
 export function detectTime(p: Parsed): TimeIntent {
-  const years = [...new Set((p.text.match(/\b(19[5-9]\d|20[0-4]\d)\b/g) ?? []).map(Number))].sort()
+  const dataText = p.text.replace(TARGET_YEAR, ' ')
+  const years = [...new Set((dataText.match(/\b(19[5-9]\d|20[0-4]\d)\b/g) ?? []).map(Number))].sort()
   const monthly = any(p, MONTHLY_WORDS)
 
   let month: TimeIntent['month']

@@ -57,6 +57,15 @@ export function widgetProblem(w: WidgetSpec): string | null {
       return text(w.from?.name) && text(w.to?.name) && values(w.from.data, w.categories.length) && values(w.to.data, w.categories.length)
         ? null
         : 'dumbbell: values do not match the categories'
+    case 'progress':
+      if (!texts(w.categories) || !w.categories.length) return 'progress: categories'
+      return values(w.values, w.categories.length) && Array.isArray(w.targets) && w.targets.length > 0 && w.targets.every((t) => num(t.value) && typeof t.label === 'string')
+        ? null
+        : 'progress: values or targets'
+    case 'gauge':
+      return num(w.value) && num(w.max) && w.max > 0 && text(w.label) && Array.isArray(w.targets) && w.targets.every((t) => num(t.value) && typeof t.label === 'string')
+        ? null
+        : 'gauge: value, scale or targets'
     case 'bubble':
       if (!text(w.x?.label) || !text(w.y?.label) || !text(w.z?.label)) return 'bubble: axes'
       return Array.isArray(w.points) && w.points.length >= 2 && w.points.every((p) => text(p.name) && num(p.x) && num(p.y) && num(p.z) && p.z >= 0)

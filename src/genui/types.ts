@@ -234,6 +234,40 @@ export type WidgetSpec = (
     }
   | {
       /**
+       * Progress to a target (a bullet chart): each category's value with the target(s) marked as
+       * lines - a country against the EU 2030 level, consumption against its 2030 ceiling.
+       */
+      type: 'progress'
+      title: string
+      subtitle?: string
+      categories: string[]
+      values: (number | null)[]
+      targets: { value: number; label: string }[]
+      /** The scale ends here (default: a little past the largest target or value). */
+      max?: number
+      size?: WidgetSize
+      unit?: string
+      source?: WidgetSource
+    }
+  | {
+      /**
+       * One value against its target(s) (a solid gauge, a speedometer): how far along it is. Only
+       * the targets with a label are named on the scale.
+       */
+      type: 'gauge'
+      title: string
+      subtitle?: string
+      value: number
+      /** What the value is ("EU-27, 2025"), shown under it. */
+      label: string
+      max: number
+      targets: { value: number; label: string }[]
+      size?: WidgetSize
+      unit?: string
+      source?: WidgetSource
+    }
+  | {
+      /**
        * Countries placed by two indicators, sized by a third (bubble chart): where each stands
        * on several measures at once. Reference lines (e.g. the EU-27 values) split it into
        * quadrants.

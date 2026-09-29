@@ -204,3 +204,6 @@ export function plannerTerms(): string[] {
   ]
   return [...concepts, ...lists.flat()]
 }
+
+// A question about a target ("the 2030 target", "on track"): where the indicator stands against it.
+export const TARGET_WORDS = ['target', 'targets', 'goal', 'goals', 'on track', 'ziel', 'ziele', 'zielen', 'objectif', 'objectifs']

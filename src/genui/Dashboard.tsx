@@ -1,6 +1,6 @@
 import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
-import { AreaChart, BarChart, BubbleChart, DumbbellChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, type ChartActionLabels } from '../components/charts'
+import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
@@ -150,6 +150,10 @@ export function Dashboard({
         return <HeatmapChart {...common} xCategories={w.xCategories} yCategories={w.yCategories} values={w.values} />
       case 'dumbbell':
         return <DumbbellChart {...common} categories={w.categories} from={w.from} to={w.to} />
+      case 'progress':
+        return <ProgressChart {...common} categories={w.categories} values={w.values} targets={w.targets} max={w.max} />
+      case 'gauge':
+        return <GaugeChart {...common} value={w.value} label={w.label} max={w.max} targets={w.targets} />
       case 'bubble':
         return <BubbleChart {...common} points={w.points} x={w.x} y={w.y} z={w.z} reference={w.reference} />
       case 'map':

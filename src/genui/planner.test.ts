@@ -153,3 +153,30 @@ test('"by type of fuel" (or product, energy source…) asks for the detail, what
     assert.ok([(r as { plan: Plan }).plan.filters.siec].flat().length > 3, `${q}: ${JSON.stringify((r as { plan: Plan }).plan.filters.siec)}`)
   }
 })
+
+test('a year that names a target is not a data period', () => {
+  for (const q of ['Renewable energy share Germany vs France and the 2030 target', 'renewable share of France against the 2030 target', 'Ziel 2030 erneuerbare Energien Deutschland', 'the 2030 efficiency targets']) {
+    const r = planQuestion(q, dict, codelists)
+    assert.equal(r.kind, 'plan', q)
+    const p = (r as { plan: Plan }).plan
+    assert.equal(p.focusPeriod, undefined, q)
+    assert.ok(p.time.kind !== 'range' || (p.time.since !== '2030' && p.time.until !== '2030'), `${q}: ${JSON.stringify(p.time)}`)
+  }
+  // A real year is still a year.
+  const real = planQuestion('renewable share of Germany in 2022', dict, codelists) as { plan: Plan }
+  assert.equal(real.plan.focusPeriod, '2022')
+})
+
+test('an efficiency target question opens primary and final consumption in Mtoe, as two measures', () => {
+  for (const q of ['energy efficiency targets', 'energy efficiency target 2030 Germany', 'Primary and final energy consumption and the 2030 efficiency targets']) {
+    const r = planQuestion(q, dict, codelists)
+    assert.equal(r.kind, 'plan', q)
+    const p = (r as { plan: Plan }).plan
+    assert.equal(p.dataset, 'nrg_ind_eff', q)
+    assert.deepEqual(p.filters.nrg_bal, ['FEC_EED', 'PEC_EED'], q)
+    assert.equal(p.filters.unit, 'MTOE', q)
+    assert.equal(p.parts, false, q)
+    assert.equal(p.intent, 'trend', q)
+    assert.equal(p.focusPeriod, undefined, q)
+  }
+})

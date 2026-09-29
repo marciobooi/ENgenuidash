@@ -20,6 +20,9 @@ export function loadOwnHighcharts(): Promise<HighchartsModule> {
       import('highcharts/highcharts-more'), // columnrange (dumbbell), bubble
       import('highcharts/modules/accessibility'),
       import('highcharts/modules/heatmap'),
+      import('highcharts/modules/bullet'),
+      // (the gauge series lives in highcharts-more, loaded first)
+      import('highcharts/highcharts-more').then(() => import('highcharts/modules/solid-gauge')),
       import('highcharts/modules/map'),
       import('highcharts/modules/exporting').then(() => Promise.all([import('highcharts/modules/export-data'), import('highcharts/modules/offline-exporting')])),
     ])

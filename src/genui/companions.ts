@@ -1,4 +1,5 @@
 import { fetchEurostatData, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
+import { EU27 } from './concepts'
 import type { Plan, WidgetSpec } from './types'
 
 /**
@@ -48,6 +49,31 @@ export interface CompanionStrings {
   countriesRanking: string
   /** Each country's mix (100% bars). */
   mixAcrossCountries: string
+  /** Renewables and the EU 2030 target: the gap of each country, and the way there. */
+  renGap: string
+  renGapNote: string
+  renProgress: string
+  /** "Straight path to {target}% in 2030". */
+  renPath: string
+  /** "Needs +{need} pp a year from {year}; +{recent} pp a year over the last five years." */
+  renPace: string
+  renPaceReached: string
+  /** Energy efficiency: the way to the 2030 levels. */
+  effProgress: string
+  /** "{measure}: straight path to {target} Mtoe in 2030". */
+  effPath: string
+  /** "{measure}: {need} Mtoe a year from {year} to reach {target} Mtoe in 2030; {recent} a year over the last five years." */
+  effPace: string
+  /** The gauge and the bullet chart of the renewable share against the 2030 target. */
+  renGauge: string
+  renGaugeNote: string
+  /** "{value}% binding" / "{value}% aim": the marks on the scale. */
+  renBinding: string
+  renAim: string
+  /** Consumption as a percentage of its 2030 level (bullet). */
+  effAgainst: string
+  effAgainstNote: string
+  effLevel: string
 }
 
 export interface Companion {
@@ -92,6 +118,24 @@ const MAX_COUNTRIES = 8
 const MIX_COUNTRIES = ['EU27_2020', 'DE', 'FR', 'IT', 'ES', 'PL', 'NL', 'BE', 'SE', 'AT', 'RO', 'CZ', 'PT', 'EL', 'FI', 'DK', 'IE', 'HU']
 const UNIT_TEXT: Record<string, string> = { KTOE: 'ktoe', MTOE: 'Mtoe', GWH: 'GWh', TJ: 'TJ', TJ_GCV: 'TJ (GCV)', THS_T: 'thousand t', MIO_M3: 'million m³' }
 
+/** Energy efficiency: primary and final energy consumption against the 2030 levels. */
+function needsEfficiencyTarget(plan: Plan): boolean {
+  const flows = ([] as string[]).concat(plan.filters.nrg_bal ?? [])
+  return plan.dataset === 'nrg_ind_eff' && flows.some((f) => f === 'FEC_EED' || f === 'PEC_EED')
+}
+
+/** Producing or supplying energy as a mix of sources, or the renewable share itself. */
+function needsRenewableTarget(plan: Plan): boolean {
+  const f = plan.filters
+  const siecs = ([] as string[]).concat(f.siec ?? [])
+  const flow = Array.isArray(f.nrg_bal) ? undefined : f.nrg_bal
+  return (
+    PRODUCTION_DATASETS.includes(plan.dataset) ||
+    (['nrg_bal_s', 'nrg_bal_c', 'ten00121', 'ten00122'].includes(plan.dataset) && siecs.length > 1 && SUPPLY_FLOWS.includes(flow ?? '')) ||
+    (plan.dataset === 'nrg_ind_ren' && flow === 'REN')
+  )
+}
+
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? undefined : v)
 const list = (v: string | string[] | undefined) => ([] as string[]).concat(v ?? [])
 
@@ -103,7 +147,6 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
   const several = geos.length > 1
   const geo: string | string[] = several ? geos : geos[0]
   const has = (dataset: string, dim: string, code: string) => dict.datasets[dataset]?.dimensions.find((d) => d.id === dim)?.codes.includes(code) ?? false
-  const hasAll = (dataset: string, codes: string[]) => codes.every((c) => has(dataset, 'geo', c))
   const out: Companion[] = []
 
   // A product's consumption or supply in the balances → use by sector.
@@ -144,15 +187,8 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
     out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, operator: 'TOTAL' }, dim: 'plants', codes: electricity ? ['ELC', 'CHP'] : ['CHP', 'HEAT'], title: s.byPlant, view: 'pie', unit })
     out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, plants: 'TOTAL' }, dim: 'operator', codes: ['PRR_MAIN', 'PRR_AUTO'], title: s.byOperator, view: 'pie', unit })
   }
-  // Producing or supplying energy → how renewable it is, against the EU 2030 target.
-  const supplyMix =
-    PRODUCTION_DATASETS.includes(plan.dataset) ||
-    (['nrg_bal_s', 'nrg_bal_c', 'ten00121', 'ten00122'].includes(plan.dataset) && list(f.siec).length > 1 && SUPPLY_FLOWS.includes(one(f.nrg_bal) ?? ''))
-  if (supplyMix && hasAll('nrg_ind_ren', geos)) {
-    // One country is shown next to the EU-27, so the target line has something to compare.
-    const withEu = several || geos[0] === 'EU27_2020' || !has('nrg_ind_ren', 'geo', 'EU27_2020') ? geo : [geos[0], 'EU27_2020']
-    out.push({ dataset: 'nrg_ind_ren', filters: { unit: 'PC', geo: withEu }, dim: 'nrg_bal', codes: ['REN'], title: s.renTarget, view: 'bar', unit: '%', reference: { value: EU_REN_TARGET_2030, label: s.renTargetLine } })
-  }
+  // (Producing or supplying energy → the renewable share against the 2030 target is its own section:
+  // buildRenewableTarget, with a gauge, a bullet chart, the gap of every country and the way there.)
   // A full breakdown by product of one flow (final consumption in industry by type of fuel, the
   // energy mix...): which countries use the most, and how each country's mix differs. Not for a
   // specific question (a few products, or another chart type asked for).
@@ -216,6 +252,199 @@ export async function buildCompanions(
   })
   const bubble = await buildBubble(plan, dict, lang, s, year, signal).catch(() => null)
   if (bubble) widgets.push(bubble)
+  if (needsRenewableTarget(plan)) widgets.push(...(await buildRenewableTarget(plan, dict, lang, s, signal).catch(() => [])))
+  if (needsEfficiencyTarget(plan)) widgets.push(...(await buildEfficiencyTarget(plan, dict, lang, s, signal).catch(() => [])))
+  return widgets
+}
+
+// ---------- renewables and the EU 2030 target ----------
+
+/**
+ * Where the renewable share stands against the EU's 2030 target: each country's gap to it (the
+ * target is EU-wide and the countries' own contributions differ, so this is an indication), and
+ * the way there - the share so far, and the straight path from today to the target in 2030, with
+ * the pace it needs against the pace of the last five years.
+ */
+async function buildRenewableTarget(plan: Plan, dict: EnergyDictionary, lang: string, s: CompanionStrings, signal?: AbortSignal): Promise<WidgetSpec[]> {
+  const geos = list(plan.filters.geo)
+  const geoCodes = dict.datasets.nrg_ind_ren?.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+  if (!geos.length || !geos.every((g) => geoCodes.includes(g))) return []
+  // Every country ("compare all"): the gap to the target; a few: the way there as well.
+  const many = geos.length > MAX_COUNTRIES
+  // The countries asked for, with the EU-27 as the reference; two countries (A against B) are treated alike.
+  const shown = many ? [] : [...new Set([...geos, 'EU27_2020'])].filter((g) => geoCodes.includes(g))
+  const focusGeos = geos.length <= 2 ? geos : geos.slice(0, 1)
+  const [history, everyone] = await Promise.all([
+    many ? Promise.resolve(null) : fetchEurostatData('nrg_ind_ren', { filters: { nrg_bal: 'REN', unit: 'PC', geo: shown }, lang, signal }),
+    fetchEurostatData('nrg_ind_ren', { filters: { nrg_bal: 'REN', unit: 'PC', geo: EU27 }, lastTimePeriod: 4, lang, signal }),
+  ])
+  const nf = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  const target = EU_REN_TARGET_2030
+  const source = { code: 'nrg_ind_ren', url: `https://ec.europa.eu/eurostat/databrowser/view/nrg_ind_ren/default/table?lang=${lang}` }
+  const widgets: WidgetSpec[] = []
+  const name = (code: string, label: string) => (code === 'EU27_2020' ? 'EU-27' : label.replace(/\s*\(.*?\)\s*$/, ''))
+
+  // 1. The gap of every EU country to the target, in percentage points (ahead is positive).
+  const times = (everyone.dimensions.time?.codes ?? []).map((t) => t.code).sort()
+  const at = (geo: string, t: string) => everyone.observations.find((o) => o.keys.geo === geo && o.keys.time === t)?.value ?? null
+  const latest = [...times].reverse().find((t) => EU27.filter((g) => at(g, t) != null).length >= 20)
+  if (latest) {
+    const rows = EU27.map((g) => ({ name: name(g, everyone.dimensions.geo?.codes.find((c) => c.code === g)?.label ?? g), gap: at(g, latest) == null ? null : Math.round(((at(g, latest) as number) - target) * 10) / 10 }))
+      .filter((r): r is { name: string; gap: number } => r.gap != null)
+      .sort((a, b) => b.gap - a.gap)
+    widgets.push({
+      type: 'bar',
+      title: `${s.renGap} (${latest})`,
+      subtitle: s.renGapNote.replace('{target}', nf.format(target)),
+      categories: rows.map((r) => r.name),
+      series: [{ name: s.renGap, data: rows.map((r) => r.gap) }],
+      horizontal: true,
+      unit: 'pp',
+      decimals: 1,
+      size: 'half',
+      source,
+      role: 'related',
+    })
+  }
+
+  // 0. Where it stands: a gauge for each country asked for (one or two: A against B), and one bar per
+  // country shown, against the binding 42.5% and the indicative aim of 45% (RED III: 42.5% binding,
+  // with 2.5 points more as an aim).
+  if (history) {
+    const aim = 45
+    const year0 = [...(history.dimensions.time?.codes ?? []).map((t) => t.code)].sort().reverse().find((y) => shown.every((g) => history.observations.some((o) => o.keys.geo === g && o.keys.time === y && o.value != null)))
+    const label = (g: string) => name(g, history.dimensions.geo?.codes.find((c) => c.code === g)?.label ?? g)
+    if (year0) {
+      const val = (g: string) => history.observations.find((o) => o.keys.geo === g && o.keys.time === year0)?.value ?? null
+      const note = s.renGaugeNote.replace('{target}', nf.format(target)).replace('{aim}', nf.format(aim))
+      for (const g of focusGeos) {
+        widgets.push({
+          type: 'gauge',
+          title: s.renGauge,
+          subtitle: note,
+          value: val(g) as number,
+          label: `${label(g)}, ${year0}`,
+          max: 50,
+          targets: [{ value: target, label: `${nf.format(target)}%` }, { value: aim, label: '' }],
+          unit: '%',
+          size: 'half',
+          source,
+          role: 'related',
+        })
+      }
+      widgets.push({
+        type: 'progress',
+        title: `${s.renGauge} (${year0})`,
+        subtitle: note,
+        categories: shown.map(label),
+        values: shown.map(val),
+        targets: [
+          { value: target, label: s.renBinding.replace('{value}', nf.format(target)) },
+          { value: aim, label: s.renAim.replace('{value}', nf.format(aim)) },
+        ],
+        max: 50,
+        unit: '%',
+        size: focusGeos.length === 2 ? 'full' : 'half',
+        source,
+        role: 'related',
+      })
+    }
+
+    // 2. The way there: the share so far, and for each country asked for the straight path from
+    // the latest year to the target in 2030, with the pace it needs against the last five years.
+    const years = (history.dimensions.time?.codes ?? []).map((t) => t.code).sort().filter((y) => y >= '2010')
+    const valueAt = (geo: string, y: string) => history.observations.find((o) => o.keys.geo === geo && o.keys.time === y)?.value ?? null
+    const lastOf = (g: string) => [...years].reverse().find((y) => valueAt(g, y) != null)
+    if (years.length > 3 && focusGeos.every((g) => lastOf(g))) {
+      const categories = [...years, ...Array.from({ length: Math.max(0, 2030 - Number(years[years.length - 1])) }, (_, i) => String(Number(years[years.length - 1]) + i + 1))]
+      const series = shown.map((g) => ({ name: label(g), data: categories.map((y) => (years.includes(y) ? valueAt(g, y) : null)) }))
+      const pace: string[] = []
+      for (const g of focusGeos) {
+        const lastYear = lastOf(g) as string
+        const last = Number(lastYear)
+        const now = valueAt(g, lastYear) as number
+        const pathName = s.renPath.replace('{target}', nf.format(target))
+        series.push({ name: focusGeos.length > 1 ? `${label(g)}: ${pathName}` : pathName, data: categories.map((y) => (Number(y) < last || Number(y) > 2030 ? null : Math.round((now + ((target - now) * (Number(y) - last)) / Math.max(1, 2030 - last)) * 10) / 10)) })
+        const before = valueAt(g, String(last - 5))
+        const need = last < 2030 ? (target - now) / (2030 - last) : 0
+        const text = now >= target ? s.renPaceReached : before == null ? '' : s.renPace.replace('{need}', nf.format(need)).replace('{year}', lastYear).replace('{recent}', nf.format((now - before) / 5))
+        if (text) pace.push(focusGeos.length > 1 ? `${label(g)}: ${text}` : text)
+      }
+      widgets.push({
+        type: 'line',
+        title: s.renProgress,
+        subtitle: pace.join(' '),
+        categories,
+        series,
+        unit: '%',
+        size: 'full',
+        role: 'related',
+      })
+    }
+  }
+  return widgets
+}
+
+/**
+ * Energy efficiency against the EU's 2030 levels. Eurostat's own "distance to 2030 target" series
+ * give the level (consumption minus its distance to the target), so nothing is written in here:
+ * the way from the latest year to 2030 for primary and final energy consumption (and the pace
+ * it needs against the last five years), and where each measure stands against its level.
+ */
+async function buildEfficiencyTarget(plan: Plan, dict: EnergyDictionary, lang: string, s: CompanionStrings, signal?: AbortSignal): Promise<WidgetSpec[]> {
+  const geos = list(plan.filters.geo)
+  const geoCodes = dict.datasets.nrg_ind_eff?.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+  if (!geos.length || !geoCodes.includes(geos[0])) return []
+  const focus = geos[0]
+  const measures = ['FEC', 'PEC'] as const
+  const history = await fetchEurostatData('nrg_ind_eff', { filters: { nrg_bal: ['FEC_EED', 'PEC_EED', 'FEC_DT2030', 'PEC_DT2030'], unit: 'MTOE', geo: focus }, lang, signal })
+  const nf = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  const signed = (v: number) => `${v >= 0 ? '+' : '−'}${nf.format(Math.abs(v))}`
+  const short = (label: string) => label.split(/\s+-\s+/)[0]
+  const widgets: WidgetSpec[] = []
+
+  // 1. The way to 2030 for each measure.
+  const years = (history.dimensions.time?.codes ?? []).map((t) => t.code).sort().filter((y) => y >= '2005')
+  const at = (code: string, y: string) => history.observations.find((o) => o.keys.nrg_bal === code && o.keys.time === y)?.value ?? null
+  const lastYear = [...years].reverse().find((y) => measures.every((m) => at(`${m}_EED`, y) != null && at(`${m}_DT2030`, y) != null))
+  if (lastYear && years.length > 3) {
+    const last = Number(lastYear)
+    const end = Math.max(2030, last)
+    const categories = [...years.filter((y) => Number(y) <= last), ...Array.from({ length: end - last }, (_, i) => String(last + i + 1))]
+    const series: { name: string; data: (number | null)[] }[] = []
+    const pace: string[] = []
+    for (const m of measures) {
+      const now = at(`${m}_EED`, lastYear) as number
+      const target = Math.round((now - (at(`${m}_DT2030`, lastYear) as number)) * 10) / 10
+      const name = short(history.dimensions.nrg_bal?.codes.find((c) => c.code === `${m}_EED`)?.label ?? m)
+      series.push({ name, data: categories.map((y) => (Number(y) <= last ? at(`${m}_EED`, y) : null)) })
+      series.push({ name: s.effPath.replace('{measure}', name).replace('{target}', nf.format(target)), data: categories.map((y) => (Number(y) < last ? null : Math.round((now + ((target - now) * (Number(y) - last)) / Math.max(1, 2030 - last)) * 10) / 10)) })
+      const before = at(`${m}_EED`, String(last - 5))
+      pace.push(s.effPace.replace('{measure}', name).replace('{need}', signed((target - now) / Math.max(1, 2030 - last))).replace('{year}', lastYear).replace('{target}', nf.format(target)).replace('{recent}', before == null ? '–' : signed((now - before) / 5)))
+    }
+    // Where each measure stands against its 2030 level: 100% is the level to reach.
+    const against = measures.map((m) => {
+      const now = at(`${m}_EED`, lastYear) as number
+      const target = now - (at(`${m}_DT2030`, lastYear) as number)
+      return { name: short(history.dimensions.nrg_bal?.codes.find((c) => c.code === `${m}_EED`)?.label ?? m), pct: target > 0 ? Math.round((now / target) * 1000) / 10 : null }
+    })
+    if (against.every((x) => x.pct != null)) {
+      widgets.push({
+        type: 'progress',
+        title: `${s.effAgainst} (${lastYear})`,
+        subtitle: s.effAgainstNote,
+        categories: against.map((x) => x.name),
+        values: against.map((x) => x.pct),
+        targets: [{ value: 100, label: s.effLevel }],
+        unit: '%',
+        size: 'half',
+        role: 'related',
+      })
+    }
+    widgets.push({ type: 'line', title: s.effProgress, subtitle: pace.join(' '), categories, series, unit: 'Mtoe', size: 'half', role: 'related' })
+  }
+
+  // (Eurostat reports the distance to the 2030 levels for the EU as a whole only, so there is no ranking of countries.)
   return widgets
 }
 

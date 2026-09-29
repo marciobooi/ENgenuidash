@@ -108,6 +108,12 @@ const PER_CAPITA: Indicator[] = [
 // Products and sectors of ENDASH's consumption and production charts.
 const PRODUCTS = ['C0000X0350-0370', 'C0350-0370', 'P1000', 'S2000', 'G3000', 'O4000XBIO', 'RA000', 'W6100_6220', 'N900H', 'E7000', 'H8000']
 const SECTORS = ['FC_IND_E', 'FC_TRA_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_OTH_AF_E', 'FC_OTH_FISH_E', 'FC_OTH_NSP_E']
+const TRANSPORT_FUELS = ['G3000', 'O4630', 'O4652XR5210B', 'O4671XR5220B', 'R5210P', 'R5210B', 'R5220P', 'R5220B', 'R5290', 'R5300', 'E7000']
+const INDUSTRY_FUELS = ['C0000X0350-0370', 'C0350-0370', 'E7000', 'G3000', 'H8000', 'N900H', 'O4000XBIO', 'P1000', 'RA000', 'S2000', 'W6100_6220']
+const GHG_SECTORS = ['CRF1A1', 'CRF1A2', 'CRF1A3', 'CRF1A4A', 'CRF1A4B', 'CRF1A4C', 'CRF1A5']
+const HOUSEHOLD_USES = ['FC_OTH_HH_E_SH', 'FC_OTH_HH_E_SC', 'FC_OTH_HH_E_WH', 'FC_OTH_HH_E_CK', 'FC_OTH_HH_E_LE', 'FC_OTH_HH_E_OE']
+const RENEWABLE_USES = ['REN', 'REN_ELC', 'REN_HEAT_CL', 'REN_TRA']
+const DEPENDENCY_FUELS = ['TOTAL', 'G3000', 'O4000XBIO', 'O4100_TOT', 'O4200']
 const ELECTRICITY = ['CF', 'RA100', 'RA130', 'RA200', 'RA300', 'RA400', 'RA500', 'N9000', 'X9900', 'X9900H']
 
 const linkFor = (dataset: string, lang: string) => `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=${lang}`
@@ -125,6 +131,39 @@ function seriesOf(result: EurostatResult, geo: string, per?: number, population?
   return out
 }
 
+const tidy = (name: string) => name.replace(/^Final consumption - (other sectors - )?/i, '').replace(/ - energy use$/i, '').replace(/^./, (c) => c.toUpperCase())
+const labelOf = (result: EurostatResult, dim: string, code: string) => tidy(result.dimensions[dim]?.codes.find((c) => c.code === code)?.label ?? code)
+
+/**
+ * One country against the EU across the codes of a dimension, in the latest year the country has
+ * data for; as shares of the total when `percent` (the structure, not the size, is compared).
+ */
+function compareBar(result: EurostatResult | null, dim: string, geos: string[], names: string[], percent: boolean, until?: string) {
+  if (!result) return null
+  const [geo, eu] = geos
+  const years = [...new Set(result.observations.filter((o) => o.keys.geo === geo && o.value != null && (!until || o.keys.time <= until)).map((o) => o.keys.time))].sort()
+  // The latest year that has (nearly) every category: the newest year is often published for some of them only.
+  const count = (y: string) => new Set(result.observations.filter((o) => o.keys.geo === geo && o.keys.time === y && o.value != null).map((o) => o.keys[dim])).size
+  const most = Math.max(0, ...years.map(count))
+  const year = years.filter((y) => count(y) >= most).at(-1)
+  if (!year) return null
+  const at = (g: string, code: string) => result.observations.find((o) => o.keys.geo === g && o.keys.time === year && o.keys[dim] === code)?.value ?? null
+  const codes = [...new Set(result.observations.map((o) => o.keys[dim]))].filter((c) => at(geo, c) != null)
+  if (codes.length < 2) return null
+  const total = (g: string) => codes.reduce((sum, c) => sum + (at(g, c) ?? 0), 0)
+  const value = (g: string, c: string) => {
+    const v = at(g, c)
+    if (v == null || !percent) return v
+    const t = total(g)
+    return t > 0 ? Math.round((1000 * v) / t) / 10 : null
+  }
+  return {
+    year,
+    categories: codes.map((c) => labelOf(result, dim, c)),
+    series: [{ name: names[0], data: codes.map((c) => value(geo, c)) }, ...(eu && eu !== geo ? [{ name: names[1], data: codes.map((c) => value(eu, c)) }] : [])],
+  }
+}
+
 /** Latest year with a value in each of the given series, for a pie: name → value. */
 function latestSlices(result: EurostatResult, geo: string, dim: string, until?: string, perPerson?: { per: number; population: EurostatResult | null }): { year: string; slices: { name: string; y: number }[] } | null {
   const years = [...new Set(result.observations.filter((o) => o.keys.geo === geo && o.value != null && (!until || o.keys.time <= until)).map((o) => o.keys.time))].sort()
@@ -132,7 +171,7 @@ function latestSlices(result: EurostatResult, geo: string, dim: string, until?: 
     const slices = result.observations
       .filter((o) => o.keys.geo === geo && o.keys.time === year && o.value != null && o.value > 0)
       .map((o) => ({ name: result.dimensions[dim]?.codes.find((c) => c.code === o.keys[dim])?.label ?? o.keys[dim], y: o.value as number }))
-      .map((x) => ({ ...x, name: x.name.replace(/^Final consumption - (other sectors - )?/i, '').replace(/ - energy use$/i, '').replace(/^./, (c) => c.toUpperCase()) }))
+      .map((x) => ({ ...x, name: tidy(x.name) }))
       .map((x) => (perPerson ? { ...x, y: (x.y * perPerson.per) / (perPerson.population?.observations.find((q) => q.keys.geo === geo && q.keys.time === year)?.value ?? NaN) } : x))
       .filter((x) => Number.isFinite(x.y))
       .sort((a, b) => b.y - a.y)
@@ -185,10 +224,23 @@ export async function buildProfileDashboard(
   const population = perCapita ? await fetchEurostatData('demo_pjan', { filters: { geo: geos, age: 'TOTAL', sex: 'T', unit: 'NR' }, lang, signal, ...timeQuery }).catch(() => null) : null
   const [indicatorData, sectors, products, electricity] = await Promise.all([
     Promise.all(list.map((i) => ask(i.dataset, i.filters))),
-    ask('nrg_bal_c', { geo: [geo], siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, window(4)),
-    ask('nrg_bal_c', { geo: [geo], siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, window(4)),
+    ask('nrg_bal_c', { siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, window(4)),
+    ask('nrg_bal_c', { siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, window(4)),
     ask('nrg_ind_peh', { geo: [geo], siec: ELECTRICITY, nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, window(4)),
   ])
+  // The rest of ENDASH's breakdowns (totals view): how the country compares with the EU, and what its consumption is made of.
+  const more = perCapita
+    ? []
+    : await Promise.all([
+        ask('nrg_ind_ren', { nrg_bal: RENEWABLE_USES, unit: 'PC' }, window(4)),
+        ask('nrg_ind_id', { siec: DEPENDENCY_FUELS, unit: 'PC' }, window(4)),
+        ask('env_air_gge', { geo: [geo], src_crf: GHG_SECTORS, airpol: 'GHG', unit: 'THS_T' }, window(4)),
+        ask('nrg_d_hhq', { geo: [geo], siec: 'TOTAL', nrg_bal: HOUSEHOLD_USES, unit: 'TJ' }, window(4)),
+        ask('nrg_bal_c', { geo: [geo], siec: TRANSPORT_FUELS, nrg_bal: 'FC_TRA_E', unit: 'KTOE' }, window(4)),
+        ask('nrg_bal_c', { geo: [geo], siec: INDUSTRY_FUELS, nrg_bal: 'FC_IND_E', unit: 'KTOE' }, window(4)),
+        ask('nrg_bal_c', { geo: [geo], siec: PRODUCTS, nrg_bal: 'GAE', unit: 'KTOE' }, window(4)),
+      ])
+  const [renewablesByUse, dependencyByFuel, ghg, households, transport, industry, available] = more
   const geoName = (indicatorData.find(Boolean)?.dimensions.geo?.codes.find((c) => c.code === geo)?.label ?? geo).replace(/\s*\(.*?\)\s*$/, '')
   const nf = (d: number) => new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d })
 
@@ -254,7 +306,31 @@ export async function buildProfileDashboard(
     if (found) pies.push({ type: 'pie', title, subtitle: `${geoName} · ${found.year}${perCapita ? ` · ${t.perPerson}` : ''}`, slices: found.slices, unit: perCapita ? (unit === 'GWh' ? 'kWh' : 'kgoe') : unit, size: 'half', source: { code: dataset, url: linkFor(dataset, lang) } })
   }
 
-  widgets.push({ type: 'kpis', items: kpis }, ...trendCharts, ...pies)
+  // Against the EU: what the renewables are used for, where the imports are, and the structure of consumption.
+  const bars: WidgetSpec[] = []
+  const names = [geoName, t.eu]
+  const addBar = (title: string, result: EurostatResult | null, dim: string, dataset: string, unit: string, percent: boolean) => {
+    const found = compareBar(result, dim, geos, names, percent, until)
+    if (found) bars.push({ type: 'bar', title, subtitle: found.year, categories: found.categories, series: found.series, unit, size: 'half', role: 'related', source: { code: dataset, url: linkFor(dataset, lang) }, ...(found.categories.length > 6 ? { horizontal: true } : {}) })
+  }
+  if (!perCapita) {
+    addBar(t.renewablesByUse, renewablesByUse, 'nrg_bal', 'nrg_ind_ren', '%', false)
+    addBar(t.dependencyByFuel, dependencyByFuel, 'siec', 'nrg_ind_id', '%', false)
+    addBar(t.sectorShare, sectors, 'nrg_bal', 'nrg_bal_c', '%', true)
+    addBar(t.productShare, products, 'siec', 'nrg_bal_c', '%', true)
+  }
+  const extraPies: WidgetSpec[] = []
+  const addPie = (title: string, result: EurostatResult | null, dim: string, dataset: string, unit: string) => {
+    const found = result ? latestSlices(result, geo, dim, until) : null
+    if (found) extraPies.push({ type: 'pie', title, subtitle: `${geoName} · ${found.year}`, slices: found.slices, unit, size: 'half', source: { code: dataset, url: linkFor(dataset, lang) } })
+  }
+  addPie(t.ghg, ghg ?? null, 'src_crf', 'env_air_gge', 'kt CO₂e')
+  addPie(t.households, households ?? null, 'nrg_bal', 'nrg_d_hhq', 'TJ')
+  addPie(t.transport, transport ?? null, 'siec', 'nrg_bal_c', 'ktoe')
+  addPie(t.industry, industry ?? null, 'siec', 'nrg_bal_c', 'ktoe')
+  addPie(t.available, available ?? null, 'siec', 'nrg_bal_c', 'ktoe')
+
+  widgets.push({ type: 'kpis', items: kpis }, ...trendCharts, ...bars, ...pies, ...extraPies)
 
   // Summary and insights: what stands out, from the numbers.
   const v = values

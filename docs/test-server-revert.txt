@@ -1,0 +1,76 @@
+ENgenuidash test deployment on the FreshBubbles server: what was added and how to revert it
+==========================================================================================
+Written 2026-09-29. Keep this file until the test deployment is removed.
+(The repository is public: no IP address or login details are written here.)
+
+WHAT IS DEPLOYED
+----------------
+URL:            https://freshbubbles.pt/test/
+Project folder: /opt/test-project        (git clone of this repository; owner root)
+Test build:     /opt/test-project/dist-test   (built with base path /test/)
+Models:         /opt/test-project/public/models   (3.4 GB, served by nginx from here)
+
+The production site (Docker container "washbubbles-frontend", port 8081) was NOT changed.
+nginx forwards every request to that container; only /test/ is answered by our static files.
+
+WHAT WAS CHANGED ON THE SERVER
+------------------------------
+1. nginx, ACTIVE file /etc/nginx/sites-enabled/freshbubbles.pt (a regular file, not a link
+   to sites-available). Three blocks were added before "location / { proxy_pass ... }":
+       location = /test          -> redirect to /test/
+       location /test/models/    -> alias /opt/test-project/public/models/
+       location /test/assets/    -> alias /opt/test-project/dist-test/assets/   (1 year cache)
+       location /test/           -> alias /opt/test-project/dist-test/          (no-cache)
+   (gzip is switched on inside those blocks only.)
+2. /opt/test-project (the folder above). Built with the node:22-slim Docker image that was
+   already on the server (temporary container, removes itself; nothing installed on the host).
+3. Backups made (all in /root/nginx-backups):
+       freshbubbles.pt.enabled.bak-20260929-102110   the ACTIVE nginx file BEFORE the change
+       freshbubbles.pt.bak-1790677234                copy of sites-available/freshbubbles.pt (identical to the older backup)
+       test-project.removed-<timestamp>              config of the old port-8888 test site (removed)
+   Not ours, do not delete:  freshbubbles.pt.bak-1790152526
+
+ALREADY REMOVED (earlier the same day)
+--------------------------------------
+- The temporary test site on port 8888 (nginx site "test-project", its self-signed certificate,
+  and the old /opt/test-project/dist). Nothing listens on 8888 any more.
+- The cloud-firewall rule for TCP 8888 can be deleted in the cloud console (it opens a closed port).
+
+HOW TO REVERT (in this order)
+-----------------------------
+1. Restore production's nginx file from the backup taken just before the change.
+   This removes the /test/ blocks. It tests the config before reloading:
+
+   cp /root/nginx-backups/freshbubbles.pt.enabled.bak-20260929-102110 /etc/nginx/sites-enabled/freshbubbles.pt && nginx -t && systemctl reload nginx
+
+   Caution: the backup is the whole file as of 2026-09-29 10:21. If anyone edited production's
+   nginx file after that, restoring would undo their edit too; then remove only the /test/
+   blocks by hand and run "nginx -t && systemctl reload nginx".
+
+2. Delete the project folder:
+
+   rm -rf /opt/test-project
+
+3. Optional, remove our backup files (small text files):
+
+   rm /root/nginx-backups/freshbubbles.pt.enabled.bak-20260929-102110 /root/nginx-backups/freshbubbles.pt.bak-1790677234 /root/nginx-backups/test-project.removed-*
+
+4. Check production is fine:
+
+   curl -s -o /dev/null -w "%{http_code}\n" https://freshbubbles.pt/api/health     (expect 200)
+   https://freshbubbles.pt/  loads as before; https://freshbubbles.pt/test/  now shows "not found".
+
+Only deleting the folder (step 2) is safe too: /test/ would just answer "not found" and the
+three nginx blocks would stay in the config doing nothing. Step 1 is tidy-up.
+
+WHAT IS NOT ON THE SERVER'S SIDE
+--------------------------------
+- Visitors' browsers may keep the language model and Eurostat answers in their own cache
+  (on their machines); nothing to do on the server.
+- The Docker image node:22-slim was already on the server before this test; leave it.
+
+REDEPLOY (for later tests, without touching nginx)
+--------------------------------------------------
+   cd /opt/test-project && git pull --ff-only
+   docker run --rm --pull=never -v /opt/test-project:/app -w /app node:22-slim npm run build -- --base=/test/ --outDir=dist-test --emptyOutDir
+   rm -rf /opt/test-project/dist-test/models      (models are served from public/models)

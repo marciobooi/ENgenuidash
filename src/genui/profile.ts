@@ -173,7 +173,9 @@ export async function buildProfileDashboard(
   const geo = String(plan.filters.geo ?? EU)
   const until = plan.focusPeriod
   const geos = geo === EU ? [EU] : [geo, EU]
-  const timeQuery = { lastTimePeriod: 30, ...(until ? { untilTimePeriod: until } : {}) }
+  // Eurostat refuses "the last N" together with an end: a year asked for is a window ending there.
+  const window = (n: number) => (until ? { sinceTimePeriod: String(Number(until) - n + 1), untilTimePeriod: until } : { lastTimePeriod: n })
+  const timeQuery = window(30)
   const ask = (dataset: string, filters: Record<string, string | string[]>, query: Record<string, unknown> = timeQuery) =>
     dict.datasets[dataset] ? fetchEurostatData(dataset, { filters: { geo: geos, ...filters }, lang, signal, ...query }).catch(() => null) : Promise.resolve(null)
 
@@ -183,9 +185,9 @@ export async function buildProfileDashboard(
   const population = perCapita ? await fetchEurostatData('demo_pjan', { filters: { geo: geos, age: 'TOTAL', sex: 'T', unit: 'NR' }, lang, signal, ...timeQuery }).catch(() => null) : null
   const [indicatorData, sectors, products, electricity] = await Promise.all([
     Promise.all(list.map((i) => ask(i.dataset, i.filters))),
-    ask('nrg_bal_c', { geo: [geo], siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
-    ask('nrg_bal_c', { geo: [geo], siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
-    ask('nrg_ind_peh', { geo: [geo], siec: ELECTRICITY, nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
+    ask('nrg_bal_c', { geo: [geo], siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, window(4)),
+    ask('nrg_bal_c', { geo: [geo], siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, window(4)),
+    ask('nrg_ind_peh', { geo: [geo], siec: ELECTRICITY, nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, window(4)),
   ])
   const geoName = (indicatorData.find(Boolean)?.dimensions.geo?.codes.find((c) => c.code === geo)?.label ?? geo).replace(/\s*\(.*?\)\s*$/, '')
   const nf = (d: number) => new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d })

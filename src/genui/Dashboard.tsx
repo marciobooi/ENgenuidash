@@ -13,6 +13,8 @@ import type { DashboardControls, DashboardSpec, Presentation, SectionKey, Sugges
 import './dashboard.css'
 
 export interface DashboardLabels {
+  /** Shown (and announced) while a toolbar change is being fetched and built. */
+  loading: string
   /** Label of the direct answer to a focused question. */
   answer: string
   keyIndicators: string
@@ -319,6 +321,12 @@ export function Dashboard({
       aria-labelledby="dash-title"
       aria-busy={busy}
     >
+      {busy && (
+        <div className="dash__loading" role="status">
+          <span className="dash__loading-bar" aria-hidden="true" />
+          <span className="dash__loading-text">{labels.loading}</span>
+        </div>
+      )}
       <header className="dash__head">
         <div className="dash__heading">
           <h2 className="dash__title" id="dash-title" tabIndex={-1}>

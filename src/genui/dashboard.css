@@ -798,3 +798,13 @@
   font-size: 0.875rem;
   color: var(--ecl-color-dark-80);
 }
+
+/* Loading: a bar and a message over the dashboard while a toolbar change is fetched and built. */
+.dash { position: relative; }
+.dash__loading { position: sticky; top: 0; z-index: 20; }
+.dash__loading-bar { display: block; height: 4px; overflow: hidden; background: var(--ecl-color-primary-20, #d6e4f5); position: relative; }
+.dash__loading-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 35%; background: var(--ecl-color-primary, #004494); animation: dash-loading 1.1s ease-in-out infinite; }
+.dash__loading-text { display: inline-block; margin: 0.25rem 0 0 0.5rem; padding: 0.15rem 0.6rem; font-size: 0.875rem; background: var(--ecl-color-white, #fff); border: 1px solid var(--ecl-color-primary-20, #d6e4f5); border-radius: 4px; }
+.dash[aria-busy='true'] > :not(.dash__loading) { opacity: 0.55; pointer-events: none; transition: opacity 0.15s; }
+@keyframes dash-loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .dash__loading-bar::after { animation: none; width: 100%; opacity: 0.6; } }

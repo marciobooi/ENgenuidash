@@ -69,7 +69,8 @@ export const PRESETS: Record<PresetId, Plan> = {
   byProduct: mix('nrg_bal_s', { nrg_bal: 'FC_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),
   bySector: mix('nrg_bal_s', { siec: 'TOTAL', nrg_bal: ['FC_IND_E', 'FC_OTH_AF_E', 'FC_OTH_CP_E', 'FC_OTH_FISH_E', 'FC_OTH_HH_E', 'FC_OTH_NSP_E', 'FC_TRA_E'], unit: 'KTOE' }),
   householdUses: mix('nrg_d_hhq', { siec: 'TOTAL', nrg_bal: ['FC_OTH_HH_E_SH', 'FC_OTH_HH_E_SC', 'FC_OTH_HH_E_WH', 'FC_OTH_HH_E_CK', 'FC_OTH_HH_E_LE', 'FC_OTH_HH_E_OE'], unit: 'TJ' }),
-  transport: mix('nrg_bal_c', { nrg_bal: 'FC_TRA_E', siec: [...TRANSPORT_FUELS, 'O4661XR5230B', 'O4680'], unit: 'KTOE' }),
+  // Eurostat's own table for this question (ten00126, built from the balance: the same 13 fuels).
+  transport: mix('ten00126', { nrg_bal: 'FC_TRA_E', siec: [...TRANSPORT_FUELS, 'O4661XR5230B', 'O4680'], unit: 'KTOE' }),
   road: mix('nrg_bal_c', { nrg_bal: 'FC_TRA_ROAD_E', siec: TRANSPORT_FUELS, unit: 'KTOE' }),
   services: mix('nrg_bal_s', { nrg_bal: 'FC_OTH_CP_E', siec: ['C0000X0350-0370', 'E7000', 'G3000', 'H8000', 'O4000XBIO', 'RA000', 'W6100_6220'], unit: 'KTOE' }),
   industry: mix('nrg_bal_s', { nrg_bal: 'FC_IND_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),

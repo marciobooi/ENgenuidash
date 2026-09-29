@@ -38,6 +38,13 @@ import { topicFromDictionary, ORIGIN, BREAKDOWN_DIMS, defaultCode } from './topi
  * language model. Rules are deterministic so the numbers shown are always the right ones.
  */
 
+// The main, non-overlapping sources of datasets with a product hierarchy (monthly net electricity
+// generation: coal, gas, oil, nuclear, hydro, wind, solar, renewable combustible fuels).
+const CURATED_MIX: Record<string, string[]> = {
+  nrg_cb_pem: ['C0000', 'G3000', 'O4000XBIO', 'N9000', 'RA100', 'RA300', 'RA400', 'CF_R'],
+}
+const BY_TYPE_OF = /\bby (the )?(type|types|kind|kinds|category|categories|form|forms) of (fuel|fuels|product|products|energy|energies|source|sources|carrier|carriers|commodity|commodities)\b/
+
 export type PlanResult =
   | { kind: 'plan'; plan: Plan }
   | { kind: 'clarify'; clarification: Clarification }
@@ -61,7 +68,8 @@ export function planQuestion(
   const geo = detectGeos(p, codelists)
   const top = detectTop(p)
   let allCountries = wantsAllCountries(p) || !!top
-  let mix = any(p, MIX_WORDS)
+  // "by type of fuel", "by kind of energy source"...: the detail is asked for, whatever the topic.
+  let mix = any(p, MIX_WORDS) || BY_TYPE_OF.test(p.text)
   const notes: NoteKey[] = []
 
   // Conceptual questions without a concrete place, period or data request go to the model.
@@ -130,7 +138,11 @@ export function planQuestion(
   // (Not for "imports from Russia": the partner datasets have the origin, monthly too.)
   const partnerAsked = !!partnerIn(question, topicIndex(dict, codelists))
   if (!dataset && time.monthly && !partnerAsked) {
-    if (monthlyKey) {
+    if (monthlyKey === 'electricity' && mix) {
+      // "monthly electricity generation by fuel": the net generation by source, not the supply total.
+      dataset = 'nrg_cb_pem'
+      seriesProducts = CURATED_MIX.nrg_cb_pem
+    } else if (monthlyKey) {
       const m = MONTHLY[monthlyKey]
       dataset = m.dataset
       const flow = flows.map((f) => m.flows[f.id]).find(Boolean) ?? m.defaultFlow
@@ -191,7 +203,12 @@ export function planQuestion(
       seriesProducts = !topic.filters.siec && own.length ? own : null
       // "… by fuel" on a dataset with a product breakdown: every product is a series.
       const siecs = codesOf('siec').filter((c) => c !== 'TOTAL')
-      if (mix && !topic.filters.siec && siecs.length > 1 && siecs.length <= 12) seriesProducts = siecs
+      // (A dataset whose products overlap - hydro contains its own types - has a curated set.)
+      const curatedMix = CURATED_MIX[dataset]?.filter((c) => siecs.includes(c))
+      if (mix && !topic.filters.siec) {
+        if (curatedMix && curatedMix.length > 1) seriesProducts = curatedMix
+        else if (siecs.length > 1 && siecs.length <= 16) seriesProducts = siecs
+      }
       partner = topic.partner
     } else if (topic?.siec && (!dataset || !seriesProducts || seriesProducts.join() === 'TOTAL')) {
       // The balance, with a product the rules do not know ("biodiesel", "peat").

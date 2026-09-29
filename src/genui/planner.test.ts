@@ -124,3 +124,32 @@ test('a topic word nothing knows gives no dashboard instead of a guessed one', (
   // Emissions from energy use are in the data now (env_air_gge, the energy sectors' combustion).
   assert.equal((planQuestion('greenhouse gas emissions from energy', dict, codelists) as { plan: { dataset: string } }).plan.dataset, 'env_air_gge')
 })
+
+test('"by type of fuel" (or product, energy source…) asks for the detail, whatever the topic', () => {
+  const cases = [
+    'Final energy consumption in transport by type of fuel',
+    'gross available energy by kind of energy source',
+    'Endenergieverbrauch im Verkehrssektor nach Kraftstoffart',
+    'Consommation finale d’énergie dans les transports par type de carburant',
+  ]
+  for (const q of cases) {
+    const r = planQuestion(q, dict, codelists)
+    assert.equal(r.kind, 'plan', q)
+    const p = (r as { kind: 'plan'; plan: Plan }).plan
+    assert.equal(p.intent, 'mix', q)
+    assert.ok([p.filters.siec].flat().length > 1, `${q}: ${JSON.stringify(p.filters.siec)}`)
+  }
+  // Wherever "by fuel" gives a breakdown, "by type of fuel" gives the same one.
+  const shape = (q: string) => {
+    const r = planQuestion(q, dict, codelists)
+    return r.kind === 'plan' ? JSON.stringify([r.plan.dataset, r.plan.filters, r.plan.intent]) : r.kind
+  }
+  const same = (x: string, y: string) => shape(x) === shape(y)
+  assert.ok(same('electricity generation by type of fuel in Germany', 'electricity generation by fuel in Germany'))
+  // Electricity generation by fuel is a breakdown, never just the total.
+  for (const q of ['electricity generation by type of fuel in Germany', 'net electricity generation by fuel monthly']) {
+    const r = planQuestion(q, dict, codelists)
+    assert.equal(r.kind, 'plan', q)
+    assert.ok([(r as { plan: Plan }).plan.filters.siec].flat().length > 3, `${q}: ${JSON.stringify((r as { plan: Plan }).plan.filters.siec)}`)
+  }
+})

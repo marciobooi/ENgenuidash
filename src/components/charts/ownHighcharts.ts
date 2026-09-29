@@ -13,16 +13,16 @@ let loading: Promise<HighchartsModule> | null = null
 export function loadOwnHighcharts(): Promise<HighchartsModule> {
   loading ??= (async () => {
     const H = (await import('highcharts')).default as HighchartsModule
-    // Modules register themselves on the Highcharts they are loaded next to (v12).
-    await Promise.all([
-      import('highcharts/highcharts-more'), // columnrange (dumbbell), bubble
-      import('highcharts/modules/accessibility'),
-      import('highcharts/modules/exporting'),
-      import('highcharts/modules/export-data'),
-      import('highcharts/modules/offline-exporting'),
-      import('highcharts/modules/heatmap'),
-      import('highcharts/modules/map'),
-    ])
+    // Modules register themselves on the Highcharts they are loaded next to (v12+), and some need
+    // another one first: export-data and offline-exporting extend the exporting module, and the
+    // map and heatmap modules the core; in order, not all at once.
+    await import('highcharts/highcharts-more') // columnrange (dumbbell), bubble
+    await import('highcharts/modules/exporting')
+    await import('highcharts/modules/export-data')
+    await import('highcharts/modules/offline-exporting')
+    await import('highcharts/modules/accessibility')
+    await import('highcharts/modules/heatmap')
+    await import('highcharts/modules/map')
     // The language helpers (chartLang.ts) read the global, as they do with Webtools' build.
     ;(window as unknown as { Highcharts?: unknown }).Highcharts = H
     console.info('[charts] Europa Webtools is not available on this domain: drawing with the bundled Highcharts.')

@@ -72,3 +72,25 @@ test('a dataset with its own product codes offers all of them, not the balances\
   // The balances keep their curated main products.
   assert.ok((byDim(plan('Oil consumption in Spain'), 'siec')?.options.length ?? 99) <= 13)
 })
+
+test('a dataset\'s own dimensions are filters (type of plant, pollutant, source sectors...), read from the dictionary', () => {
+  const pehcf = plan('Gross production of electricity and derived heat from combustible fuels by type of plant and operator')
+  assert.deepEqual(controls(pehcf).map((c) => c.dim), ['geo', 'siec', 'nrg_bal', 'plants', 'operator'])
+  assert.equal(byDim(pehcf, 'plants')?.options.length, 4)
+  const ghg = plan('Greenhouse gas emissions by source sector')
+  assert.deepEqual(controls(ghg).map((c) => c.dim), ['geo', 'airpol', 'src_crf'])
+  // The sectors are a short curated list (several can be chosen), not the 166 codes.
+  const sectors = byDim(ghg, 'src_crf')
+  assert.ok(sectors && sectors.multiple && sectors.options.length <= 16)
+})
+
+test('every starter topic gets a working toolbar: every filter offers a choice and includes the current one', async () => {
+  const { PRESETS } = await import('./presets')
+  for (const [id, p] of Object.entries(PRESETS)) {
+    for (const c of controls(p)) {
+      assert.ok(c.options.length >= 2, `${id}: ${c.dim} has ${c.options.length} options`)
+      const codes = c.options.map((o) => o.code)
+      assert.ok(c.selected.every((x) => codes.includes(x)), `${id}: ${c.dim} selection is not among its options`)
+    }
+  }
+})

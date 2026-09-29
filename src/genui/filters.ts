@@ -31,8 +31,15 @@ const MAIN_PRODUCTS = ['TOTAL', 'C0000X0350-0370', 'C0350-0370', 'P1000', 'S2000
 const MAIN_FLOWS = ['PPRD', 'IMP', 'EXP', 'GAE', 'GIC', 'NRGSUP', 'TI_E', 'TO', 'NRG_E', 'DL', 'AFC', 'STATDIFF', 'FC_NE', 'FC_E', 'FC_IND_E', 'FC_TRA_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_OTH_AF_E', 'GEP', 'GHP']
 // Countries offered: the EU, its member states and neighbours (not regions or historical aggregates).
 const EUROPE = /^(EU27_2020|EA20|[A-Z]{2})$/
-// Dimensions shown as filters when they have few codes (the others are fixed by the planner).
-const SMALL_DIMS = ['nrg_cons', 'tax', 'currency', 'stk_flow', 'plant_tec', 'operator', 'indic_nrg', 'customer', 'tra_mode', 'nrg_prc']
+// Every other dimension of a dataset (type of plant, operator, network, pollutant, tax, currency,
+// consumption band...) is a filter when it has few codes, read from the dictionary: a dimension
+// nobody listed here is not lost. These have controls of their own (or are fixed by the planner).
+const OWN_CONTROLS = ['freq', 'geo', 'partner', 'siec', 'nrg_bal', 'unit', 'time']
+// Dimensions with too many codes for a list, offered as a short curated one (several can be chosen):
+// the source sectors of greenhouse gas emissions (the codes overlap: the energy sector contains its parts).
+const CURATED_DIMS: Record<string, string[]> = {
+  src_crf: ['TOTXMEMO', 'TOTX4_MEMO', 'CRF1', 'CRF1A1', 'CRF1A2', 'CRF1A3', 'CRF1A4A', 'CRF1A4B', 'CRF1A4C', 'CRF1A5', 'CRF1B', 'CRF2', 'CRF3', 'CRF4', 'CRF5', 'CRF6'],
+}
 const MAX_OPTIONS = 12
 
 /**
@@ -97,10 +104,16 @@ export function filterControls(
   const flows = codesOf(ds, 'nrg_bal')
   control('nrg_bal', labels.nrg_bal, flows.length > 15 && MAIN_FLOWS.filter((c) => flows.includes(c)).length >= 5 ? MAIN_FLOWS : flows, false)
   // Other small dimensions (single choice), with the dictionary's name for them.
-  for (const dim of SMALL_DIMS) {
+  for (const { id: dim } of ds.dimensions) {
+    if (OWN_CONTROLS.includes(dim)) continue
+    const name = labels.other[dim] ?? pick(dict.dimensions[dim], lang, dim)
+    if (CURATED_DIMS[dim]) {
+      control(dim, name, CURATED_DIMS[dim].filter((c) => codesOf(ds, dim).includes(c)), true)
+      continue
+    }
     const codes = dim === 'nrg_cons' ? (priceBands(plan.dataset) ?? codesOf(ds, dim).filter(isCurrentBand)) : codesOf(ds, dim)
     if (codes.length < 2 || codes.length > MAX_OPTIONS) continue
-    control(dim, labels.other[dim] ?? pick(dict.dimensions[dim], lang, dim), codes, false)
+    control(dim, name, codes, false)
   }
   return out
 }

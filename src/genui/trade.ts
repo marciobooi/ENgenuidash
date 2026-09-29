@@ -1,4 +1,4 @@
-import { codeLabel, fetchEurostatData, loadEnergyCodelists, type EnergyCodelists, type EnergyDictionary } from '../data/eurostat'
+import { codeLabel, fetchEurostatData, loadEnergyCodelists, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
 import { EU27 } from './concepts'
 import { planQuestion } from './planner'
@@ -363,43 +363,40 @@ async function buildBetweenDashboard(
   s: { trade: TradeStrings; sugExplain: string },
   signal?: AbortSignal,
 ): Promise<DashboardSpec> {
-  try {
-    return await buildBetween(plan, a, b, dict, lang, s, signal)
-  } catch (error) {
-    if (!(error instanceof NoDataError) || !plan.trade?.auto) throw error
-    // The fuel was not named and these two do not trade it: the first fuel they do trade.
-    for (const fuel of ['electricity', 'oil', 'gas', 'solid', 'bio'] as TradeFuel[]) {
-      if (fuel === plan.trade.fuel) continue
-      const next: Plan = { ...plan, dataset: DATASETS[fuel].imp, filters: { ...plan.filters, siec: DATASETS[fuel].siec, unit: DEFAULT_UNIT[fuel] }, trade: { flow: 'imp', fuel } }
+  // A fuel named: that fuel. Otherwise every fuel the two trade, for the latest year with trade
+  // (or the year asked for), the one they depend on each other for most in detail.
+  if (!plan.trade?.auto) return buildBetween(plan, a, b, dict, lang, s, signal)
+  const fuels = ['electricity', 'gas', 'oil', 'solid', 'bio'] as TradeFuel[]
+  const loaded = await Promise.all(
+    fuels.map(async (fuel) => {
       try {
-        return await buildBetween(next, a, b, dict, lang, s, signal, plan.trade.fuel)
-      } catch (e) {
-        if (!(e instanceof NoDataError)) throw e
+        const result = await fetchEurostatData(DATASETS[fuel].imp, { filters: { geo: [a, b], siec: DATASETS[fuel].siec, unit: DEFAULT_UNIT[fuel] }, lang, signal })
+        return { fuel, ...readBetween(result, a, b) }
+      } catch {
+        return null
       }
-    }
-    throw error
-  }
+    }),
+  )
+  const found = loaded.filter((x): x is NonNullable<typeof x> => !!x && x.years.length > 0)
+  const allYears = [...new Set(found.flatMap((x) => x.years))].sort()
+  if (!allYears.length) throw new NoDataError(DATASETS[plan.trade.fuel].imp)
+  const year = plan.focusPeriod && allYears.includes(plan.focusPeriod) ? plan.focusPeriod : allYears.at(-1)!
+  const rows = found
+    .map((x) => {
+      const totalA = x.partnersOf(a, year).reduce((sum, p) => sum + p.value, 0)
+      const totalB = x.partnersOf(b, year).reduce((sum, p) => sum + p.value, 0)
+      const ab = x.flowOf(a, b, year)
+      const ba = x.flowOf(b, a, year)
+      return { fuel: x.fuel, ab, ba, shareAB: totalA > 0 ? (100 * ab) / totalA : 0, shareBA: totalB > 0 ? (100 * ba) / totalB : 0, label: x.label }
+    })
+    .filter((r) => r.ab > 0 || r.ba > 0)
+  const main = rows.reduce((best, r) => (r.shareAB + r.shareBA > best.shareAB + best.shareBA ? r : best), rows[0])
+  const next: Plan = { ...plan, dataset: DATASETS[main.fuel].imp, filters: { ...plan.filters, siec: DATASETS[main.fuel].siec, unit: DEFAULT_UNIT[main.fuel] }, focusPeriod: year, trade: { flow: 'imp', fuel: main.fuel } }
+  return buildBetween(next, a, b, dict, lang, s, signal, { rows, asked: plan.focusPeriod })
 }
 
-async function buildBetween(
-  plan: Plan,
-  a: string,
-  b: string,
-  dict: EnergyDictionary,
-  lang: string,
-  s: { trade: TradeStrings; sugExplain: string },
-  signal?: AbortSignal,
-  /** The fuel first tried, when these two do not trade it and this one is shown instead. */
-  missing?: TradeFuel,
-): Promise<DashboardSpec> {
-  const t = s.trade
-  const w = t.between
-  const trade = plan.trade!
-  const dataset = DATASETS[trade.fuel].imp
-  const unit = String(plan.filters.unit ?? DEFAULT_UNIT[trade.fuel])
-  const siec = String(plan.filters.siec ?? DATASETS[trade.fuel].siec)
-  const result = await fetchEurostatData(dataset, { filters: { geo: [a, b], siec, unit }, lang, signal })
-
+/** What a trade dataset says about two countries: each one's imports from every partner. */
+function readBetween(result: EurostatResult, a: string, b: string) {
   // reporter → partner → year → value
   const byGeo = new Map<string, Map<string, Map<string, number | null>>>()
   for (const o of result.observations) {
@@ -410,8 +407,37 @@ async function buildBetween(
     byGeo.set(o.keys.geo, partners)
   }
   const flowOf = (from: string, to: string, y: string) => byGeo.get(from)?.get(to)?.get(y) ?? 0
-  const years = (result.dimensions.time?.codes ?? []).map((c) => c.code).sort()
-  const withData = years.filter((y) => flowOf(a, b, y) > 0 || flowOf(b, a, y) > 0)
+  const partnersOf = (geo: string, y: string) =>
+    [...(byGeo.get(geo)?.entries() ?? [])]
+      .filter(([code]) => isCountry(code) && code !== geo)
+      .map(([code, byYear]) => ({ code, value: byYear.get(y) ?? 0 }))
+      .filter((x) => x.value > 0)
+      .sort((x, y2) => y2.value - x.value)
+  const years = (result.dimensions.time?.codes ?? []).map((c) => c.code).sort().filter((y) => flowOf(a, b, y) > 0 || flowOf(b, a, y) > 0)
+  const label = result.dimensions.siec?.codes[0]?.label ?? ''
+  return { flowOf, partnersOf, years, label }
+}
+
+async function buildBetween(
+  plan: Plan,
+  a: string,
+  b: string,
+  dict: EnergyDictionary,
+  lang: string,
+  s: { trade: TradeStrings; sugExplain: string },
+  signal?: AbortSignal,
+  /** No fuel named: every fuel they trade (in the year), and the year asked for. */
+  overview?: { rows: { fuel: TradeFuel; ab: number; ba: number; shareAB: number; shareBA: number; label: string }[]; asked?: string },
+): Promise<DashboardSpec> {
+  const t = s.trade
+  const w = t.between
+  const trade = plan.trade!
+  const dataset = DATASETS[trade.fuel].imp
+  const unit = String(plan.filters.unit ?? DEFAULT_UNIT[trade.fuel])
+  const siec = String(plan.filters.siec ?? DATASETS[trade.fuel].siec)
+  const result = await fetchEurostatData(dataset, { filters: { geo: [a, b], siec, unit }, lang, signal })
+
+  const { flowOf, partnersOf, years: withData } = readBetween(result, a, b)
   if (!withData.length) throw new NoDataError(dataset)
   const year = plan.focusPeriod && withData.includes(plan.focusPeriod) ? plan.focusPeriod : withData.at(-1)!
   const label = (dim: string, code: string) => result.dimensions[dim]?.codes.find((c) => c.code === code)?.label ?? code
@@ -431,14 +457,9 @@ async function buildBetween(
   const pct = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
   const fmtPct = (v: number) => `${pct.format(v)}${lang === 'en' ? '%' : ' %'}`
   const fmt = (v: number) => `${nf.format(v)} ${symbol}`
+  const nf2 = (v: number) => new Intl.NumberFormat(lang, { maximumFractionDigits: v >= 1000 ? 0 : v >= 10 ? 1 : 2 }).format(v)
 
   // Each country's imports from every partner, for the year: totals, ranks and top sources.
-  const partnersOf = (geo: string, y: string) =>
-    [...(byGeo.get(geo)?.entries() ?? [])]
-      .filter(([code]) => isCountry(code) && code !== geo)
-      .map(([code, byYear]) => ({ code, value: byYear.get(y) ?? 0 }))
-      .filter((x) => x.value > 0)
-      .sort((x, y2) => y2.value - x.value)
   const nowA = partnersOf(a, year)
   const nowB = partnersOf(b, year)
   const totalA = nowA.reduce((sum, x) => sum + x.value, 0)
@@ -456,6 +477,25 @@ async function buildBetween(
   ]
 
   const widgets: WidgetSpec[] = [{ type: 'kpis', items: kpis }]
+  // No fuel named: how much each depends on the other for every fuel they trade. Shares of each
+  // one's own imports, so fuels with different units (TJ, thousand t, GWh) compare.
+  if (overview && overview.rows.length > 1) {
+    widgets.push({
+      type: 'bar',
+      title: w.byFuel,
+      subtitle: `${nameA} ↔ ${nameB}, ${year}`,
+      categories: overview.rows.map((r) => t.fuels[r.fuel]),
+      series: [
+        { name: fill(w.inShare, { a: nameA, b: nameB }), data: overview.rows.map((r) => r.shareAB) },
+        { name: fill(w.inShare, { a: nameB, b: nameA }), data: overview.rows.map((r) => r.shareBA) },
+      ],
+      horizontal: true,
+      unit: '%',
+      decimals: 1,
+      size: 'full',
+      role: 'composition',
+    })
+  }
   widgets.push({
     type: 'bar',
     title: fill(w.overTime, { a: nameA, b: nameB }),
@@ -511,6 +551,10 @@ async function buildBetween(
     const n = now.findIndex((x) => x.code === otherCode) + 1
     if (n > 0) insights.push({ tone: 'neutral', parts: [fill(w.rank, { b: other, a: geoName, n: String(n), product: productLower, share: fmtPct(share(now[n - 1].value, total)) })] })
   }
+  if (overview && overview.rows.length > 1) {
+    const list = overview.rows.map((r) => `${t.fuels[r.fuel]} (${nameA} ← ${nameB} ${nf2(r.ab)} ${UNIT_SYMBOL[DEFAULT_UNIT[r.fuel]] ?? ''}, ${nameB} ← ${nameA} ${nf2(r.ba)} ${UNIT_SYMBOL[DEFAULT_UNIT[r.fuel]] ?? ''})`).join('; ')
+    insights.unshift({ tone: 'neutral', parts: [fill(w.fuelsList, { year, list })] })
+  }
   const peakYear = withData.reduce((best, y) => (peakOf(y) > peakOf(best) ? y : best), withData[0])
   if (withData.length > 2) insights.push({ tone: 'record', parts: [fill(w.peak, { peakYear, peak: fmt(peakOf(peakYear)) })] })
 
@@ -520,7 +564,7 @@ async function buildBetween(
     subtitle: `${productLower} · ${symbol}`,
     summary,
     insights,
-    notes: missing ? [fill(w.fallbackFuel, { fuel: t.fuels[missing].toLowerCase(), other: fuel.toLowerCase(), a: nameA, b: nameB })] : [],
+    notes: (overview?.asked ?? plan.focusPeriod) && (overview?.asked ?? plan.focusPeriod) !== year ? [fill(w.yearFallback, { asked: String(overview?.asked ?? plan.focusPeriod), year, a: nameA, b: nameB })] : [],
     widgets,
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
     presentation: { template: 'trade', kpiStyle: 'cards', controls: ['geo', 'year', 'fuel', 'product', 'unit'], primaryControls: 4, accent: 'teal' },

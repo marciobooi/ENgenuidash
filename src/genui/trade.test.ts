@@ -95,3 +95,12 @@ test('trade between two countries opens a bilateral dashboard, even from a balan
   assert.equal(([] as string[]).concat(planOf(route('between spain and germany', one))!.filters.geo!).length, 2)
   assert.equal(planOf(route('and France?', one))!.filters.geo, 'FR')
 })
+
+test('trade between two countries: all fuels when none is named, that fuel when one is', () => {
+  const planOf = (r: Route) => (r.kind === 'plan' || r.kind === 'refine' ? r.plan : null)
+  assert.equal(planOf(route('show energy trade between spain and germany'))?.trade?.auto, true)
+  assert.equal(planOf(route('show energy trade between spain and germany'))?.focusPeriod, undefined)
+  const oil = planOf(route('oil trade between spain and germany'))!
+  assert.equal(oil.trade?.auto, undefined)
+  assert.equal(oil.trade?.fuel, 'oil')
+})

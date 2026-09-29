@@ -10,9 +10,12 @@ import { BalanceSheet, type BalanceSheetLabels } from './BalanceSheet'
 import { AnswerCard } from './AnswerCard'
 import { BreakdownCard } from './BreakdownCard'
 import type { DashboardControls, DashboardSpec, Presentation, SectionKey, Suggestion, WidgetSpec } from './types'
+import { SankeyWidget, type SankeyLabels } from './sankey/SankeyWidget'
 import './dashboard.css'
 
 export interface DashboardLabels {
+  /** The energy flow diagram's texts. */
+  sankey: SankeyLabels
   /** Shown (and announced) while a toolbar change is being fetched and built. */
   loading: string
   /** Label of the direct answer to a focused question. */
@@ -158,6 +161,8 @@ export function Dashboard({
         return <SeasonalChart {...common} months={w.months} latest={w.latest} previous={w.previous} average={w.average} range={w.range} />
       case 'progress':
         return <ProgressChart {...common} categories={w.categories} values={w.values} targets={w.targets} max={w.max} />
+      case 'sankey':
+        return <SankeyWidget widget={w} labels={labels.sankey} renderChart={renderChart} />
       case 'gauge':
         return <GaugeChart {...common} value={w.value} label={w.label} max={w.max} targets={w.targets} goal={w.goal} />
       case 'bubble':

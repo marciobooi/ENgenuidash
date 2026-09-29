@@ -57,6 +57,8 @@ export interface Plan {
    */
   prices?: { product: PriceProduct; consumer: PriceConsumer; view?: 'taxes' }
   /** The energy profile of one country (ENDASH's indicators side by side), in totals or per capita (see profile.ts). */
+  /** The energy flow diagram (sankey/): the fuel family shown, and whether flows are split by fuel. */
+  sankey?: { fuel?: string; byFuel?: true }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 
@@ -134,6 +136,24 @@ export interface Presentation {
 
 export type WidgetSpec = (
   | { type: 'kpis'; items: KpiSpec[] }
+  | {
+      /** The energy flow diagram (see sankey/): the balance behind it, by line and product, for every year. */
+      type: 'sankey'
+      title: string
+      subtitle?: string
+      geo: string
+      geoName: string
+      unit: string
+      lang: string
+      years: string[]
+      year: string
+      /** The family of products shown ("TOTAL"), and whether its flows are split by its parts. */
+      fuel: string
+      byFuel: boolean
+      table: Record<string, (number | null)[]>
+      disaggregation?: Partial<{ production: boolean; allSources: boolean; transformation: boolean; afterTransformation: boolean; finalConsumption: boolean }>
+      size?: WidgetSize
+    }
   | {
       /** The direct answer to the question, from the numbers ("Malta: 97.6% in 2023"). */
       type: 'answer'

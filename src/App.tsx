@@ -285,6 +285,7 @@ export default function App() {
             busy={busy}
             labels={{
               loading: t.buildingDashboard,
+              sankey: t.sankey,
               answer: t.dAnswer.title,
               moreFilters: t.moreFilters,
               fewerFilters: t.fewerFilters,

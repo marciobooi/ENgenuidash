@@ -62,6 +62,8 @@ export function widgetProblem(w: WidgetSpec): string | null {
       return text(w.latest?.name) && values(w.latest.data, 12) && values(w.range?.min, 12) && values(w.range?.max, 12) && (!w.previous || values(w.previous.data, 12)) && (!w.average || values(w.average.data, 12))
         ? null
         : 'seasonal: values do not match the months'
+    case 'sankey':
+      return Array.isArray(w.years) && w.years.length > 0 && text(w.year) && text(w.fuel) && !!w.table && Object.values(w.table).every((r) => values(r, w.years.length)) ? null : 'sankey: table does not match the years'
     case 'progress':
       if (!texts(w.categories) || !w.categories.length) return 'progress: categories'
       return values(w.values, w.categories.length) && Array.isArray(w.targets) && w.targets.length > 0 && w.targets.every((t) => num(t.value) && typeof t.label === 'string')

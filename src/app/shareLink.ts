@@ -4,6 +4,7 @@ import { FUEL_GROUPS } from '../genui/balance'
 import { COMPUTED_GEOS } from '../genui/monthly'
 import { priceDatasetOf } from '../genui/prices'
 import { tradeOf } from '../genui/trade'
+import { FUEL_FAMILIES } from '../genui/sankey/model'
 
 /**
  * Shareable dashboards: the URL carries the question (readable) and the plan (exact, including
@@ -31,8 +32,8 @@ function fromBase64Url(raw: string): string {
 
 /** The plan in its shareable form: what is needed to rebuild the dashboard, nothing else. */
 export function encodePlan(plan: Plan): string {
-  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices, profile } = plan
-  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices, profile }))
+  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices, profile, sankey } = plan
+  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices, profile, sankey }))
 }
 
 /** The plan from a link, or null when it is not a valid plan for our datasets. */
@@ -77,7 +78,9 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
     const time0 = p.time as TimeRange | undefined
     if (time0) return { dataset: ds.code, filters, time: time0, intent: 'snapshot', profile: { ...(pf.perCapita === true ? { perCapita: true as const } : {}), ...(pf.focus === 'households' || pf.focus === 'industry' ? { focus: pf.focus } : {}), ...(typeof pf.compare === 'string' && /^[A-Z]{2}$/.test(pf.compare) ? { compare: pf.compare } : {}) }, ...(typeof p.focusPeriod === 'string' && PERIOD.test(p.focusPeriod) ? { focusPeriod: p.focusPeriod } : {}) }
   }
-  if (!isSheet && !isTrade && !isPrices && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
+  const sankeyIn = p.sankey as { fuel?: unknown; byFuel?: unknown } | undefined
+  const isSankey = ds.code === 'nrg_bal_c' && !!sankeyIn && typeof sankeyIn === 'object'
+  if (!isSheet && !isTrade && !isSankey && !isPrices && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
 
   const time = p.time as TimeRange | undefined
   const timeOk =
@@ -98,6 +101,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   // An energy balance sheet (without it, the link would ask for every line × every fuel).
   if (isSheet) plan.balance = { fuels: balance.fuels }
   if (isTrade) plan.trade = traded
+  if (isSankey) plan.sankey = { ...(typeof sankeyIn!.fuel === 'string' && FUEL_FAMILIES.includes(sankeyIn!.fuel) ? { fuel: sankeyIn!.fuel } : {}), ...(sankeyIn!.byFuel === true ? { byFuel: true as const } : {}) }
   if (isPrices) plan.prices = { product: pricesIn.product, consumer: pricesIn.consumer, ...(pricesIn.view === 'taxes' ? { view: 'taxes' as const } : {}) }
   const focus = p.focus as Plan['focus']
   if (focus?.kind === 'change') plan.focus = { kind: 'change' }

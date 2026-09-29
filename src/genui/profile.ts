@@ -160,6 +160,7 @@ const GHG_SECTORS = ['CRF1A1', 'CRF1A2', 'CRF1A3', 'CRF1A4A', 'CRF1A4B', 'CRF1A4
 const HOUSEHOLD_USES = ['FC_OTH_HH_E_SH', 'FC_OTH_HH_E_SC', 'FC_OTH_HH_E_WH', 'FC_OTH_HH_E_CK', 'FC_OTH_HH_E_LE', 'FC_OTH_HH_E_OE']
 const RENEWABLE_USES = ['REN', 'REN_ELC', 'REN_HEAT_CL', 'REN_TRA']
 const DEPENDENCY_FUELS = ['TOTAL', 'G3000', 'O4000XBIO', 'O4100_TOT', 'O4200']
+const INDUSTRY_BRANCHES = ['FC_IND_IS_E', 'FC_IND_CPC_E', 'FC_IND_NFM_E', 'FC_IND_NMM_E', 'FC_IND_TE_E', 'FC_IND_MAC_E', 'FC_IND_MQ_E', 'FC_IND_FBT_E', 'FC_IND_PPP_E', 'FC_IND_WP_E', 'FC_IND_CON_E', 'FC_IND_TL_E', 'FC_IND_NSP_E']
 const ELECTRICITY = ['CF', 'RA100', 'RA130', 'RA200', 'RA300', 'RA400', 'RA500', 'N9000', 'X9900', 'X9900H']
 
 const linkFor = (dataset: string, lang: string) => `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=${lang}`
@@ -291,7 +292,7 @@ export async function buildProfileDashboard(
   const population = perCapita || focus ? await fetchEurostatData('demo_pjan', { filters: { geo: geos, age: 'TOTAL', sex: 'T', unit: 'NR' }, lang, signal, ...timeQuery }).catch(() => null) : null
   const [indicatorData, sectors, products, electricity] = await Promise.all([
     Promise.all(list.map((i) => ask(i.dataset, i.filters, i.semester ? halfYears : timeQuery))),
-    focus ? null : ask('nrg_bal_c', { siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, window(4)),
+    ask('nrg_bal_c', { siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, window(4)),
     focus ? null : ask('nrg_bal_c', { siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, window(4)),
     focus ? null : ask('nrg_ind_peh', { geo: [geo], siec: ELECTRICITY, nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, window(20)),
   ])
@@ -308,12 +309,14 @@ export async function buildProfileDashboard(
         ask('nrg_bal_c', { geo: [geo], siec: PRODUCTS, nrg_bal: 'GAE', unit: 'KTOE' }, window(4)),
       ])
   // One kind of consumer: what it uses, by purpose (households) and by fuel, against the EU.
-  const [uses, fuels] = focus
+  const [uses, fuels, branches, sectorEmissions] = focus
     ? await Promise.all([
         focus === 'households' ? ask('nrg_d_hhq', { geo: [geo], siec: 'TOTAL', nrg_bal: HOUSEHOLD_USES, unit: 'TJ' }, window(4)) : Promise.resolve(null),
-        ask('nrg_bal_c', { siec: focus === 'households' ? PRODUCTS : INDUSTRY_FUELS, nrg_bal: focus === 'households' ? 'FC_OTH_HH_E' : 'FC_IND_E', unit: 'KTOE' }, window(4)),
+        ask('nrg_bal_c', { siec: focus === 'households' ? PRODUCTS : INDUSTRY_FUELS, nrg_bal: focus === 'households' ? 'FC_OTH_HH_E' : 'FC_IND_E', unit: 'KTOE' }, window(20)),
+        focus === 'industry' ? ask('nrg_bal_c', { geo: [geo], siec: 'TOTAL', nrg_bal: INDUSTRY_BRANCHES, unit: 'KTOE' }, window(4)) : Promise.resolve(null),
+        ask('env_air_gge', { src_crf: focus === 'industry' ? 'CRF1A2' : 'CRF1A4B', airpol: 'GHG', unit: 'THS_T' }, window(30)),
       ])
-    : [null, null]
+    : [null, null, null, null]
   const [renewablesByUse, dependencyByFuel, ghg, households, transport, industry, available] = more
   // Distance to the 2030 energy efficiency targets (Eurostat carries them as *_DT2030 next to each measure).
   const efficiency = perCapita || focus ? null : await ask('nrg_ind_eff', { nrg_bal: ['FEC_EED', 'PEC_EED', 'FEC_DT2030', 'PEC_DT2030'], unit: 'MTOE' }, timeQuery)
@@ -424,6 +427,7 @@ export async function buildProfileDashboard(
   }
   if (focus) {
     addBar(focus === 'households' ? t.householdFuelShare : t.industryFuelShare, fuels, 'siec', 'nrg_bal_c', '%', true)
+    addBar(t.sectorShare, sectors, 'nrg_bal', 'nrg_bal_c', '%', true)
   }
   if (!perCapita && !focus) {
     addBar(t.renewablesByUse, renewablesByUse, 'nrg_bal', 'nrg_ind_ren', '%', false)
@@ -436,6 +440,7 @@ export async function buildProfileDashboard(
     const found = result ? latestSlices(result, geo, dim, until) : null
     if (found) extraPies.push({ type: 'pie', title, subtitle: `${geoName} · ${found.year}`, slices: found.slices, unit, size: 'half', source: { code: dataset, url: linkFor(dataset, lang) } })
   }
+  if (focus === 'industry') addPie(t.industryBranches, branches, 'nrg_bal', 'nrg_bal_c', 'ktoe')
   if (focus === 'households') addPie(t.households, uses, 'nrg_bal', 'nrg_d_hhq', 'TJ')
   if (focus) addPie(focus === 'households' ? t.householdFuels : t.industry, fuels, 'siec', 'nrg_bal_c', 'ktoe')
   addPie(t.ghg, ghg ?? null, 'src_crf', 'env_air_gge', 'kt CO₂e')
@@ -511,6 +516,45 @@ export async function buildProfileDashboard(
         size: 'full',
         role: 'composition',
         source: { code: 'nrg_ind_peh', url: linkFor('nrg_ind_peh', lang) },
+      })
+    }
+  }
+
+  // One kind of consumer over time: what it burns (by fuel), and its emissions against the reference (index, first common year = 100).
+  if (focus && fuels) {
+    const years = [...new Set(fuels.observations.filter((o) => o.keys.geo === geo && o.value != null).map((o) => o.keys.time))].sort()
+    const codes = (focus === 'households' ? PRODUCTS : INDUSTRY_FUELS).filter((c) => fuels.observations.some((o) => o.keys.geo === geo && o.keys.siec === c && o.value != null && o.value > 0))
+    if (years.length > 2 && codes.length > 1) {
+      generation.push({
+        type: 'area',
+        title: focus === 'households' ? t.householdFuelsOverTime : t.industryFuelsOverTime,
+        subtitle: `${years[0]}–${years.at(-1)} · ktoe`,
+        categories: years,
+        series: codes.map((c) => ({ name: labelOf(fuels, 'siec', c), data: years.map((y) => fuels.observations.find((o) => o.keys.geo === geo && o.keys.siec === c && o.keys.time === y)?.value ?? null) })),
+        stacked: true,
+        unit: 'ktoe',
+        size: 'full',
+        role: 'composition',
+        source: { code: 'nrg_bal_c', url: linkFor('nrg_bal_c', lang) },
+      })
+    }
+  }
+  if (focus && sectorEmissions) {
+    const own = seriesOf(sectorEmissions, geo)
+    const other = seriesOf(sectorEmissions, ref)
+    const years = [...own.keys()].filter((y) => own.has(y) && (geo === ref || other.has(y))).sort()
+    if (years.length > 3) {
+      const index = (m: Map<string, number>) => years.map((y) => Math.round(((m.get(y) ?? NaN) / m.get(years[0])!) * 1000) / 10)
+      trendCharts.push({
+        type: 'line',
+        title: fill(focus === 'households' ? t.householdEmissions : t.industryEmissions, { year: years[0] }),
+        subtitle: `${years[0]}–${years.at(-1)}`,
+        categories: years,
+        series: [{ name: geoName, data: index(own) }, ...(geo !== ref ? [{ name: refName, data: index(other) }] : [])],
+        unit: '',
+        size: 'half',
+        role: 'evolution',
+        source: { code: 'env_air_gge', url: linkFor('env_air_gge', lang) },
       })
     }
   }

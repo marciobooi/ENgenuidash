@@ -158,6 +158,8 @@ export type WidgetSpec = (
       highlight?: string
       /** Overrides the dashboard unit (e.g. "%" for share-over-time charts). */
       unit?: string
+      /** A chart from another dataset than the dashboard's (see profile.ts). */
+      source?: WidgetSource
     }
   | {
       type: 'bar'

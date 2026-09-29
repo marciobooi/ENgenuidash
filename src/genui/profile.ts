@@ -234,6 +234,7 @@ export async function buildProfileDashboard(
         unit: ind.unit,
         size: 'half',
         role: 'evolution',
+        source: { code: ind.dataset, url: linkFor(ind.dataset, lang) },
       })
     }
   })
@@ -287,7 +288,7 @@ export async function buildProfileDashboard(
     widgets,
     layout: ['summary', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
     presentation: { template: 'profile', kpiStyle: 'cards', controls: ['geo', 'year', 'view'], primaryControls: 3, accent: 'teal' },
-    source: { code: 'ENDASH', title: t.sourceTitle, url: linkFor(DATASET, lang) },
+    source: { code: DATASET, title: t.sourceTitle, url: linkFor(DATASET, lang) },
     suggestions: sugPlans,
     controls: profileControls(plan, dict, until ?? latestYear, t),
     context: [title, ...summary, ...kpis.map((k) => `${k.label}: ${nf(k.decimals ?? 1).format(k.value)} ${k.unit ?? ''} (${k.caption ?? ''})`)].join('\n'),

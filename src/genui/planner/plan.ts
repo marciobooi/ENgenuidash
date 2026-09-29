@@ -148,15 +148,22 @@ export function planQuestion(
   // (Not for "imports from Russia": the partner datasets have the origin, monthly too.)
   const partnerAsked = !!partnerIn(question, topicIndex(dict, codelists))
   if (!dataset && time.monthly && !partnerAsked) {
-    if (monthlyKey === 'electricity' && mix) {
-      // "monthly electricity generation by fuel": the net generation by source, not the supply total.
+    const generation = wantsProduction || any(p, ['generation', 'generated', 'generate', 'erzeugung', 'erzeugt', 'production d electricite']) || productIds.some((id) => ['renewables', 'solar', 'wind', 'hydro', 'nuclear'].includes(id))
+    if (monthlyKey === 'electricity' && (mix || generation)) {
+      // "monthly electricity generation (by fuel)": the net generation by source, not the supply total.
       dataset = 'nrg_cb_pem'
-      seriesProducts = CURATED_MIX.nrg_cb_pem
+      seriesProducts = mix ? CURATED_MIX.nrg_cb_pem : ['TOTAL']
+    } else if (any(p, ['stock', 'stocks', 'vorrat', 'vorrate', 'stockage']) && ['oil', 'crude'].includes(monthlyKey ?? '')) {
+      // "monthly oil stocks": the stock levels, not the oil balance.
+      dataset = 'nrg_stk_oilm'
+      filters.stk_flow = 'STKCL_NAT'
+      filters.siec = 'O4000'
     } else if (monthlyKey) {
       const m = MONTHLY[monthlyKey]
       dataset = m.dataset
       const flow = flows.map((f) => m.flows[f.id]).find(Boolean) ?? m.defaultFlow
       filters.nrg_bal = flow
+      if (monthlyKey === 'coal') filters.siec = 'C0100' // hard coal
       if (monthlyKey === 'oil') filters.siec = 'O4600' // oil products
       if (monthlyKey === 'crude') filters.siec = 'O4100_TOT'
     } else {

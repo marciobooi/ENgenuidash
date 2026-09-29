@@ -95,6 +95,11 @@ export const MONTHLY: Record<string, { dataset: string; flows: Record<string, st
     flows: { consumption: 'IC_OBS', imports: 'IMP', exports: 'EXP', production: 'IPRD', industry: 'FC_IND' },
     defaultFlow: 'IC_OBS',
   },
+  coal: {
+    dataset: 'nrg_cb_sffm',
+    flows: { consumption: 'GID_OBS', imports: 'IMP', exports: 'EXP', production: 'IPRD' },
+    defaultFlow: 'IPRD',
+  },
   electricity: {
     dataset: 'nrg_cb_em',
     flows: { consumption: 'AIM', imports: 'IMP', exports: 'EXP' },

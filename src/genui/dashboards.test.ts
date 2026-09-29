@@ -109,11 +109,12 @@ test('parts of a whole (capacity by technology): the composition view and share 
   assert.ok(d.insights.some((i) => i.parts.some((p) => typeof p === 'string' && /share/.test(p))))
 })
 
-test('monthly data: change on a year earlier and month by month, by year', async () => {
+test('monthly data: change on a year earlier and the year against earlier years, month by month', async () => {
+  // (the monthly dashboard is monthly.ts: see monthly.test.ts)
   const d = await dash('monthly gas imports of Germany')
-  assert.ok(titled(d, 'Change from a year earlier'))
-  const seasons = titled(d, 'Month by month') as Extract<WidgetSpec, { type: 'line' | 'area' }>
-  assert.equal(seasons.categories.length, 12)
+  assert.ok(titled(d, 'Change on the same month a year earlier'))
+  const seasons = titled(d, 'This year against earlier years') as Extract<WidgetSpec, { type: 'seasonal' }>
+  assert.equal(seasons.months.length, 12)
   assert.ok(!d.insights.some((i) => i.parts.some((p) => typeof p === 'string' && /in a row/.test(p))))
 })
 

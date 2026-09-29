@@ -57,6 +57,11 @@ export function widgetProblem(w: WidgetSpec): string | null {
       return text(w.from?.name) && text(w.to?.name) && values(w.from.data, w.categories.length) && values(w.to.data, w.categories.length)
         ? null
         : 'dumbbell: values do not match the categories'
+    case 'seasonal':
+      if (!texts(w.months) || w.months.length !== 12) return 'seasonal: months'
+      return text(w.latest?.name) && values(w.latest.data, 12) && values(w.range?.min, 12) && values(w.range?.max, 12) && (!w.previous || values(w.previous.data, 12)) && (!w.average || values(w.average.data, 12))
+        ? null
+        : 'seasonal: values do not match the months'
     case 'progress':
       if (!texts(w.categories) || !w.categories.length) return 'progress: categories'
       return values(w.values, w.categories.length) && Array.isArray(w.targets) && w.targets.length > 0 && w.targets.every((t) => num(t.value) && typeof t.label === 'string')

@@ -19,6 +19,7 @@ import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion, TimeR
 import { sanitizeSpec } from './validate'
 import { buildBalanceDashboard, type BalanceStrings } from './balance'
 import { buildTradeDashboard, type TradeStrings } from './trade'
+import { buildMonthlyDashboard, isMonthlyDataset, type MonthlyStrings } from './monthly'
 import { buildPricesDashboard, type PricesStrings } from './prices'
 
 /**
@@ -51,6 +52,7 @@ export interface DashStrings {
   balance: BalanceStrings
   trade: TradeStrings
   prices: PricesStrings
+  monthly: MonthlyStrings
   sugUnit: string
   noteCached: string
   evolution: string
@@ -141,6 +143,8 @@ export async function buildDashboard(
   if (plan.trade) return buildTradeDashboard(plan, dict, lang, s, signal)
   // Energy price structure (enprices): decomposed into its components, by country and over time.
   if (plan.prices) return buildPricesDashboard(plan, dict, lang, s, signal)
+  // Monthly data (monthly.ts): the seasonal range, composition, trade and, for generation, renewables against the rest.
+  if (isMonthlyDataset(plan.dataset) && plan.filters.freq !== 'A') return buildMonthlyDashboard(plan, dict, lang, s, signal)
   const ds = dict.datasets[plan.dataset]
   plan = withEveryDimension(plan, dict)
   const geoCodes = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []

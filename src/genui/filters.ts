@@ -2,6 +2,7 @@ import { codeLabel, pick, type DatasetInfo, type EnergyCodelists, type EnergyDic
 import type { FilterControl } from '../components/filters'
 import type { Plan } from './types'
 import { BALANCE_GEOS } from './balance'
+import { isMonthlyDataset } from './monthly'
 import { priceBands } from './prices'
 
 /**
@@ -65,14 +66,14 @@ export function filterControls(
 ): FilterControl[] {
   const ds = dict.datasets[plan.dataset]
   if (!ds) return []
-  if (plan.balance || plan.trade || plan.prices) {
+  if (plan.balance || plan.trade || plan.prices || isMonthlyDataset(plan.dataset)) {
     const label = (code: string) => {
       const text = codeLabel(codelists, 'GEO', code, lang).replace(/\s*\(.*?\)\s*$/, '')
       return code === 'EU27_2020' ? `EU-27 (${text})` : text
     }
     const geos = plan.balance ? BALANCE_GEOS.filter((c) => codesOf(ds, 'geo').includes(c)) : codesOf(ds, 'geo').filter((c) => /^(EU27_2020|[A-Z]{2})$/.test(c))
     const options = geos.map((code) => ({ code, label: label(code) }))
-    return [{ dim: 'geo', label: labels.geo, multiple: !!plan.prices || !!plan.trade, options: [options[0], ...options.slice(1).sort((a, b) => a.label.localeCompare(b.label, lang))], selected: asList(plan.filters.geo) }]
+    return [{ dim: 'geo', label: labels.geo, multiple: !!plan.prices || !!plan.trade || isMonthlyDataset(plan.dataset), options: [options[0], ...options.slice(1).sort((a, b) => a.label.localeCompare(b.label, lang))], selected: asList(plan.filters.geo) }]
   }
   const isPlace = (dim: string) => dim === 'geo' || dim === 'partner'
   // The non-place dimension that varies, if any (products, flows…).

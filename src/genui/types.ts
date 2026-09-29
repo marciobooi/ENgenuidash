@@ -214,6 +214,7 @@ export type WidgetSpec = (
       xCategories: string[]
       yCategories: string[]
       values: (number | null)[][]
+      unit?: string
       size?: WidgetSize
     }
   | {
@@ -228,6 +229,23 @@ export type WidgetSpec = (
       /** The first value of each pair (earlier year, net…) and the second (later year, gross…). */
       from: SeriesSpec
       to: SeriesSpec
+      size?: WidgetSize
+      unit?: string
+      source?: WidgetSource
+    }
+  | {
+      /**
+       * This year against the earlier ones, month by month (monthly data): the range of each month in the
+       * earlier years as a band, their average, the year before and this year as lines.
+       */
+      type: 'seasonal'
+      title: string
+      subtitle?: string
+      months: string[]
+      latest: SeriesSpec
+      previous?: SeriesSpec
+      average?: SeriesSpec
+      range: { name: string; min: (number | null)[]; max: (number | null)[] }
       size?: WidgetSize
       unit?: string
       source?: WidgetSource

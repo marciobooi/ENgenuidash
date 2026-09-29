@@ -1,7 +1,7 @@
 import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { isCrowdedBar } from './crowded'
-import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, type ChartActionLabels } from '../components/charts'
+import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, SeasonalChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
@@ -152,6 +152,8 @@ export function Dashboard({
         return <HeatmapChart {...common} xCategories={w.xCategories} yCategories={w.yCategories} values={w.values} />
       case 'dumbbell':
         return <DumbbellChart {...common} categories={w.categories} from={w.from} to={w.to} />
+      case 'seasonal':
+        return <SeasonalChart {...common} months={w.months} latest={w.latest} previous={w.previous} average={w.average} range={w.range} />
       case 'progress':
         return <ProgressChart {...common} categories={w.categories} values={w.values} targets={w.targets} max={w.max} />
       case 'gauge':

@@ -14,15 +14,15 @@ export function loadOwnHighcharts(): Promise<HighchartsModule> {
   loading ??= (async () => {
     const H = (await import('highcharts')).default as HighchartsModule
     // Modules register themselves on the Highcharts they are loaded next to (v12+), and some need
-    // another one first: export-data and offline-exporting extend the exporting module, and the
-    // map and heatmap modules the core; in order, not all at once.
-    await import('highcharts/highcharts-more') // columnrange (dumbbell), bubble
-    await import('highcharts/modules/exporting')
-    await import('highcharts/modules/export-data')
-    await import('highcharts/modules/offline-exporting')
-    await import('highcharts/modules/accessibility')
-    await import('highcharts/modules/heatmap')
-    await import('highcharts/modules/map')
+    // another one first: export-data and offline-exporting extend the exporting module. Those wait
+    // for it; the rest load in parallel (one request each, not one after another).
+    await Promise.all([
+      import('highcharts/highcharts-more'), // columnrange (dumbbell), bubble
+      import('highcharts/modules/accessibility'),
+      import('highcharts/modules/heatmap'),
+      import('highcharts/modules/map'),
+      import('highcharts/modules/exporting').then(() => Promise.all([import('highcharts/modules/export-data'), import('highcharts/modules/offline-exporting')])),
+    ])
     // The language helpers (chartLang.ts) read the global, as they do with Webtools' build.
     ;(window as unknown as { Highcharts?: unknown }).Highcharts = H
     console.info('[charts] Europa Webtools is not available on this domain: drawing with the bundled Highcharts.')
@@ -41,4 +41,15 @@ export function fallbackOptions(options: Highcharts.Options): Highcharts.Options
     credits: { enabled: false },
     exporting: { ...options.exporting, fallbackToExportServer: false },
   }
+}
+
+/** Domains Europa Webtools serves: europa.eu and localhost (anywhere else it answers 403). */
+export const webtoolsDomain = () => /^(localhost|(.+\.)?europa\.eu)$/.test(window.location.hostname)
+
+/**
+ * On a domain Webtools will refuse, starts loading the Highcharts fallback at once, while the
+ * dashboard's data is still on its way: the charts then find it ready.
+ */
+export function preloadOwnHighcharts() {
+  if (!webtoolsDomain()) void loadOwnHighcharts().catch(() => undefined)
 }

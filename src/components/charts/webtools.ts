@@ -35,6 +35,9 @@ declare global {
 }
 
 let loading: Promise<Webtools> | null = null
+// Once Webtools has refused this page (403 on a domain it does not serve), it stays refused: every
+// later chart goes straight to the fallback instead of waiting for it again.
+let refused = false
 
 /**
  * Webtools warns on every larger chart that it will not show its own data table with it
@@ -57,6 +60,7 @@ function quietTableWarning() {
 export function loadWebtools(timeoutMs = 15000): Promise<Webtools> {
   // ?charts=own draws with the bundled Highcharts, as on a domain Webtools refuses (testing, demos).
   if (new URLSearchParams(window.location.search).get('charts') === 'own') return Promise.reject(new Error('Europa Webtools switched off (?charts=own).'))
+  if (refused) return Promise.reject(new Error('Europa Webtools is not available on this domain.'))
   quietTableWarning()
   if (window.$wt?.render) return Promise.resolve(window.$wt)
   loading ??= new Promise<Webtools>((resolve, reject) => {
@@ -72,7 +76,10 @@ export function loadWebtools(timeoutMs = 15000): Promise<Webtools> {
     script.src = LOAD_JS
     script.async = true
     script.onload = waitForWt
-    script.onerror = () => reject(new Error('Could not load Europa Webtools.'))
+    script.onerror = () => {
+      refused = true
+      reject(new Error('Could not load Europa Webtools.'))
+    }
     document.head.appendChild(script)
   }).catch((err) => {
     loading = null // allow a retry later

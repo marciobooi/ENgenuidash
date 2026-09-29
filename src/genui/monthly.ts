@@ -162,6 +162,17 @@ function monthlyControls(ctx: Ctx, focusMonths: string[], focus: string): Dashbo
     const current = String(plan.filters[flowDim] ?? info.defaults.flow)
     if (flows.length > 1) choices.push({ key: 'flow', label: t.flow, options: flows.map((code) => ({ label: labelOf(plan.dataset, flowDim, code), plan: at({ flow: code }), active: code === current })) })
   }
+  if (info.noProduct) {
+    const measure = String(plan.filters.indic_nrg ?? 'AVGPRC_USD_BBL')
+    choices.push({
+      key: 'measure',
+      label: t.measure,
+      options: [
+        { label: t.measurePrice, plan: { ...plan, filters: { ...plan.filters, indic_nrg: 'AVGPRC_USD_BBL' }, notes: [] }, active: measure === 'AVGPRC_USD_BBL' },
+        { label: t.measureVolume, plan: { ...plan, filters: { ...plan.filters, indic_nrg: 'VOL_THS_BBL' }, notes: [] }, active: measure === 'VOL_THS_BBL' },
+      ],
+    })
+  }
   const current = String(plan.filters.siec ?? info.defaults.siec)
   // (the product the question named stays in the list, even when it is not one of the usual ones)
   const products = [...new Set([current, ...present(plan.dataset, 'siec', info.products)])]
@@ -395,10 +406,17 @@ async function buildSeries(ctx: Ctx): Promise<DashboardSpec> {
     const everyone = everyoneR.value
     const now = countryValues(everyone, L, () => true)
     const then = countryValues(everyone, addMonths(L, -12), () => true)
-    const rows = [...now.entries()].map(([code, value]) => ({ code, name: geoName(everyone, code), value })).sort((a, b) => b.value - a.value)
+    // (a selection of many countries: those, not everyone)
+    const rows = [...now.entries()].filter(([code]) => !many || geos.includes(code)).map(([code, value]) => ({ code, name: geoName(everyone, code), value })).sort((a, b) => b.value - a.value)
     if (rows.length >= 6) {
       widgets.push({ type: 'bar', title: fill(t.countries, { month: monthLabel(L) }), subtitle, categories: rows.map((r) => r.name), series: [{ name: symbol, data: rows.map((r) => round(r.value, 1)) }], horizontal: true, unit: symbol, decimals, size: 'half', source, role: 'ranking' })
       if (rows.length >= 8) widgets.push({ type: 'map', title: fill(t.countries, { month: monthLabel(L) }), subtitle, data: rows.map((r) => ({ code: r.code, name: r.name, value: r.value })), size: 'half', role: 'map' })
+      // Many countries: each one month by month, as a heatmap (the last 13 months fetched for the change).
+      if (many && rows.length >= 6) {
+        const months = windowUpTo(L, 13)
+        const at = (code: string, k: string) => everyone.observations.find((o) => o.value != null && o.keys.geo === code && o.keys.time === k)?.value ?? null
+        widgets.push({ type: 'heatmap', title: fill(t.countries, { month: '' }).replace(/[, ]+$/, ''), subtitle: subtitle, xCategories: months, yCategories: rows.map((r) => r.name), values: rows.map((r) => months.map((k) => { const x = at(r.code, k); return x == null ? null : round(x, 1) })), unit: symbol, size: 'full', role: 'evolution' } as WidgetSpec)
+      }
       const moves = rows.map((r) => ({ name: r.name, pct: then.get(r.code) ? round((r.value / (then.get(r.code) as number) - 1) * 100) : null })).filter((m): m is { name: string; pct: number } => m.pct != null).sort((a, b) => b.pct - a.pct)
       if (moves.length >= 6) widgets.push({ type: 'bar', title: fill(t.countriesYoy, { month: monthLabel(addMonths(L, -12)) }), subtitle: '%', categories: moves.map((m) => m.name), series: [{ name: '%', data: moves.map((m) => m.pct) }], horizontal: false, signed: true, unit: '%', decimals: 1, size: 'full', source, role: 'change' })
     }
@@ -684,9 +702,14 @@ async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
   const VOL = 'VOL_THS_BBL'
   const flow = String(plan.filters.nrg_bal ?? 'IMP')
   const geos = list(plan.filters.geo).length ? list(plan.filters.geo) : ['EU27_2020']
-  const lines = geos.length > MAX_LINES ? ['EU27_2020'] : geos
   const geoCodes = dict.datasets.nrg_cb_cosm.dimensions.find((d) => d.id === 'geo')?.codes ?? []
-  const countries = [...new Set([...lines.filter((g) => g !== 'EU27_2020'), ...(lines.includes('EU27_2020') ? EU27 : [])])].filter((g) => geoCodes.includes(g))
+  // Many countries selected: they are the story - their total and weighted average, each one's share, the
+  // heatmap and the largest over time - not the EU with a ranking of everyone.
+  const many = geos.length > MAX_LINES
+  const selection = many ? geos.filter((g) => g !== 'EU27_2020' && geoCodes.includes(g)) : []
+  const lines = many ? ['ALL'] : geos
+  const volumeFirst = plan.filters.indic_nrg === VOL
+  const countries = many ? selection : [...new Set([...lines.filter((g) => g !== 'EU27_2020'), ...(lines.includes('EU27_2020') ? EU27 : [])])].filter((g) => geoCodes.includes(g))
   const { label: monthLabel, shorts } = monthLabelIn(lang)
   const symbol = t.usdBbl
   void shorts
@@ -695,11 +718,11 @@ async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
   const priceOf = (g: string) => seriesOf(main, (k) => k.geo === g && k.indic_nrg === PRICE)
   const volOf = (g: string) => seriesOf(main, (k) => k.geo === g && k.indic_nrg === VOL)
   // The EU: the average price weighted by volume, and the total volume.
-  const euSeries = () => {
+  const aggregate = (members: string[]) => {
     const p: Series = new Map()
     const v: Series = new Map()
-    const prices = new Map(EU27.map((g) => [g, priceOf(g)]))
-    const vols = new Map(EU27.map((g) => [g, volOf(g)]))
+    const prices = new Map(members.map((g) => [g, priceOf(g)]))
+    const vols = new Map(members.map((g) => [g, volOf(g)]))
     const months = new Set<string>()
     const reporting = new Map<string, number>()
     for (const o of main.observations) if (MONTH.test(o.keys.time)) months.add(o.keys.time)
@@ -707,7 +730,7 @@ async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
       let num = 0
       let den = 0
       let count = 0
-      for (const g of EU27) {
+      for (const g of members) {
         const a = prices.get(g)?.get(k)
         const b = vols.get(g)?.get(k)
         if (a != null && b != null && b > 0) {
@@ -734,9 +757,9 @@ async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
     }
     return { p, v }
   }
-  const eu = lines.includes('EU27_2020') ? euSeries() : { p: new Map<string, number>(), v: new Map<string, number>() }
-  const series = (g: string) => (g === 'EU27_2020' ? eu : { p: priceOf(g), v: volOf(g) })
-  const nameOf = (g: string) => (g === 'EU27_2020' ? t.euWeighted : geoName(main, g))
+  const eu = many ? aggregate(selection) : lines.includes('EU27_2020') ? aggregate(EU27) : { p: new Map<string, number>(), v: new Map<string, number>() }
+  const series = (g: string) => (g === 'EU27_2020' || g === 'ALL' ? eu : { p: priceOf(g), v: volOf(g) })
+  const nameOf = (g: string) => (g === 'ALL' ? fill(t.selection, { n: String(selection.length) }) : g === 'EU27_2020' ? t.euWeighted : geoName(main, g))
   const focus = lines[0]
   const { p, v } = series(focus)
   const keys = [...p.keys()].filter((k) => v.has(k)).sort()
@@ -775,21 +798,29 @@ async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
     { label: fill(t.kpiVolume, { month: monthLabel(L) }), value: Math.round(vol), unit: t.thsBbl, decimals: 0, ...(volYoy != null ? { delta: round(volYoy), deltaUnit: '%', deltaLabel: fill(t.vsMonth, { month: monthLabel(`${yL - 1}-${mm}`) }) } : {}), goodDirection: 'neutral' },
     { label: fill(t.kpiBill, { month: monthLabel(L) }), value: Math.round(bill.get(L) as number), unit: t.usdMio, decimals: 0, ...(billYoy != null ? { delta: round(billYoy), deltaUnit: '%', deltaLabel: fill(t.vsMonth, { month: monthLabel(`${yL - 1}-${mm}`) }) } : {}), goodDirection: 'neutral' },
   ]
+  // (the measure the reader leads with comes first: the volume, the bill, then the price)
+  if (volumeFirst) kpis.sort((x, y) => (x.unit === t.thsBbl ? 0 : x.unit === t.usdMio ? 1 : 2) - (y.unit === t.thsBbl ? 0 : y.unit === t.usdMio ? 1 : 2))
   const widgets: WidgetSpec[] = [{ type: 'kpis', items: kpis }]
+  const insights: Insight[] = []
 
-  // Month by month: the price (each country asked for), then the volume and the bill.
+  // Each measure has its own charts (month by month, this year against earlier ones, the change on a
+  // year earlier, the countries); the one the reader leads with comes first.
   const shownKeys = windowUpTo(keys[keys.length - 1], Math.min(120, keys.length))
-  widgets.push({
+  const cellPrice = (g: string, k: string) => (series(g).p.has(k) ? round(series(g).p.get(k) as number) : null)
+  const cellVolume = (g: string, k: string) => (series(g).v.has(k) ? Math.round(series(g).v.get(k) as number) : null)
+  const lineOf = (title: string, subtitle: string, unit: string, cell: (g: string, k: string) => number | null): WidgetSpec => ({
     type: 'line',
-    title: t.priceMonthly,
-    subtitle: symbol,
+    title,
+    subtitle,
     categories: shownKeys,
-    series: lines.map((g) => ({ name: nameOf(g), data: shownKeys.map((k) => { const x = series(g).p.get(k); return x == null ? null : round(x) }) })).filter((x) => x.data.some((y) => y != null)),
+    series: lines.map((g) => ({ name: nameOf(g), data: shownKeys.map((k) => cell(g, k)) })).filter((x) => x.data.some((y) => y != null)),
     highlight: L,
-    unit: 'USD/bbl',
+    unit,
     size: 'full',
     role: 'evolution',
   })
+  const priceLine = lineOf(t.priceMonthly, symbol, 'USD/bbl', cellPrice)
+  const volumeLine = lineOf(t.volumeMonthly, t.thsBbl, t.thsBbl, cellVolume)
   // This year against earlier years: the price, and the volume.
   const seasonalOf = (m: Series, title: string, unit: string, decimals: number): WidgetSpec | null => {
     const earlier: number[] = []
@@ -814,61 +845,85 @@ async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
       role: 'evolution',
     }
   }
-  const sp = seasonalOf(p, t.seasonalPrice, 'USD/bbl', 1)
-  const sv = seasonalOf(v, t.seasonalVolume, t.thsBbl, 0)
-  if (sp) widgets.push(sp)
-  if (sv) widgets.push(sv)
-  // The year on year change of the price: the moves of the market.
-  const moves = windowUpTo(keys[keys.length - 1], Math.min(36, keys.length))
-    .map((k) => ({ k, x: p.get(k), y: p.get(addMonths(k, -12)) }))
-    .filter((m): m is { k: string; x: number; y: number } => m.x != null && !!m.y)
-  if (moves.length >= 6) {
-    widgets.push({ type: 'bar', title: t.priceYoy, subtitle: '%', categories: moves.map((m) => m.k), series: [{ name: t.priceYoy, data: moves.map((m) => round((m.x / m.y - 1) * 100)) }], horizontal: false, signed: true, unit: '%', decimals: 1, size: 'full', source, role: 'change' })
+  const seasonalPrice = seasonalOf(p, t.seasonalPrice, 'USD/bbl', 1)
+  const seasonalVolume = seasonalOf(v, t.seasonalVolume, t.thsBbl, 0)
+  // The change on a year earlier, month by month.
+  const yoyOf = (m: Series, title: string): WidgetSpec | null => {
+    const moves = windowUpTo(keys[keys.length - 1], Math.min(36, keys.length))
+      .map((k) => ({ k, x: m.get(k), y: m.get(addMonths(k, -12)) }))
+      .filter((c): c is { k: string; x: number; y: number } => c.x != null && !!c.y)
+    return moves.length >= 6 ? { type: 'bar', title, subtitle: '%', categories: moves.map((c) => c.k), series: [{ name: title, data: moves.map((c) => round((c.x / c.y - 1) * 100)) }], horizontal: false, signed: true, unit: '%', decimals: 1, size: 'full', source, role: 'change' } : null
   }
-  widgets.push({ type: 'line', title: t.volumeMonthly, subtitle: t.thsBbl, categories: shownKeys, series: [{ name: geoLabel, data: shownKeys.map((k) => (v.has(k) ? Math.round(v.get(k) as number) : null)) }], highlight: L, unit: t.thsBbl, size: 'half', role: 'evolution' })
-  widgets.push({ type: 'line', title: t.billMonthly, subtitle: `${t.billNote} (${t.usdMio})`, categories: shownKeys, series: [{ name: geoLabel, data: shownKeys.map((k) => (bill.has(k) ? Math.round(bill.get(k) as number) : null)) }], highlight: L, unit: t.usdMio, size: 'half', role: 'evolution' })
+  const priceYoyChart = yoyOf(p, t.priceYoy)
+  const volumeYoyChart = yoyOf(v, t.volumeYoy)
+  const billLine: WidgetSpec = { type: 'line', title: t.billMonthly, subtitle: `${t.billNote} (${t.usdMio})`, categories: shownKeys, series: [{ name: geoLabel, data: shownKeys.map((k) => (bill.has(k) ? Math.round(bill.get(k) as number) : null)) }], highlight: L, unit: t.usdMio, size: 'half', role: 'evolution' }
 
   // The countries in the month: who pays what, and how much they buy.
-  const insights: Insight[] = []
-  const everyone = await fetchEurostatData('nrg_cb_cosm', { filters: { freq: 'M', nrg_bal: flow, indic_nrg: [PRICE, VOL] }, sinceTimePeriod: L, untilTimePeriod: L, lang, signal }).catch(() => null)
+  let rankPrice: WidgetSpec | null = null
+  let rankVolume: WidgetSpec | null = null
+  let leadMap: WidgetSpec | null = null
+  const everyone = many ? main : await fetchEurostatData('nrg_cb_cosm', { filters: { freq: 'M', nrg_bal: flow, indic_nrg: [PRICE, VOL] }, sinceTimePeriod: L, untilTimePeriod: L, lang, signal }).catch(() => null)
   if (everyone) {
     const prices = countryValues(everyone, L, (k) => k.indic_nrg === PRICE)
     const vols = countryValues(everyone, L, (k) => k.indic_nrg === VOL)
     const rows = [...prices.entries()].filter(([, x]) => x > 0).map(([code, x]) => ({ code, name: geoName(everyone, code), price: round(x), volume: vols.get(code) ?? 0 })).sort((a, b) => b.price - a.price)
-    if (rows.length >= 6) {
-      widgets.push({ type: 'bar', title: fill(t.priceByCountry, { month: monthLabel(L) }), subtitle: symbol, categories: rows.map((r) => r.name), series: [{ name: symbol, data: rows.map((r) => r.price) }], horizontal: true, unit: 'USD/bbl', decimals: 1, size: 'half', source, role: 'ranking' })
-      if (rows.length >= 8) widgets.push({ type: 'map', title: fill(t.priceByCountry, { month: monthLabel(L) }), subtitle: symbol, data: rows.map((r) => ({ code: r.code, name: r.name, value: r.price })), size: 'half', role: 'map' })
-      const byVolume = rows.filter((r) => r.volume > 0).sort((a, b) => b.volume - a.volume)
-      if (byVolume.length >= 6) widgets.push({ type: 'bar', title: fill(t.volumeByCountry, { month: monthLabel(L) }), subtitle: t.thsBbl, categories: byVolume.map((r) => r.name), series: [{ name: t.thsBbl, data: byVolume.map((r) => Math.round(r.volume)) }], horizontal: true, unit: t.thsBbl, decimals: 0, size: 'half', source, role: 'ranking' })
-      // The spread between importers (those that bought a real volume).
-      const real = rows.filter((r) => r.volume >= 1000)
-      if (real.length >= 4) insights.push({ tone: 'neutral', parts: [fill(t.spread, { month: monthLabel(L), low: `${nf1.format(real[real.length - 1].price)} USD`, lowName: real[real.length - 1].name, high: `${nf1.format(real[0].price)} USD`, highName: real[0].name })] })
-    }
+    const byVolume = rows.filter((r) => r.volume > 0).sort((a, b) => b.volume - a.volume)
+    if (rows.length >= 6) rankPrice = { type: 'bar', title: fill(t.priceByCountry, { month: monthLabel(L) }), subtitle: symbol, categories: rows.map((r) => r.name), series: [{ name: symbol, data: rows.map((r) => r.price) }], horizontal: true, unit: 'USD/bbl', decimals: 1, size: 'half', source, role: 'ranking' }
+    if (byVolume.length >= 6) rankVolume = { type: 'bar', title: fill(t.volumeByCountry, { month: monthLabel(L) }), subtitle: t.thsBbl, categories: byVolume.map((r) => r.name), series: [{ name: t.thsBbl, data: byVolume.map((r) => Math.round(r.volume)) }], horizontal: true, unit: t.thsBbl, decimals: 0, size: 'half', source, role: 'ranking' }
+    // The map shows the measure the reader leads with.
+    const mapRows = volumeFirst ? byVolume.map((r) => ({ code: r.code, name: r.name, value: Math.round(r.volume) })) : rows.map((r) => ({ code: r.code, name: r.name, value: r.price }))
+    if (mapRows.length >= 8) leadMap = { type: 'map', title: fill(volumeFirst ? t.volumeByCountry : t.priceByCountry, { month: monthLabel(L) }), subtitle: volumeFirst ? t.thsBbl : symbol, data: mapRows, size: 'half', role: 'map' }
+    // The spread between importers (those that bought a real volume).
+    const real = rows.filter((r) => r.volume >= 1000)
+    if (real.length >= 4) insights.push({ tone: 'neutral', parts: [fill(t.spread, { month: monthLabel(L), low: `${nf1.format(real[real.length - 1].price)} USD`, lowName: real[real.length - 1].name, high: `${nf1.format(real[0].price)} USD`, highName: real[0].name })] })
   }
 
+  // In the order of the lead: its month by month, this year against earlier ones and the change on a year
+  // earlier, its countries and the map; then the other measure's, and the bill.
+  const [leadLine, otherLine] = volumeFirst ? [volumeLine, priceLine] : [priceLine, volumeLine]
+  const [leadSeasonal, otherSeasonal] = volumeFirst ? [seasonalVolume, seasonalPrice] : [seasonalPrice, seasonalVolume]
+  const [leadYoy, otherYoy] = volumeFirst ? [volumeYoyChart, priceYoyChart] : [priceYoyChart, volumeYoyChart]
+  const [leadRank, otherRank] = volumeFirst ? [rankVolume, rankPrice] : [rankPrice, rankVolume]
+  widgets.push(...[leadLine, leadSeasonal, otherSeasonal, leadYoy, leadRank, leadMap, otherLine, otherYoy, otherRank, billLine].filter((w): w is WidgetSpec => w != null))
+
   // What the numbers say.
+  const moved = flow === 'PRD' ? t.movedProduction : t.movedImports
+  const direction = (x: number | null) => (x == null ? '' : Math.abs(x) < 0.05 ? t.dirSame : x > 0 ? t.dirMore : t.dirLess)
   const summary = [
-    fill(t.leadCrude, {
-      month: monthLabel(L),
-      flow: flowLabel,
-      geo: geoLabel,
-      price: `${nf1.format(price)} USD`,
-      pct: priceYoy == null ? '' : fmtPct(priceYoy),
-      dir: priceYoy == null ? '' : Math.abs(priceYoy) < 0.05 ? t.dirSame : priceYoy > 0 ? t.dirMore : t.dirLess,
-      volume: `${nf.format(vol)} ${t.thsBbl}`,
-      moved: flow === 'PRD' ? t.movedProduction : t.movedImports,
-    }),
+    volumeFirst
+      ? fill(t.leadCrudeVolume, { month: monthLabel(L), geo: geoLabel, volume: `${nf.format(vol)} ${t.thsBbl}`, moved, pct: volYoy == null ? '' : fmtPct(volYoy), dir: direction(volYoy), price: `${nf1.format(price)} USD` })
+      : fill(t.leadCrude, { month: monthLabel(L), flow: flowLabel, geo: geoLabel, price: `${nf1.format(price)} USD`, pct: priceYoy == null ? '' : fmtPct(priceYoy), dir: direction(priceYoy), volume: `${nf.format(vol)} ${t.thsBbl}`, moved }),
   ]
-  const earlierHigher = [...keys].reverse().find((k) => k < L && (p.get(k) as number) >= price)
-  const earlierLower = [...keys].reverse().find((k) => k < L && (p.get(k) as number) <= price)
+  // The lead measure: the highest or lowest for a year or more.
+  const leadSeries = volumeFirst ? v : p
+  const leadNow = volumeFirst ? vol : price
+  const earlierHigher = [...keys].reverse().find((k) => k < L && (leadSeries.get(k) as number) >= leadNow)
+  const earlierLower = [...keys].reverse().find((k) => k < L && (leadSeries.get(k) as number) <= leadNow)
   if (keys.length > 24) {
-    if (!earlierHigher || monthsBetween(earlierHigher, L) >= 12) insights.unshift({ tone: 'up', parts: [fill(t.priceHighestSince, { month: monthLabel(L), since: monthLabel(earlierHigher ?? keys[0]) })] })
-    else if (!earlierLower || monthsBetween(earlierLower, L) >= 12) insights.unshift({ tone: 'down', parts: [fill(t.priceLowestSince, { month: monthLabel(L), since: monthLabel(earlierLower ?? keys[0]) })] })
+    if (!earlierHigher || monthsBetween(earlierHigher, L) >= 12) insights.unshift({ tone: 'up', parts: [fill(volumeFirst ? t.volumeHighestSince : t.priceHighestSince, { month: monthLabel(L), since: monthLabel(earlierHigher ?? keys[0]) })] })
+    else if (!earlierLower || monthsBetween(earlierLower, L) >= 12) insights.unshift({ tone: 'down', parts: [fill(volumeFirst ? t.volumeLowestSince : t.priceLowestSince, { month: monthLabel(L), since: monthLabel(earlierLower ?? keys[0]) })] })
   }
   if (billYoy != null && Math.abs(billYoy) >= 0.5) insights.push({ tone: billYoy > 0 ? 'up' : 'down', parts: [fill(t.billInsight, { value: `${nf.format(bill.get(L) as number)} ${t.usdMio}`, month: monthLabel(L), pct: fmtPct(billYoy), dir: billYoy > 0 ? t.dirMore : t.dirLess })] })
 
+  // Many countries: each one's share, the heatmap of country by month, and the largest ones over time.
+  if (many) {
+    const lead = (g: string) => (volumeFirst ? volOf(g) : priceOf(g))
+    const ranked = selection.filter((g) => lead(g).has(L)).sort((x, y) => (lead(y).get(L) as number) - (lead(x).get(L) as number))
+    const months = windowUpTo(keys[keys.length - 1], Math.min(18, keys.length))
+    const leadUnit = volumeFirst ? t.thsBbl : symbol
+    const cell = (g: string, k: string) => (lead(g).has(k) ? (volumeFirst ? Math.round(lead(g).get(k) as number) : round(lead(g).get(k) as number)) : null)
+    if (ranked.length >= 6) {
+      const bigOnes = ranked.slice(0, 6)
+      const topKeys = windowUpTo(keys[keys.length - 1], Math.min(60, keys.length))
+      widgets.push({ type: 'line', title: t.topCountries, subtitle: leadUnit, categories: topKeys, series: bigOnes.map((g) => ({ name: geoName(main, g), data: topKeys.map((k) => cell(g, k)) })), highlight: L, unit: volumeFirst ? t.thsBbl : 'USD/bbl', size: 'full', role: 'evolution' })
+      widgets.push({ type: 'heatmap', title: volumeFirst ? t.heatVolume : t.heatPrice, subtitle: leadUnit, xCategories: months, yCategories: ranked.map((g) => geoName(main, g)), values: ranked.map((g) => months.map((k) => cell(g, k))), unit: volumeFirst ? t.thsBbl : 'USD/bbl', size: 'full', role: 'evolution' } as WidgetSpec)
+      const shares = ranked.map((g) => ({ name: geoName(main, g), y: volOf(g).get(L) ?? 0 })).filter((x) => x.y > 0)
+      if (shares.length >= 3) widgets.push({ type: 'pie', title: fill(t.shareVolume, { month: monthLabel(L) }), subtitle: t.thsBbl, slices: shares, unit: t.thsBbl, centerLabel: nf.format(sum(shares.map((x) => x.y))), size: 'half', source, role: 'composition' })
+    }
+  }
+
   const tableKeys = windowUpTo(keys[keys.length - 1], Math.min(18, keys.length))
-  widgets.push({ type: 'table', title: t.priceMonthly, columns: tableKeys, rows: lines.map((g) => ({ label: nameOf(g), values: tableKeys.map((k) => { const x = series(g).p.get(k); return x == null ? null : round(x) }), flags: tableKeys.map(() => undefined) })) } as WidgetSpec)
+  widgets.push({ type: 'table', title: volumeFirst ? t.volumeMonthly : t.priceMonthly, columns: tableKeys, rows: lines.map((g) => ({ label: nameOf(g), values: tableKeys.map((k) => (volumeFirst ? cellVolume(g, k) : cellPrice(g, k))), flags: tableKeys.map(() => undefined) })) } as WidgetSpec)
 
   const title = fill(t.crudeTitle, { flow: flowLabel, geo: lines.map(nameOf).join(', '), month: monthLabel(L) })
   const { spec } = sanitizeSpec({
@@ -880,7 +935,7 @@ async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
     widgets,
     layout: ['summary', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions', 'table'],
     presentation: { template: 'monthly', kpiStyle: 'cards', controls: ['geo', 'topic', 'flow', 'month'], primaryControls: 4, accent: 'orange' },
-    unit: 'USD/bbl',
+    unit: volumeFirst ? t.thsBbl : 'USD/bbl',
     source: { code: 'nrg_cb_cosm', title: main.label, url: source.url },
     suggestions: monthlySuggestions(ctx),
     controls: monthlyControls(ctx, windowUpTo(keys[keys.length - 1], Math.min(24, keys.length)).filter((k) => p.has(k) && v.has(k)), focus),

@@ -129,3 +129,29 @@ test('crude oil prices: routed to the crude dataset, the EU computed from its co
   const { encodePlan, decodePlan } = await import('../app/shareLink')
   assert.equal(decodePlan(encodePlan(p), dict)?.filters.geo, 'EU27_2020')
 })
+
+test('crude oil: the measure the reader leads with sets the order, the titles and the map; many countries are the story', async () => {
+  const price = plan('crude oil prices')
+  const lead = (p: Plan) => buildDashboard(p, dict, 'en', s)
+  const byPrice = await lead(price)
+  const byVolume = await lead({ ...price, filters: { ...price.filters, indic_nrg: 'VOL_THS_BBL' } })
+  const first = (d: DashboardSpec) => (charts(d).find((w) => w.type === 'line') as { title: string }).title
+  assert.match(first(byPrice), /Average price/)
+  assert.match(first(byVolume), /^Volume of crude oil/)
+  // The key figures, the headline, the map and the ranking all follow.
+  const label = (d: DashboardSpec) => (d.widgets.find((w) => w.type === 'kpis') as Extract<WidgetSpec, { type: 'kpis' }>).items[0].label
+  assert.match(label(byPrice), /^Average price/)
+  assert.match(label(byVolume), /^Volume/)
+  assert.match(byVolume.summary[0], /imported .* of crude oil/)
+  assert.match((charts(byVolume).find((w) => w.type === 'map') as { title: string } | undefined)?.title ?? 'Volume by country', /^Volume by country/)
+  assert.ok(titled(byVolume, 'Volume: change on the same month a year earlier') && titled(byVolume, 'Price: change on the same month a year earlier'))
+  assert.equal(byVolume.unit, 'thousand barrels')
+  // The toolbar offers the choice.
+  assert.ok(byPrice.controls?.choices?.some((c) => c.key === 'measure' && c.options.length === 2))
+  // Many countries: the selection is aggregated, and each country's share, heatmap and largest over time appear.
+  const geos = ['BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR']
+  const many = await lead({ ...price, filters: { ...price.filters, geo: geos } })
+  assert.match(many.title, /10 countries selected/)
+  for (const k of ['heatmap', 'pie']) assert.ok(kinds(many).includes(k), `${k} in ${kinds(many).join(',')}`)
+  assert.ok(titled(many, 'The largest countries'))
+})

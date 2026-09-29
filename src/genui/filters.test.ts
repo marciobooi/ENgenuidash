@@ -62,3 +62,13 @@ test('price datasets offer their small dimensions: band, taxes, currency', () =>
 test('partner datasets offer partner countries', () => {
   assert.ok(byDim(plan('imports of natural gas from Norway'), 'partner')?.selected.includes('NO'))
 })
+
+test('a dataset with its own product codes offers all of them, not the balances\' short list', () => {
+  const p = plan('Gross production of electricity and derived heat from combustible fuels by type of plant and operator')
+  const products = byDim(p, 'siec')
+  assert.ok(products, 'a product filter')
+  assert.ok(products.options.length > 30, `${products.options.length} products`)
+  assert.ok(products.options.some((o) => o.code === 'C0110') && products.options.some((o) => o.code === 'G3000'))
+  // The balances keep their curated main products.
+  assert.ok((byDim(plan('Oil consumption in Spain'), 'siec')?.options.length ?? 99) <= 13)
+})

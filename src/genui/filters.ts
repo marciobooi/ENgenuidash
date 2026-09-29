@@ -90,9 +90,12 @@ export function filterControls(
   if (codesOf(ds, 'partner').length) control('partner', labels.partner, codesOf(ds, 'partner').filter((c) => /^[A-Z]{2}$/.test(c)), true, true)
   // Products and flows: curated lists for the big balances, every code for small datasets.
   const siec = codesOf(ds, 'siec')
-  control('siec', labels.siec, siec.length > 15 ? MAIN_PRODUCTS : siec, true)
+  // (the curated list is the energy balances' main products; a dataset with its own codes - fuels of
+  // combustible plants - lists all of them)
+  const curatedProducts = MAIN_PRODUCTS.filter((c) => siec.includes(c))
+  control('siec', labels.siec, siec.length > 15 && curatedProducts.length >= 5 ? MAIN_PRODUCTS : siec, true)
   const flows = codesOf(ds, 'nrg_bal')
-  control('nrg_bal', labels.nrg_bal, flows.length > 15 ? MAIN_FLOWS : flows, false)
+  control('nrg_bal', labels.nrg_bal, flows.length > 15 && MAIN_FLOWS.filter((c) => flows.includes(c)).length >= 5 ? MAIN_FLOWS : flows, false)
   // Other small dimensions (single choice), with the dictionary's name for them.
   for (const dim of SMALL_DIMS) {
     const codes = dim === 'nrg_cons' ? (priceBands(plan.dataset) ?? codesOf(ds, dim).filter(isCurrentBand)) : codesOf(ds, dim)

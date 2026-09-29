@@ -1,6 +1,7 @@
 import type { EnergyDictionary } from '../data/eurostat'
 import type { Plan, TimeRange } from '../genui/types'
 import { FUEL_GROUPS } from '../genui/balance'
+import { COMPUTED_GEOS } from '../genui/monthly'
 import { priceDatasetOf } from '../genui/prices'
 import { tradeOf } from '../genui/trade'
 
@@ -51,9 +52,9 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   if (!p.filters || typeof p.filters !== 'object' || Array.isArray(p.filters)) return null
   const filters: Plan['filters'] = {}
   for (const [dim, value] of Object.entries(p.filters as Record<string, unknown>)) {
-    const codes = ds.dimensions.find((d) => d.id === dim)?.codes
+    const codes = [...(ds.dimensions.find((d) => d.id === dim)?.codes ?? []), ...(dim === 'geo' ? (COMPUTED_GEOS[ds.code] ?? []) : [])]
     const list = Array.isArray(value) ? value : [value]
-    if (!codes || !list.length || list.length > 60 || !list.every((c) => typeof c === 'string' && codes.includes(c))) return null
+    if (!codes.length || !list.length || list.length > 60 || !list.every((c) => typeof c === 'string' && codes.includes(c))) return null
     filters[dim] = Array.isArray(value) ? (list as string[]) : (value as string)
   }
 

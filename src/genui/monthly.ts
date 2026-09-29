@@ -1,6 +1,6 @@
 import { codeLabel, fetchEurostatData, loadEnergyCodelists, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
-import { EU27 } from './concepts'
+import { COMPUTED_GEOS, EU27 } from './concepts'
 import { NoDataError } from './execute'
 import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -26,6 +26,8 @@ interface MonthlyInfo {
   defaults: { flow?: string; siec: string; unit: string }
   /** Imports and exports exist: the trade balance is shown. */
   trade?: boolean
+  /** No product or unit dimension: the measure is the energy indicator (crude oil: price, volume). */
+  noProduct?: boolean
 }
 
 // The datasets and what the tool offers of each (enmonthly's js/codes.js, codesDataset).
@@ -35,9 +37,11 @@ export const MONTHLY_DATASETS: Record<string, MonthlyInfo> = {
   nrg_cb_gasm: { topic: 'gas', flowDim: 'nrg_bal', flows: ['IPRD', 'IMP', 'EXP', 'Net_imp', 'IC_OBS', 'IC_CAL_MG', 'STK_CHG_MG'], products: ['G3000'], units: ['TJ_GCV', 'MIO_M3'], defaults: { flow: 'IC_OBS', siec: 'G3000', unit: 'TJ_GCV' }, trade: true },
   nrg_cb_em: { topic: 'electricity', flowDim: 'nrg_bal', flows: ['IMP', 'EXP', 'Net_imp', 'AIM', 'DL'], products: ['E7000'], units: ['GWH'], defaults: { flow: 'AIM', siec: 'E7000', unit: 'GWH' }, trade: true },
   nrg_cb_pem: { topic: 'generation', flowDim: null, flows: [], products: ['TOTAL'], units: ['GWH'], defaults: { siec: 'TOTAL', unit: 'GWH' } },
+  nrg_cb_cosm: { topic: 'crude', flowDim: 'nrg_bal', flows: ['IMP', 'PRD'], products: [], units: [], defaults: { flow: 'IMP', siec: '', unit: '' }, noProduct: true },
   nrg_stk_oilm: { topic: 'stocks', flowDim: 'stk_flow', flows: ['STKCL_NAT', 'STKCL_EUE'], products: ['O4000', 'O4100_TOT_4200-4500', 'O4600'], units: ['THS_T'], defaults: { flow: 'STKCL_NAT', siec: 'O4000', unit: 'THS_T' } },
 }
 export const isMonthlyDataset = (dataset: string) => dataset in MONTHLY_DATASETS
+export { COMPUTED_GEOS }
 
 const UNIT_SYMBOL: Record<string, string> = { THS_T: 'thousand t', GWH: 'GWh', MIO_M3: 'million m³', TJ_GCV: 'TJ (GCV)', PC: '%' }
 // Renewables and non-renewables of net generation, as enmonthly groups them (js/codes.js: rw, Nrw).
@@ -59,6 +63,7 @@ const addMonths = (key: string, n: number) => {
   const total = year(key) * 12 + (Number(monthNo(key)) - 1) + n
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`
 }
+const monthsBetween = (from: string, to: string) => (year(to) - year(from)) * 12 + Number(monthNo(to)) - Number(monthNo(from))
 const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null)
 const round = (v: number, d = 1) => Math.round(v * 10 ** d) / 10 ** d
 const sum = (values: (number | undefined)[]) => values.reduce<number>((n, v) => n + (v ?? 0), 0)
@@ -103,7 +108,7 @@ export async function buildMonthlyDashboard(
 ): Promise<DashboardSpec> {
   const codelists = await loadEnergyCodelists().catch(() => null)
   const ctx: Ctx = { plan, dict, lang, t: s.monthly, codelists, sugExplain: s.sugExplain, signal }
-  return plan.dataset === 'nrg_cb_pem' ? buildGeneration(ctx) : buildSeries(ctx)
+  return plan.dataset === 'nrg_cb_pem' ? buildGeneration(ctx) : plan.dataset === 'nrg_cb_cosm' ? buildCrude(ctx) : buildSeries(ctx)
 }
 
 // ---------- shared: the toolbar, the suggestions and the pieces every monthly dashboard has ----------
@@ -117,7 +122,7 @@ function dimLabel(ctx: Ctx, dataset: string, dim: string, code: string): string 
 function monthlyControls(ctx: Ctx, focusMonths: string[], focus: string): DashboardControls {
   const { plan, dict, t } = ctx
   const info = MONTHLY_DATASETS[plan.dataset]
-  const geoCodes = (dataset: string) => dict.datasets[dataset]?.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+  const geoCodes = (dataset: string) => [...(dict.datasets[dataset]?.dimensions.find((d) => d.id === 'geo')?.codes ?? []), ...(COMPUTED_GEOS[dataset] ?? [])]
   const keep = (dataset: string) => {
     const kept = list(plan.filters.geo).filter((g) => geoCodes(dataset).includes(g))
     return kept.length > 1 ? kept : (kept[0] ?? 'EU27_2020')
@@ -131,9 +136,14 @@ function monthlyControls(ctx: Ctx, focusMonths: string[], focus: string): Dashbo
       ...plan,
       dataset,
       filters: {
+        freq: 'M',
         geo: keep(dataset),
-        siec: next.product ?? (changedTopic ? target.defaults.siec : String(plan.filters.siec ?? target.defaults.siec)),
-        unit: next.unit ?? (changedTopic ? target.defaults.unit : String(plan.filters.unit ?? target.defaults.unit)),
+        ...(target.noProduct
+          ? { indic_nrg: String(plan.filters.indic_nrg ?? 'AVGPRC_USD_BBL') }
+          : {
+              siec: next.product ?? (changedTopic ? target.defaults.siec : String(plan.filters.siec ?? target.defaults.siec)),
+              unit: next.unit ?? (changedTopic ? target.defaults.unit : String(plan.filters.unit ?? target.defaults.unit)),
+            }),
         ...(flowDim ? { [flowDim]: next.flow ?? (changedTopic ? target.defaults.flow : String(plan.filters[flowDim] ?? target.defaults.flow)) } : {}),
       },
       focusPeriod: 'month' in next ? next.month : changedTopic ? undefined : plan.focusPeriod,
@@ -653,6 +663,227 @@ async function buildGeneration(ctx: Ctx): Promise<DashboardSpec> {
     source: { code: 'nrg_cb_pem', title: main.label, url: source.url },
     suggestions: monthlySuggestions(ctx),
     controls: monthlyControls(ctx, windowUpTo(last, Math.min(24, keys.length)).filter((k) => f.rw.has(k)), focus),
+    context: [title, ...summary, ...insights.map((i) => i.parts.join(''))].join('\n'),
+    plan: { ...plan, focusPeriod: L },
+    shown: { geo: lines },
+  })
+  return spec
+}
+
+// ---------- crude oil: the price paid, the volume and the bill ----------
+
+/**
+ * Crude oil imports (or production) by country, month by month: the average price (USD per barrel),
+ * the volume and the bill they make together (price times volume). Eurostat has no EU aggregate for
+ * this dataset, so the EU is computed from its countries: the volume-weighted average price and the
+ * total volume.
+ */
+async function buildCrude(ctx: Ctx): Promise<DashboardSpec> {
+  const { plan, dict, lang, t, signal } = ctx
+  const PRICE = 'AVGPRC_USD_BBL'
+  const VOL = 'VOL_THS_BBL'
+  const flow = String(plan.filters.nrg_bal ?? 'IMP')
+  const geos = list(plan.filters.geo).length ? list(plan.filters.geo) : ['EU27_2020']
+  const lines = geos.length > MAX_LINES ? ['EU27_2020'] : geos
+  const geoCodes = dict.datasets.nrg_cb_cosm.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+  const countries = [...new Set([...lines.filter((g) => g !== 'EU27_2020'), ...(lines.includes('EU27_2020') ? EU27 : [])])].filter((g) => geoCodes.includes(g))
+  const { label: monthLabel, shorts } = monthLabelIn(lang)
+  const symbol = t.usdBbl
+  void shorts
+
+  const main = await fetchEurostatData('nrg_cb_cosm', { filters: { freq: 'M', nrg_bal: flow, indic_nrg: [PRICE, VOL], geo: countries }, lang, signal })
+  const priceOf = (g: string) => seriesOf(main, (k) => k.geo === g && k.indic_nrg === PRICE)
+  const volOf = (g: string) => seriesOf(main, (k) => k.geo === g && k.indic_nrg === VOL)
+  // The EU: the average price weighted by volume, and the total volume.
+  const euSeries = () => {
+    const p: Series = new Map()
+    const v: Series = new Map()
+    const prices = new Map(EU27.map((g) => [g, priceOf(g)]))
+    const vols = new Map(EU27.map((g) => [g, volOf(g)]))
+    const months = new Set<string>()
+    const reporting = new Map<string, number>()
+    for (const o of main.observations) if (MONTH.test(o.keys.time)) months.add(o.keys.time)
+    for (const k of months) {
+      let num = 0
+      let den = 0
+      let count = 0
+      for (const g of EU27) {
+        const a = prices.get(g)?.get(k)
+        const b = vols.get(g)?.get(k)
+        if (a != null && b != null && b > 0) {
+          num += a * b
+          den += b
+          count++
+        }
+      }
+      if (den > 0) {
+        p.set(k, num / den)
+        v.set(k, den)
+        reporting.set(k, count)
+      }
+    }
+    // The latest months are reported country by country: a month with far fewer countries than usual
+    // is not yet an EU total (its volume would look like a collapse), so it is left out.
+    const counts = [...reporting.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).slice(-36).map(([, n]) => n).sort((a, b) => a - b)
+    const typical = counts.length ? counts[Math.floor(counts.length / 2)] : 0
+    for (const [k, n] of reporting) {
+      if (n < 0.8 * typical) {
+        p.delete(k)
+        v.delete(k)
+      }
+    }
+    return { p, v }
+  }
+  const eu = lines.includes('EU27_2020') ? euSeries() : { p: new Map<string, number>(), v: new Map<string, number>() }
+  const series = (g: string) => (g === 'EU27_2020' ? eu : { p: priceOf(g), v: volOf(g) })
+  const nameOf = (g: string) => (g === 'EU27_2020' ? t.euWeighted : geoName(main, g))
+  const focus = lines[0]
+  const { p, v } = series(focus)
+  const keys = [...p.keys()].filter((k) => v.has(k)).sort()
+  if (!keys.length) throw new NoDataError('nrg_cb_cosm')
+  const L = plan.focusPeriod && p.has(plan.focusPeriod) && v.has(plan.focusPeriod) ? plan.focusPeriod : keys[keys.length - 1]
+  const yL = year(L)
+  const mm = monthNo(L)
+  const bill = new Map(keys.map((k) => [k, ((p.get(k) as number) * (v.get(k) as number)) / 1000]))
+
+  const nf = new Intl.NumberFormat(lang, { maximumFractionDigits: 0 })
+  const nf1 = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  const pct = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+  const fmtPct = (x: number) => `${pct.format(Math.abs(x))}${lang === 'en' ? '%' : ' %'}`
+  const price = p.get(L) as number
+  const vol = v.get(L) as number
+  const before = (m: Series) => m.get(`${yL - 1}-${mm}`)
+  const change = (now: number, then: number | undefined) => (then ? (now / then - 1) * 100 : null)
+  const priceYoy = change(price, before(p))
+  const volYoy = change(vol, before(v))
+  const billYoy = change(bill.get(L) as number, before(bill))
+  // The average price of the last 12 months, weighted by volume, and of the 12 before.
+  const weighted = (end: string) => {
+    const w = windowUpTo(end, 12)
+    if (!w.every((k) => p.has(k) && v.has(k))) return null
+    return sum(w.map((k) => (p.get(k) as number) * (v.get(k) as number))) / sum(w.map((k) => v.get(k)))
+  }
+  const avg12 = weighted(L)
+  const avg12Before = weighted(addMonths(L, -12))
+  const geoLabel = nameOf(focus)
+  const source = { code: 'nrg_cb_cosm', url: `https://ec.europa.eu/eurostat/databrowser/view/nrg_cb_cosm/default/table?lang=${lang}` }
+  const flowLabel = flow === 'PRD' ? t.flowProduction : t.flowImports
+
+  const kpis: KpiSpec[] = [
+    { label: fill(t.kpiPrice, { month: monthLabel(L) }), value: round(price), unit: 'USD/bbl', decimals: 1, ...(priceYoy != null ? { delta: round(priceYoy), deltaUnit: '%', deltaLabel: fill(t.vsMonth, { month: monthLabel(`${yL - 1}-${mm}`) }) } : {}), goodDirection: 'neutral', trend: windowUpTo(L, 13).map((k) => (p.has(k) ? round(p.get(k) as number) : null)) },
+    ...(avg12 != null ? [{ label: t.kpiPrice12, value: round(avg12), unit: 'USD/bbl', decimals: 1, ...(avg12Before ? { delta: round(change(avg12, avg12Before) as number), deltaUnit: '%', deltaLabel: t.vsPrevious12 } : {}), goodDirection: 'neutral' as const }] : []),
+    { label: fill(t.kpiVolume, { month: monthLabel(L) }), value: Math.round(vol), unit: t.thsBbl, decimals: 0, ...(volYoy != null ? { delta: round(volYoy), deltaUnit: '%', deltaLabel: fill(t.vsMonth, { month: monthLabel(`${yL - 1}-${mm}`) }) } : {}), goodDirection: 'neutral' },
+    { label: fill(t.kpiBill, { month: monthLabel(L) }), value: Math.round(bill.get(L) as number), unit: t.usdMio, decimals: 0, ...(billYoy != null ? { delta: round(billYoy), deltaUnit: '%', deltaLabel: fill(t.vsMonth, { month: monthLabel(`${yL - 1}-${mm}`) }) } : {}), goodDirection: 'neutral' },
+  ]
+  const widgets: WidgetSpec[] = [{ type: 'kpis', items: kpis }]
+
+  // Month by month: the price (each country asked for), then the volume and the bill.
+  const shownKeys = windowUpTo(keys[keys.length - 1], Math.min(120, keys.length))
+  widgets.push({
+    type: 'line',
+    title: t.priceMonthly,
+    subtitle: symbol,
+    categories: shownKeys,
+    series: lines.map((g) => ({ name: nameOf(g), data: shownKeys.map((k) => { const x = series(g).p.get(k); return x == null ? null : round(x) }) })).filter((x) => x.data.some((y) => y != null)),
+    highlight: L,
+    unit: 'USD/bbl',
+    size: 'full',
+    role: 'evolution',
+  })
+  // This year against earlier years: the price, and the volume.
+  const seasonalOf = (m: Series, title: string, unit: string, decimals: number): WidgetSpec | null => {
+    const earlier: number[] = []
+    for (let y = yL - 10; y < yL; y++) if ([...m.keys()].some((k) => k.startsWith(`${y}-`))) earlier.push(y)
+    if (earlier.length < 2) return null
+    const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
+    const at = (y: number) => months.map((mo) => (m.has(`${y}-${mo}`) ? round(m.get(`${y}-${mo}`) as number, decimals) : null))
+    const perMonth = months.map((mo) => earlier.map((y) => m.get(`${y}-${mo}`)).filter((x): x is number => x != null))
+    const span = { from: String(earlier[0]), to: String(earlier[earlier.length - 1]) }
+    return {
+      type: 'seasonal',
+      title,
+      subtitle: `${unit}. ${fill(t.seasonalNote, span)}`,
+      months: monthLabelIn(lang).shorts,
+      latest: { name: String(yL), data: at(yL) },
+      previous: { name: String(yL - 1), data: at(yL - 1) },
+      average: { name: fill(t.average, span), data: perMonth.map((x) => (x.length ? round(mean(x) as number, decimals) : null)) },
+      range: { name: fill(t.band, span), min: perMonth.map((x) => (x.length ? round(Math.min(...x), decimals) : null)), max: perMonth.map((x) => (x.length ? round(Math.max(...x), decimals) : null)) },
+      unit,
+      size: 'half',
+      source,
+      role: 'evolution',
+    }
+  }
+  const sp = seasonalOf(p, t.seasonalPrice, 'USD/bbl', 1)
+  const sv = seasonalOf(v, t.seasonalVolume, t.thsBbl, 0)
+  if (sp) widgets.push(sp)
+  if (sv) widgets.push(sv)
+  // The year on year change of the price: the moves of the market.
+  const moves = windowUpTo(keys[keys.length - 1], Math.min(36, keys.length))
+    .map((k) => ({ k, x: p.get(k), y: p.get(addMonths(k, -12)) }))
+    .filter((m): m is { k: string; x: number; y: number } => m.x != null && !!m.y)
+  if (moves.length >= 6) {
+    widgets.push({ type: 'bar', title: t.priceYoy, subtitle: '%', categories: moves.map((m) => m.k), series: [{ name: t.priceYoy, data: moves.map((m) => round((m.x / m.y - 1) * 100)) }], horizontal: false, signed: true, unit: '%', decimals: 1, size: 'full', source, role: 'change' })
+  }
+  widgets.push({ type: 'line', title: t.volumeMonthly, subtitle: t.thsBbl, categories: shownKeys, series: [{ name: geoLabel, data: shownKeys.map((k) => (v.has(k) ? Math.round(v.get(k) as number) : null)) }], highlight: L, unit: t.thsBbl, size: 'half', role: 'evolution' })
+  widgets.push({ type: 'line', title: t.billMonthly, subtitle: `${t.billNote} (${t.usdMio})`, categories: shownKeys, series: [{ name: geoLabel, data: shownKeys.map((k) => (bill.has(k) ? Math.round(bill.get(k) as number) : null)) }], highlight: L, unit: t.usdMio, size: 'half', role: 'evolution' })
+
+  // The countries in the month: who pays what, and how much they buy.
+  const insights: Insight[] = []
+  const everyone = await fetchEurostatData('nrg_cb_cosm', { filters: { freq: 'M', nrg_bal: flow, indic_nrg: [PRICE, VOL] }, sinceTimePeriod: L, untilTimePeriod: L, lang, signal }).catch(() => null)
+  if (everyone) {
+    const prices = countryValues(everyone, L, (k) => k.indic_nrg === PRICE)
+    const vols = countryValues(everyone, L, (k) => k.indic_nrg === VOL)
+    const rows = [...prices.entries()].filter(([, x]) => x > 0).map(([code, x]) => ({ code, name: geoName(everyone, code), price: round(x), volume: vols.get(code) ?? 0 })).sort((a, b) => b.price - a.price)
+    if (rows.length >= 6) {
+      widgets.push({ type: 'bar', title: fill(t.priceByCountry, { month: monthLabel(L) }), subtitle: symbol, categories: rows.map((r) => r.name), series: [{ name: symbol, data: rows.map((r) => r.price) }], horizontal: true, unit: 'USD/bbl', decimals: 1, size: 'half', source, role: 'ranking' })
+      if (rows.length >= 8) widgets.push({ type: 'map', title: fill(t.priceByCountry, { month: monthLabel(L) }), subtitle: symbol, data: rows.map((r) => ({ code: r.code, name: r.name, value: r.price })), size: 'half', role: 'map' })
+      const byVolume = rows.filter((r) => r.volume > 0).sort((a, b) => b.volume - a.volume)
+      if (byVolume.length >= 6) widgets.push({ type: 'bar', title: fill(t.volumeByCountry, { month: monthLabel(L) }), subtitle: t.thsBbl, categories: byVolume.map((r) => r.name), series: [{ name: t.thsBbl, data: byVolume.map((r) => Math.round(r.volume)) }], horizontal: true, unit: t.thsBbl, decimals: 0, size: 'half', source, role: 'ranking' })
+      // The spread between importers (those that bought a real volume).
+      const real = rows.filter((r) => r.volume >= 1000)
+      if (real.length >= 4) insights.push({ tone: 'neutral', parts: [fill(t.spread, { month: monthLabel(L), low: `${nf1.format(real[real.length - 1].price)} USD`, lowName: real[real.length - 1].name, high: `${nf1.format(real[0].price)} USD`, highName: real[0].name })] })
+    }
+  }
+
+  // What the numbers say.
+  const summary = [
+    fill(t.leadCrude, {
+      month: monthLabel(L),
+      flow: flowLabel,
+      geo: geoLabel,
+      price: `${nf1.format(price)} USD`,
+      pct: priceYoy == null ? '' : fmtPct(priceYoy),
+      dir: priceYoy == null ? '' : Math.abs(priceYoy) < 0.05 ? t.dirSame : priceYoy > 0 ? t.dirMore : t.dirLess,
+      volume: `${nf.format(vol)} ${t.thsBbl}`,
+      moved: flow === 'PRD' ? t.movedProduction : t.movedImports,
+    }),
+  ]
+  const earlierHigher = [...keys].reverse().find((k) => k < L && (p.get(k) as number) >= price)
+  const earlierLower = [...keys].reverse().find((k) => k < L && (p.get(k) as number) <= price)
+  if (keys.length > 24) {
+    if (!earlierHigher || monthsBetween(earlierHigher, L) >= 12) insights.unshift({ tone: 'up', parts: [fill(t.priceHighestSince, { month: monthLabel(L), since: monthLabel(earlierHigher ?? keys[0]) })] })
+    else if (!earlierLower || monthsBetween(earlierLower, L) >= 12) insights.unshift({ tone: 'down', parts: [fill(t.priceLowestSince, { month: monthLabel(L), since: monthLabel(earlierLower ?? keys[0]) })] })
+  }
+  if (billYoy != null && Math.abs(billYoy) >= 0.5) insights.push({ tone: billYoy > 0 ? 'up' : 'down', parts: [fill(t.billInsight, { value: `${nf.format(bill.get(L) as number)} ${t.usdMio}`, month: monthLabel(L), pct: fmtPct(billYoy), dir: billYoy > 0 ? t.dirMore : t.dirLess })] })
+
+  const tableKeys = windowUpTo(keys[keys.length - 1], Math.min(18, keys.length))
+  widgets.push({ type: 'table', title: t.priceMonthly, columns: tableKeys, rows: lines.map((g) => ({ label: nameOf(g), values: tableKeys.map((k) => { const x = series(g).p.get(k); return x == null ? null : round(x) }), flags: tableKeys.map(() => undefined) })) } as WidgetSpec)
+
+  const title = fill(t.crudeTitle, { flow: flowLabel, geo: lines.map(nameOf).join(', '), month: monthLabel(L) })
+  const { spec } = sanitizeSpec({
+    title,
+    subtitle: `${symbol} · ${t.thsBbl}`,
+    summary,
+    insights,
+    notes: [],
+    widgets,
+    layout: ['summary', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions', 'table'],
+    presentation: { template: 'monthly', kpiStyle: 'cards', controls: ['geo', 'topic', 'flow', 'month'], primaryControls: 4, accent: 'orange' },
+    unit: 'USD/bbl',
+    source: { code: 'nrg_cb_cosm', title: main.label, url: source.url },
+    suggestions: monthlySuggestions(ctx),
+    controls: monthlyControls(ctx, windowUpTo(keys[keys.length - 1], Math.min(24, keys.length)).filter((k) => p.has(k) && v.has(k)), focus),
     context: [title, ...summary, ...insights.map((i) => i.parts.join(''))].join('\n'),
     plan: { ...plan, focusPeriod: L },
     shown: { geo: lines },

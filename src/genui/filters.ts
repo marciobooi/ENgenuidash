@@ -2,7 +2,7 @@ import { codeLabel, pick, type DatasetInfo, type EnergyCodelists, type EnergyDic
 import type { FilterControl } from '../components/filters'
 import type { Plan } from './types'
 import { BALANCE_GEOS } from './balance'
-import { isMonthlyDataset } from './monthly'
+import { COMPUTED_GEOS, isMonthlyDataset } from './monthly'
 import { priceBands } from './prices'
 
 /**
@@ -71,7 +71,7 @@ export function filterControls(
       const text = codeLabel(codelists, 'GEO', code, lang).replace(/\s*\(.*?\)\s*$/, '')
       return code === 'EU27_2020' ? `EU-27 (${text})` : text
     }
-    const geos = plan.balance ? BALANCE_GEOS.filter((c) => codesOf(ds, 'geo').includes(c)) : codesOf(ds, 'geo').filter((c) => /^(EU27_2020|[A-Z]{2})$/.test(c))
+    const geos = plan.balance ? BALANCE_GEOS.filter((c) => codesOf(ds, 'geo').includes(c)) : [...new Set([...(COMPUTED_GEOS[plan.dataset] ?? []), ...codesOf(ds, 'geo')])].filter((c) => /^(EU27_2020|[A-Z]{2})$/.test(c))
     const options = geos.map((code) => ({ code, label: label(code) }))
     return [{ dim: 'geo', label: labels.geo, multiple: !!plan.prices || !!plan.trade || isMonthlyDataset(plan.dataset), options: [options[0], ...options.slice(1).sort((a, b) => a.label.localeCompare(b.label, lang))], selected: asList(plan.filters.geo) }]
   }
@@ -125,7 +125,8 @@ export function filterControls(
  */
 export function applyFilter(plan: Plan, dim: string, codes: string[], dict: EnergyDictionary): Plan {
   const ds = dict.datasets[plan.dataset]
-  const valid = codes.filter((c) => codesOf(ds, dim).includes(c))
+  // (an EU average some datasets compute from their countries is a valid place too)
+  const valid = codes.filter((c) => codesOf(ds, dim).includes(c) || (dim === 'geo' && (COMPUTED_GEOS[plan.dataset] ?? []).includes(c)))
   if (!valid.length) return plan
   const next: Plan = { ...plan, filters: { ...plan.filters, [dim]: valid.length === 1 ? valid[0] : valid }, notes: [], retry: undefined, fallback: undefined }
   // Countries vary together with one other dimension at most: several products (or flows) keep

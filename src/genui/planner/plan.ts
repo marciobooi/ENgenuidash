@@ -9,6 +9,7 @@ import {
   FLOWS,
   INDUSTRY_WORDS,
   METRICS,
+  COMPUTED_GEOS,
   EMISSION_WORDS,
   MIX_WORDS,
   TARGET_WORDS,
@@ -102,7 +103,13 @@ export function planQuestion(
   let seriesProducts: string[] | null = null
 
   // 1. Indicator datasets.
-  if (metrics.has('price')) {
+  if (metrics.has('price') && !isElectricity && !isGas && (productIds.includes('crude') || productIds.includes('oil'))) {
+    // Oil prices: the price paid for crude oil imports, monthly by country (there is no other oil price here).
+    dataset = 'nrg_cb_cosm'
+    filters.freq = 'M'
+    filters.nrg_bal = 'IMP'
+    filters.indic_nrg = 'AVGPRC_USD_BBL'
+  } else if (metrics.has('price')) {
     const industry = any(p, INDUSTRY_WORDS)
     if (!isElectricity && !isGas) {
       return {
@@ -305,7 +312,7 @@ export function planQuestion(
     else {
       // "Imports from Norway": Norway is the partner, not the reporting country.
       geos = geo.codes.filter((c) => geoDim.codes.includes(c) && c !== partner)
-      const eu = geoDim.codes.includes('EU27_2020') ? 'EU27_2020' : geoDim.codes.find((c) => c.startsWith('EU'))
+      const eu = geoDim.codes.includes('EU27_2020') ? 'EU27_2020' : (COMPUTED_GEOS[dataset]?.[0] ?? geoDim.codes.find((c) => c.startsWith('EU')))
       if ((geo.eu || !geos.length) && eu) geos.unshift(eu)
       if (!geo.eu && !geo.codes.some((c) => c !== partner)) notes.push('assumedEu')
     }

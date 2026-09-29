@@ -215,3 +215,6 @@ export const TARGET_WORDS = ['target', 'targets', 'goal', 'goals', 'on track', '
 
 // Greenhouse gas emissions (whatever else the question says: "emissions intensity" is not energy intensity).
 export const EMISSION_WORDS = ['greenhouse', 'ghg', 'emission', 'emissions', 'co2', 'carbon dioxide', 'treibhausgas', 'treibhausgase', 'treibhausgasemissionen', 'emissionen', 'gaz a effet de serre', 'emissions de gaz']
+
+/** Places a dataset does not have but its dashboard computes from its countries (the EU average of crude oil prices). */
+export const COMPUTED_GEOS: Record<string, string[]> = { nrg_cb_cosm: ['EU27_2020'] }

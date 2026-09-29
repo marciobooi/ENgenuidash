@@ -103,3 +103,29 @@ test('coal, oil stocks and electricity trade each get their dashboard', async ()
     assert.ok(d.widgets.some((w) => w.type === 'kpis'), q)
   }
 })
+
+test('crude oil prices: routed to the crude dataset, the EU computed from its countries, the bill as price times volume', async () => {
+  for (const q of ['crude oil prices', 'oil price per barrel', 'monthly crude oil prices in Germany']) assert.equal(plan(q).dataset, 'nrg_cb_cosm', q)
+  // Electricity and gas prices are not oil prices.
+  assert.equal(plan('electricity prices for households in Germany').dataset, 'nrg_pc_204')
+  const p = plan('crude oil prices')
+  assert.equal(p.filters.geo, 'EU27_2020')
+  assert.equal(p.filters.indic_nrg, 'AVGPRC_USD_BBL')
+  const d = await buildDashboard(p, dict, 'en', s)
+  const kpis = d.widgets.find((w) => w.type === 'kpis') as Extract<WidgetSpec, { type: 'kpis' }>
+  assert.equal(kpis.items.length, 4)
+  assert.match(kpis.items[3].label, /^Import bill/)
+  assert.equal(charts(d).filter((w) => w.type === 'seasonal').length, 2)
+  assert.ok(titled(d, 'Average price by country'))
+  assert.match(d.title, /EU-27 \(weighted average\)/)
+  // A country: its own series; the toolbar offers the EU as a place although the dataset has no EU code.
+  const de = await buildDashboard(plan('monthly crude oil prices in Germany'), dict, 'en', s)
+  assert.match(de.title, /Germany/)
+  const { filterControls, applyFilter } = await import('./filters')
+  const geo = filterControls(p, dict, codelists, 'en', STRINGS.en.filters).find((c) => c.dim === 'geo')!
+  assert.ok(geo.options.some((o) => o.code === 'EU27_2020') && geo.multiple)
+  assert.equal(applyFilter(plan('monthly crude oil prices in Germany'), 'geo', ['EU27_2020'], dict).filters.geo, 'EU27_2020')
+  // And a shared link keeps it.
+  const { encodePlan, decodePlan } = await import('../app/shareLink')
+  assert.equal(decodePlan(encodePlan(p), dict)?.filters.geo, 'EU27_2020')
+})

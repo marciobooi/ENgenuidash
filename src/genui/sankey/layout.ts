@@ -1,4 +1,8 @@
+import tables from './tables.json'
 import { FUEL_LOSSES_COLOR, THRESHOLD, makeFlow, type FlowData } from './model'
+
+const NODE_CODES = new Set((tables as { sankeyNodes: string[] }).sankeyNodes)
+const REF_CODES = new Set([...NODE_CODES].map((n) => n.slice(1)))
 
 /**
  * The geometry of ENSANKEY's energy flow diagram, ported as it is drawn there (js/sankey/sankey.js,
@@ -45,6 +49,16 @@ export const D = {
   paddingTransformationFlow: 0.04,
   paddingNodeGroupX: 0.03,
   paddingConsumption: 0.12,
+  maxTopNode: 0.05,
+  paddingN5N3: 0.06,
+  paddingN3E4: 0.075,
+  paddingNodeGroupY: 0.032,
+  xN6_1_1_X_agg: 1.22,
+  xN6_1_1_X_dis: 1.4,
+  xN6_1_2_X: 1.22,
+  xN6_1_1_X_X: 1.6,
+  yN6_1_1_X_X: 0.2,
+  xE6_5_X: 1.1,
   drawFuelMinPixelSize: 0.5,
   nodeSizeMin: 10,
   nodeFontRel: 0.014,
@@ -63,6 +77,8 @@ export interface Disaggregation {
   transport: boolean
   otherSectors: boolean
   energyBranch: boolean
+  rpiTransformation: boolean
+  ehgTransformation: boolean
 }
 
 export const DEFAULT_DISAGGREGATION: Disaggregation = {
@@ -77,6 +93,8 @@ export const DEFAULT_DISAGGREGATION: Disaggregation = {
   transport: false,
   otherSectors: false,
   energyBranch: false,
+  rpiTransformation: false,
+  ehgTransformation: false,
 }
 
 export interface FlowPath {
@@ -387,6 +405,88 @@ export function layoutSankey(input: LayoutInput): Layout {
 
   const node = (code: string, x: number, y: number, vertical = true, reverse = false, label = 'T') => new SNode(c, code, new Vec2(x, y), vertical, reverse, label)
 
+  // ---------- groups of flows and the consumption opened up (sankey.js: drawFlowGroup, drawDisaggregate*Consumption) ----------
+
+  const childrenOf = (codes: string[]) => codes.map((code) => flowOf(`F${code}`))
+  /** The parts of a flow, as its node's numbered children (F6_1_1_1 → F6_1_1_1_1, _2…) that the diagram knows. */
+  const initializeChildFlows = (parent: FlowData) => {
+    const out: string[] = []
+    for (let i = 1; ; i++) {
+      const code = `${parent.code.slice(1)}_${i}`
+      if (!REF_CODES.has(code)) break
+      out.push(code)
+    }
+    return childrenOf(out)
+  }
+  const groupHeight = (list: FlowData[]) => {
+    const shown = list.filter((f) => !f.isTiny)
+    return shown.reduce((sum, f) => sum + fsize(f), 0) / H + (shown.length - 1) * D.paddingNodeGroupY
+  }
+  const drawFlowGroup = (xIn: number, source: SNode, list: FlowData[]): number => {
+    const x = xIn + input.transformationShift
+    let y = Math.max(D.maxTopNode, source.positionNormalized.y + (source.size() / H - groupHeight(list)) / 2)
+    for (const obj of list) {
+      let code = `E${obj.code.slice(1)}`
+      if (!NODE_CODES.has(code)) code = `N${code.slice(1)}`
+      const target = node(code, x, y, true, false, 'E_R')
+      draw(obj, source, target, 0.4, 0.2, 'S', 1.5)
+      if (obj.isTiny) continue
+      y += fsize(obj) / H + D.paddingNodeGroupY
+    }
+    return y - D.paddingNodeGroupY
+  }
+  const drawFinalConsumption = (N6_1: SNode) => {
+    const F6_1_1 = flowOf('F6_1_1')
+    const F6_1_2 = flowOf('F6_1_2')
+    const N6_1_1 = node('N6_1_1', D.xN6_1_X + input.transformationShift, N6_1.positionNormalized.y)
+    const N6_1_2 = node('N6_1_2', D.xN6_1_X + input.transformationShift, yInvert(N6_1_1.position.y + fsize(F6_1_1)) + D.paddingConsumption)
+    draw(F6_1_1, N6_1, N6_1_1, 0.2)
+    draw(F6_1_2, N6_1, N6_1_2, 0.2, 0.6)
+    if (dis.energyConsumption) drawEnergyConsumption(N6_1_1)
+    if (dis.nonEnergyConsumption) drawFlowGroup(D.xN6_1_2_X, N6_1_2, childrenOf(['6_1_2_1', '6_1_2_2', '6_1_2_3']))
+  }
+  const drawEnergyConsumption = (N6_1_1: SNode) => {
+    const F1 = flowOf('F6_1_1_1')
+    const F2 = flowOf('F6_1_1_2')
+    const F3s = flowOf('F6_1_1_3')
+    if (!(dis.industry || dis.transport || dis.otherSectors)) {
+      drawFlowGroup(D.xN6_1_1_X_agg, N6_1_1, [F1, F2, F3s])
+      return
+    }
+    const numberSectors = Number(!F1.isTiny) + Number(!F2.isTiny) + Number(!F3s.isTiny)
+    const x = D.xN6_1_1_X_dis + input.transformationShift
+    let y = numberSectors > 1 ? D.yN6_1_1_X_X : N6_1_1.positionNormalized.y
+    const paddingSectors = (numberSectors === 2 ? 4 : 1.5) * D.paddingNodeGroupY
+    const N6_1_1_1 = node('N6_1_1_1', x, y)
+    draw(F1, N6_1_1, N6_1_1_1, 0.2, 0.6)
+    if (!F1.isTiny) {
+      if (dis.industry) y = drawFlowGroup(D.xN6_1_1_X_X, N6_1_1_1, initializeChildFlows(F1))
+      else y += fsize(F1) / H
+      y += paddingSectors
+    }
+    let transportFlows: FlowData[] = []
+    const nodeHeight = fsize(F2) / H
+    if (!F2.isTiny && dis.transport) {
+      transportFlows = initializeChildFlows(F2)
+      y += groupHeight(transportFlows) / 2 - nodeHeight / 2
+    }
+    const N6_1_1_2 = node('N6_1_1_2', x, y)
+    draw(F2, N6_1_1, N6_1_1_2, 0.2, 0.8)
+    if (!F2.isTiny) {
+      if (dis.transport) y = drawFlowGroup(D.xN6_1_1_X_X, N6_1_1_2, transportFlows)
+      else y += nodeHeight
+      y += paddingSectors
+    }
+    let otherFlows: FlowData[] = []
+    if (!F3s.isTiny && dis.otherSectors) {
+      otherFlows = initializeChildFlows(F3s)
+      y += groupHeight(otherFlows) / 2 - fsize(F3s) / H / 2
+    }
+    const N6_1_1_3 = node('N6_1_1_3', x, y)
+    draw(F3s, N6_1_1, N6_1_1_3, 0.2, 0.6)
+    if (!F3s.isTiny && dis.otherSectors) drawFlowGroup(D.xN6_1_1_X_X, N6_1_1_3, otherFlows)
+  }
+
   // ---------- the diagram (sankey.js: drawCommonPartDiagram) ----------
 
   const F1_1 = flowOf('F1_1')
@@ -433,7 +533,7 @@ export function layoutSankey(input: LayoutInput): Layout {
 
   const xTransformation = (N6.positionNormalized.x + N1.positionNormalized.x) / 2
   const E4 = node('E4', xTransformation + 0.05 + xInvert(fsize(F2_1) - fsize(F2_2)), D.yBottom, false, true, 'B')
-  {
+  if (!dis.transformation) {
     const N5 = node('N5', xTransformation, D.yMain)
     const T2 = node('T2', xTransformation, Math.max(D.yT2, yInvert(N5.position.y + fsize(F5_1)) + D.paddingTransformationFlow))
     draw(F5_1, N5, N6)
@@ -441,6 +541,126 @@ export function layoutSankey(input: LayoutInput): Layout {
     draw(F2_1, N1, T2, 0.2, 0.1)
     draw(F2_2, T2, N6, 0.2, 0.7)
     draw(F4, T2, E4, 0.2)
+  } else if (dis.rpiTransformation || dis.ehgTransformation) {
+    // Refineries and electricity and heat generation opened up too (drawDisaggregateRPIEHGTransformation).
+    const plants = ['6', '7', '8', '9', '10', '11', '12']
+    const rpi = ['1', '2', '3']
+    const ehg = ['1', '2', '3', '4']
+    const height = (list: [FlowData, FlowData][]) => list.filter(([a, b]) => !(a.isTiny && b.isTiny))
+    const main = height(plants.map((x) => [flowOf(`F2_${x}_1`), flowOf(`F2_${x}_2`)]))
+    const rpiFlows = height(rpi.map((x) => [flowOf(`F2_6_${x}_1`), flowOf(`F2_6_${x}_2`)]))
+    const ehgFlows = height(ehg.map((x) => [flowOf(`F2_11_${x}_1`), flowOf(`F2_11_${x}_2`)]))
+    const sum = (l: [FlowData, FlowData][]) => l.reduce((a, [x, y]) => a + Math.max(fsize(x), fsize(y)), 0)
+    const heightTransformation = (sum(main) + sum(rpiFlows) + sum(ehgFlows)) / H + (main.length + rpiFlows.length + ehgFlows.length - 3) * D.paddingTransformationFlow
+    let yTrans: number
+    if (yInvert(N1.position.y + fsize(F5_1)) + heightTransformation + 2 * D.paddingN5N3 < E4.positionNormalized.y - D.paddingN3E4)
+      yTrans = yInvert(N1.position.y + fsize(F5_1) - Math.max(fsize(F2_1), fsize(F2_2)) / 2) + heightTransformation / 2 + D.paddingN5N3
+    else yTrans = yInvert(E4.position.y - Math.max(fsize(F2_1), fsize(F2_2)) / 2) - D.paddingN3E4 - heightTransformation / 2 - D.paddingN5N3
+    const reach = size(input.scaleMax) + xScale(D.nodeThickness)
+    const N2_1 = node('N2_1', xInvert(N1.position.x + reach), yTrans, true, false, 'B')
+    const N2_2 = node('N2_2', xInvert(N6.position.x - reach), yTrans, true, false, 'B')
+    let nodeYPosition = yInvert(N2_1.position.y + Math.max(fsize(F2_1), fsize(F2_2)) / 2) - heightTransformation / 2
+    const N5 = node('N5', xTransformation, Math.min(N1.positionNormalized.y, yInvert(yScale(nodeYPosition) - fsize(F5_1)) - 3.5 * D.paddingN5N3))
+    draw(F5_1, N1, N5, 0.2, 0)
+    draw(F5_2, N5, N6, 0.2, 1)
+    draw(F2_1, N1, N2_1, 0.2)
+    draw(F2_2, N2_2, N6, 0.2)
+    const plant = (x: string, from: SNode, to: SNode, wid = 0.5, pos = 0, code = `F2_${x}`, lossCode = `F4_${x}`) => {
+      const inflow = flowOf(`${code}_1`)
+      const outflow = flowOf(`${code}_2`)
+      const tnode = node(`T2_${x}`, xTransformation, nodeYPosition)
+      draw(inflow, from, tnode, wid, pos, 'S', 1.3)
+      draw(outflow, tnode, to, wid, pos, 'T', 1.3)
+      draw(flowOf(lossCode), tnode, E4, 0.2)
+      if (!(inflow.isTiny && outflow.isTiny)) nodeYPosition += Math.max(fsize(inflow), fsize(outflow)) / H + D.paddingTransformationFlow
+    }
+    const N2_6_1 = node('N2_6_1', xInvert(N2_1.position.x + reach), yTrans / 2.2)
+    const N2_6_2 = node('N2_6_2', xInvert(N2_2.position.x - reach), yTrans / 2.2)
+    if (dis.rpiTransformation) {
+      draw(flowOf('F2_6_1'), N2_1, N2_6_1, 0.2)
+      draw(flowOf('F2_6_2'), N2_6_2, N2_2, 0.2)
+      rpi.forEach((k, idx) => {
+        const inflow = flowOf(`F2_6_${k}_1`)
+        const outflow = flowOf(`F2_6_${k}_2`)
+        let y = nodeYPosition
+        if (idx === 0) {
+          y = yTrans / 2.2
+          nodeYPosition += 1.5 * (Math.max(fsize(inflow), fsize(outflow)) / H + D.paddingTransformationFlow)
+        }
+        const tnode = node(`T2_6_${k}`, xTransformation, y)
+        draw(inflow, N2_6_1, tnode, 0.5, 0, 'S', 1.3)
+        draw(outflow, tnode, N2_6_2, 0.5, 0, 'T', 1.3)
+        draw(flowOf(`F4_6_${k}`), tnode, E4, 0.2)
+        if (!(inflow.isTiny && outflow.isTiny) && idx !== 0) nodeYPosition += Math.max(fsize(inflow), fsize(outflow)) / H + D.paddingTransformationFlow
+      })
+      nodeYPosition += D.paddingTransformationFlow
+      for (const x of plants) if (Number(x) > 6 && Number(x) < 11) plant(x, N2_1, N2_2)
+    } else {
+      for (const x of plants) if (Number(x) < 11) plant(x, N2_1, N2_2)
+      nodeYPosition += D.paddingTransformationFlow
+    }
+    if (dis.ehgTransformation) {
+      const yOffset = !dis.rpiTransformation || rpiFlows.length === 0 ? 1.2 : 1.5
+      const N2_11_1 = node('N2_11_1', xInvert(N2_1.position.x + reach), yTrans * yOffset, true, false, 'B')
+      const N2_11_2 = node('N2_11_2', xInvert(N2_2.position.x - reach), yTrans * yOffset, true, false, 'B')
+      draw(flowOf('F2_11_1'), N2_1, N2_11_1, 0.2)
+      draw(flowOf('F2_11_2'), N2_11_2, N2_2, 0.2)
+      for (const k of ehg) {
+        const inflow = flowOf(`F2_11_${k}_1`)
+        const outflow = flowOf(`F2_11_${k}_2`)
+        const tnode = node(`T2_11_${k}`, xTransformation, nodeYPosition)
+        draw(inflow, N2_11_1, tnode, 0.5, 0.1, 'S', 1.3)
+        draw(outflow, tnode, N2_11_2, 0.5, 0.1, 'T', 1.3)
+        draw(flowOf(`F4_11_${k}`), tnode, E4, 0.2)
+        if (!(inflow.isTiny && outflow.isTiny)) nodeYPosition += Math.max(fsize(inflow), fsize(outflow)) / H + D.paddingTransformationFlow
+      }
+      nodeYPosition += D.paddingTransformationFlow
+      for (const x of plants) if (Number(x) > 11) plant(x, N2_1, N2_2, 0.1, 0)
+    } else {
+      for (const x of plants) if (Number(x) >= 11) plant(x, N2_1, N2_2)
+    }
+    const N3 = node('N3', xTransformation, nodeYPosition + D.paddingN5N3 - D.paddingTransformationFlow)
+    draw(F3, N2_2, N3, 0, 0.02)
+    draw(F3, N3, N2_1, 0, 0.02)
+  } else {
+    // Transformation opened into its plants (sankey.js: drawDisaggregateTransformation).
+    const plants = ['6', '7', '8', '9', '10', '11', '12']
+    let nbNodes = 0
+    let sumSizeFlow = 0
+    for (const obj of plants) {
+      const f1 = flowOf(`F2_${obj}_1`)
+      const f2 = flowOf(`F2_${obj}_2`)
+      if (f1.isTiny && f2.isTiny) continue
+      sumSizeFlow += Math.max(fsize(f1), fsize(f2))
+      nbNodes++
+    }
+    const heightTransformation = sumSizeFlow / H + (nbNodes - 1) * D.paddingTransformationFlow
+    let yTrans: number
+    if (yInvert(N1.position.y + fsize(F5_1)) + heightTransformation + 2 * D.paddingN5N3 < E4.positionNormalized.y - D.paddingN3E4)
+      yTrans = yInvert(N1.position.y + fsize(F5_1) - Math.max(fsize(F2_1), fsize(F2_2)) / 2) + heightTransformation / 2 + D.paddingN5N3
+    else yTrans = yInvert(E4.position.y - Math.max(fsize(F2_1), fsize(F2_2)) / 2) - D.paddingN3E4 - heightTransformation / 2 - D.paddingN5N3
+    const N2_1 = node('N2_1', xInvert(N1.position.x + size(input.scaleMax) + xScale(D.nodeThickness)), yTrans, true, false, 'B')
+    const N2_2 = node('N2_2', xInvert(N6.position.x - size(input.scaleMax) - xScale(D.nodeThickness)), yTrans, true, false, 'B')
+    let nodeYPosition = yInvert(N2_1.position.y + Math.max(fsize(F2_1), fsize(F2_2)) / 2) - heightTransformation / 2
+    const N5 = node('N5', xTransformation, Math.min(N1.positionNormalized.y, yInvert(yScale(nodeYPosition) - fsize(F5_1)) - D.paddingN5N3))
+    draw(F5_1, N1, N5, 0.2, 0)
+    draw(F5_2, N5, N6, 0.2, 1)
+    draw(F2_1, N1, N2_1, 0.2)
+    draw(F2_2, N2_2, N6, 0.2)
+    for (const obj of plants) {
+      const inflow = flowOf(`F2_${obj}_1`)
+      const outflow = flowOf(`F2_${obj}_2`)
+      const losses = flowOf(`F4_${obj}`)
+      const tnode = node(`T2_${obj}`, xTransformation, nodeYPosition)
+      draw(inflow, N2_1, tnode, 0.5, 0, 'S', 1.3)
+      draw(outflow, tnode, N2_2, 0.5, 0, 'T', 1.3)
+      draw(losses, tnode, E4, 0.2)
+      if (inflow.isTiny && outflow.isTiny) continue
+      nodeYPosition += Math.max(fsize(inflow), fsize(outflow)) / H + D.paddingTransformationFlow
+    }
+    const N3 = node('N3', xTransformation, nodeYPosition + D.paddingN5N3 - D.paddingTransformationFlow)
+    draw(F3, N2_2, N3, 0, 0.02)
+    draw(F3, N3, N2_1, 0, 0.02)
   }
 
   if (dis.afterTransformation) {
@@ -461,6 +681,8 @@ export function layoutSankey(input: LayoutInput): Layout {
     draw(F6_2, N6, E6_2, 0.2)
     draw(F6_3, N6, E6_3, 0.2)
     void E6_6
+    if (dis.finalConsumption) drawFinalConsumption(N6_1)
+    if (dis.energyBranch) drawFlowGroup(D.xE6_5_X, E6_5, childrenOf(['6_5_1', '6_5_2', '6_5_3', '6_5_4', '6_5_5', '6_5_6', '6_5_7', '6_5_8', '6_5_9', '6_5_10', '6_5_11', '6_5_12', '6_5_13', '6_5_14', '6_5_15', '6_5_16']))
   }
 
   // ---------- nodes (node.js) ----------

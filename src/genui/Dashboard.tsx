@@ -162,7 +162,7 @@ export function Dashboard({
       case 'progress':
         return <ProgressChart {...common} categories={w.categories} values={w.values} targets={w.targets} max={w.max} />
       case 'sankey':
-        return <SankeyWidget widget={w} labels={labels.sankey} renderChart={renderChart} />
+        return <SankeyWidget widget={w} plan={spec.plan} labels={labels.sankey} renderChart={renderChart} onPlan={(plan, label) => onSuggestion({ label, plan })} />
       case 'gauge':
         return <GaugeChart {...common} value={w.value} label={w.label} max={w.max} targets={w.targets} goal={w.goal} />
       case 'bubble':

@@ -1,8 +1,10 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { WidgetSpec } from '../types'
 import labelsJson from './labels.json'
+import type { Plan } from '../types'
 import { DEFAULT_DISAGGREGATION, layoutSankey, type Disaggregation, type DrawnFlow, type DrawnNode } from './layout'
-import { BalanceTable, FUEL_COLORS, buildModel } from './model'
+import { NODE_TOGGLE, allOpen, nodesOf, toggleDisaggregation } from './state'
+import { BalanceTable, FUEL_BACKGROUND, FUEL_COLORS, FUEL_TABLE, buildModel, displayedFuels, type FlowData } from './model'
 import './sankey.css'
 
 type SankeyWidgetSpec = Extract<WidgetSpec, { type: 'sankey' }>
@@ -26,12 +28,25 @@ export interface SankeyLabels {
   zoomIn: string
   zoomOut: string
   reset: string
+  expandAll: string
+  collapseAll: string
+  highlightAll: string
+  unhighlight: string
+  breakDown: string
 }
 
 const LABELS = labelsJson as Record<string, Record<string, string>>
 
 /** The flow a node stands for (its size is that flow's), for the numbers behind it. */
 const NODE_FLOW: Record<string, string> = {
+  N2_1: 'N2_1',
+  N2_2: 'N2_2',
+  N3: 'F3',
+  N6_1_1: 'F6_1_1',
+  N6_1_2: 'F6_1_2',
+  N6_1_1_1: 'F6_1_1_1',
+  N6_1_1_2: 'F6_1_1_2',
+  N6_1_1_3: 'F6_1_1_3',
   N1: 'N1',
   N1_1: 'F1_1',
   E1_1_1: 'F1_1_1',
@@ -53,9 +68,6 @@ const NODE_FLOW: Record<string, string> = {
   E6_8: 'F6_8',
 }
 
-/** The nodes that open up into their parts (ENSANKEY: click a node), and the setting each one toggles. */
-const TOGGLES: Record<string, keyof Disaggregation> = { N1_1: 'production', N6: 'afterTransformation', N1: 'allSources' }
-
 /** The picture's own width (a drawing scaled to fit its box), and how much wider each opened node makes it (ENSANKEY's crop widths). */
 const BASE_WIDTH = 1200
 function cropOf(d: Disaggregation): number {
@@ -75,7 +87,7 @@ function measure(text: string, fontSize: number): number {
   return ruler.measureText(text).width
 }
 
-export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWidgetSpec; labels: SankeyLabels; renderChart: (w: WidgetSpec) => ReactNode }) {
+export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { widget: SankeyWidgetSpec; plan: Plan; labels: SankeyLabels; renderChart: (w: WidgetSpec) => ReactNode; onPlan: (plan: Plan, label: string) => void }) {
   const lang = widget.lang
   const names = LABELS[lang] ?? LABELS.en
   const name = (code: string) => names[code] ?? LABELS.en[code] ?? code
@@ -83,17 +95,13 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
   const formatValue = (v: number) => nf.format(Math.round(v)).replace(/\s/g, '\u2009')
 
   const table = useMemo(() => new BalanceTable(widget.years, widget.table), [widget.years, widget.table])
-  const model = useMemo(() => buildModel(table, widget.fuel, widget.byFuel), [table, widget.fuel, widget.byFuel])
+  // Products can be picked out (highlighted) in either view: the flows are then drawn by product, the others grey.
+  const [highlight, setHighlight] = useState<string[]>([])
+  const parts = widget.byFuel || highlight.length > 0
+  const model = useMemo(() => buildModel(table, widget.fuel, parts), [table, widget.fuel, parts])
 
   const [year, setYear] = useState(widget.year)
-  const [disaggregation, setDisaggregation] = useState<Disaggregation>({ ...DEFAULT_DISAGGREGATION, ...widget.disaggregation })
-  // A new diagram (another country, product or year chosen in the toolbar) starts from what it says.
-  const [shown, setShown] = useState(widget)
-  if (shown !== widget) {
-    setShown(widget)
-    setYear(widget.year)
-    setDisaggregation({ ...DEFAULT_DISAGGREGATION, ...widget.disaggregation })
-  }
+  const disaggregation: Disaggregation = { ...DEFAULT_DISAGGREGATION, ...widget.disaggregation }
   const [playing, setPlaying] = useState(false)
   const [selection, setSelection] = useState<{ kind: 'node' | 'flow'; code: string; flowCode: string; source?: string; target?: string } | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number; lines: string[] } | null>(null)
@@ -102,18 +110,25 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
   // drawing into the window. A wide view (nodes opened) is as much wider as the original makes it.
   const box = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
-  const total = Math.round(BASE_WIDTH * cropOf(disaggregation))
-  const drawWidth = Math.round(total * 0.76)
+  const drawWidth = Math.round(BASE_WIDTH * 0.76 * cropOf(disaggregation))
   const drawHeight = Math.round(BASE_WIDTH * 0.76 * 0.56)
-  const marginLeft = Math.round(total * 0.075)
-  const marginTop = Math.round(drawHeight * 0.05)
-  const height = Math.round(drawHeight * 1.14)
+  // What is drawn decides the frame: the picture is fitted to its contents, however many nodes are open.
+  const content = useRef<SVGGElement>(null)
+  const [bounds, setBounds] = useState({ x: 0, y: 0, w: drawWidth, h: drawHeight })
 
   // Zoom at the cursor (wheel or the buttons), drag to move, and a button to go back to the whole picture.
   const [view, setView] = useState({ k: 1, x: 0, y: 0 })
   const moved = useRef(false)
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
-  const clampView = (k: number, x: number, y: number) => ({ k, x: Math.min(0, Math.max(total * (1 - k), x)), y: Math.min(0, Math.max(height * (1 - k), y)) })
+  const clampView = (k: number, x: number, y: number) => {
+    const lo = (a: number, b: number) => Math.min(a, b)
+    const hi = (a: number, b: number) => Math.max(a, b)
+    return {
+      k,
+      x: Math.min(hi(bounds.x * (1 - k), (bounds.x + bounds.w) * (1 - k)), Math.max(lo(bounds.x * (1 - k), (bounds.x + bounds.w) * (1 - k)), x)),
+      y: Math.min(hi(bounds.y * (1 - k), (bounds.y + bounds.h) * (1 - k)), Math.max(lo(bounds.y * (1 - k), (bounds.y + bounds.h) * (1 - k)), y)),
+    }
+  }
   const zoomAt = (factor: number, cx: number, cy: number) =>
     setView((v) => {
       const k = Math.min(10, Math.max(1, v.k * factor))
@@ -121,23 +136,31 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
     })
   const toSvg = (clientX: number, clientY: number) => {
     const r = svgRef.current?.getBoundingClientRect()
-    return r ? { x: ((clientX - r.left) * total) / r.width, y: ((clientY - r.top) * height) / r.height } : { x: 0, y: 0 }
+    return r ? { x: bounds.x + ((clientX - r.left) * bounds.w) / r.width, y: bounds.y + ((clientY - r.top) * bounds.h) / r.height } : { x: 0, y: 0 }
   }
   useEffect(() => {
     const el = svgRef.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const r = el.getBoundingClientRect()
-      const cx = ((e.clientX - r.left) * total) / r.width
-      const cy = ((e.clientY - r.top) * height) / r.height
-      zoomAt(Math.exp(-e.deltaY * 0.0015), cx, cy)
+      const p = toSvg(e.clientX, e.clientY)
+      zoomAt(Math.exp(-e.deltaY * 0.0015), p.x, p.y)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [total, height])
+  }, [bounds])
   const resetView = () => setView({ k: 1, x: 0, y: 0 })
+
+  // A new diagram (another country, product or year chosen in the toolbar) starts from what it says.
+  const [shown, setShown] = useState(widget)
+  if (shown !== widget) {
+    setShown(widget)
+    setYear(widget.year)
+    setView({ k: 1, x: 0, y: 0 })
+    setSelection(null)
+    setHighlight([])
+  }
 
   // Playing the years: one every second and a bit, from where it is to the last.
   useEffect(() => {
@@ -150,16 +173,34 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
     return () => window.clearTimeout(t)
   }, [playing, year, widget.years])
 
-  const flows = useMemo(() => model.flows(year), [model, year])
+  const colorFor = (fuel: string) => (highlight.length > 0 ? (highlight.includes(fuel) ? (FUEL_COLORS[fuel] ?? FUEL_BACKGROUND) : FUEL_BACKGROUND) : widget.byFuel ? (FUEL_COLORS[fuel] ?? FUEL_BACKGROUND) : FUEL_COLORS.TOTAL)
+  const flows = useMemo(() => {
+    const raw = model.flows(year)
+    if (!parts) return raw
+    const out = new Map<string, FlowData>()
+    for (const [code, f] of raw) out.set(code, { ...f, colors: f.fuels.map((fu, i) => (fu === '' ? f.colors[i] : colorFor(fu))) })
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, year, parts, highlight, widget.byFuel])
   const layout = useMemo(
     () =>
-      layoutSankey({ flows, width: drawWidth, height: drawHeight, scaleMax: model.scaleMax, disaggregation, transformationShift: 0, name, format: formatValue, unit: widget.unit, measure }),
+      layoutSankey({ flows, width: drawWidth, height: drawHeight, scaleMax: model.scaleMax, disaggregation, transformationShift: disaggregation.transformation ? 0.3 : 0, name, format: formatValue, unit: widget.unit, measure }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flows, drawWidth, drawHeight, model.scaleMax, disaggregation, widget.unit, lang],
+    [flows, drawWidth, drawHeight, model.scaleMax, widget.disaggregation, widget.unit, lang],
   )
 
+  useLayoutEffect(() => {
+    const g = content.current
+    if (!g) return
+    const b = g.getBBox()
+    const pad = 14
+    setBounds((old) => {
+      const next = { x: Math.floor(b.x - pad), y: Math.floor(b.y - pad), w: Math.ceil(b.width + 2 * pad), h: Math.ceil(b.height + 2 * pad) }
+      return old.x === next.x && old.y === next.y && old.w === next.w && old.h === next.h ? old : next
+    })
+  }, [layout])
+
   const fuelName = (code: string) => (code === 'losses' ? name('losses') : name(code))
-  const colorOf = (fuel: string) => (fuel === 'losses' ? '#DCDCDC' : (FUEL_COLORS[fuel] ?? '#7D8088'))
   const idPrefix = useId()
 
   const onNodeActivate = (n: DrawnNode) => setSelection({ kind: 'node', code: n.code, flowCode: NODE_FLOW[n.code] ?? n.code })
@@ -177,14 +218,10 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
   }
 
   // What is used in the picture: the products drawn (legend).
-  const used = useMemo(() => {
-    const seen = new Set<string>()
-    for (const f of layout.flows) for (const p of f.paths) seen.add(p.fuel)
-    return [...seen].filter((f) => f !== 'losses' && f !== 'TOTAL')
-  }, [layout])
+  const legendFuels = displayedFuels(widget.fuel, true).filter((f) => f !== 'TOTAL')
 
   const detail = selection ? buildDetail(selection, model, widget, name, fuelName, formatValue, year) : null
-  const toggle = selection ? TOGGLES[selection.code] : undefined
+  const toggle = selection ? NODE_TOGGLE[selection.code] : undefined
 
   return (
     <section className="sankey" aria-label={widget.title}>
@@ -193,12 +230,20 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
         {widget.subtitle && <p className="sankey__subtitle">{widget.subtitle}</p>}
         <p className="sankey__hint">{labels.hint}</p>
       </div>
+      <div className="sankey__actions">
+        <button type="button" className="ecl-button ecl-button--secondary" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(allOpen()) } }, labels.expandAll)}>
+          {labels.expandAll}
+        </button>
+        <button type="button" className="ecl-button ecl-button--ghost" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: undefined } }, labels.collapseAll)}>
+          {labels.collapseAll}
+        </button>
+      </div>
       <div className="sankey__box" ref={box} onMouseLeave={() => setTip(null)}>
         <div className="sankey__zoom" role="group" aria-label={labels.zoom}>
-          <button type="button" onClick={() => zoomAt(1.5, total / 2, height / 2)} aria-label={labels.zoomIn}>
+          <button type="button" onClick={() => zoomAt(1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)} aria-label={labels.zoomIn}>
             +
           </button>
-          <button type="button" onClick={() => zoomAt(1 / 1.5, total / 2, height / 2)} aria-label={labels.zoomOut} disabled={view.k <= 1}>
+          <button type="button" onClick={() => zoomAt(1 / 1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)} aria-label={labels.zoomOut} disabled={view.k <= 1}>
             −
           </button>
           <button type="button" onClick={resetView} disabled={view.k <= 1 && view.x === 0 && view.y === 0} className="sankey__reset">
@@ -208,7 +253,7 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
         <svg
           ref={svgRef}
           className={`sankey__svg${view.k > 1 ? ' sankey__svg--zoomed' : ''}`}
-          viewBox={`0 0 ${total} ${height}`}
+          viewBox={`${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`}
           role="group"
           aria-label={widget.title}
           onPointerDown={(e) => {
@@ -226,13 +271,13 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
           onPointerUp={() => (drag.current = null)}
           onPointerLeave={() => (drag.current = null)}
           onKeyDown={(e) => {
-            if (e.key === '+' || e.key === '=') zoomAt(1.5, total / 2, height / 2)
-            else if (e.key === '-') zoomAt(1 / 1.5, total / 2, height / 2)
+            if (e.key === '+' || e.key === '=') zoomAt(1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)
+            else if (e.key === '-') zoomAt(1 / 1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)
             else if (e.key === '0') resetView()
           }}
         >
           <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-          <g transform={`translate(${marginLeft} ${marginTop})`}>
+          <g ref={content}>
           <g className="sankey__flows">
             {layout.flows.map((f) => (
               <g key={f.key} className="sankey__flow" role="button" tabIndex={0} aria-label={`${labels.fromTo.replace('{source}', name(f.source)).replace('{target}', name(f.target))}: ${formatValue(f.paths.reduce((s, p) => s + p.value, 0))} ${widget.unit}`} onClick={() => {
@@ -300,15 +345,29 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
         </output>
       </div>
 
-      {used.length > 0 && (
-        <ul className="sankey__legend" aria-label={labels.legend}>
-          {used.map((f) => (
-            <li key={f}>
-              <span className="sankey__swatch" style={{ background: colorOf(f) }} aria-hidden="true" />
-              {fuelName(f)}
+      {legendFuels.length > 1 && (
+        <div className="sankey__legendbox">
+          <ul className="sankey__legend" aria-label={labels.legend}>
+            {legendFuels.map((f) => (
+              <li key={f} className="sankey__legend-row">
+                <button type="button" className={`sankey__legend-item${highlight.includes(f) ? ' is-on' : ''}`} aria-pressed={highlight.includes(f)} onClick={() => setHighlight((h) => (h.includes(f) ? h.filter((x) => x !== f) : [...h, f]))}>
+                  <span className="sankey__swatch" style={{ background: colorFor(f) }} aria-hidden="true" />
+                  {fuelName(f)}
+                </button>
+                {FUEL_TABLE[f] && (
+                  <button type="button" className="sankey__breakdown" title={labels.breakDown} aria-label={`${labels.breakDown}: ${fuelName(f)}`} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, fuel: f, byFuel: true } }, fuelName(f))}>
+                    ⤵
+                  </button>
+                )}
+              </li>
+            ))}
+            <li>
+              <button type="button" className="sankey__legend-all" onClick={() => setHighlight((h) => (h.length === legendFuels.length ? [] : [...legendFuels]))}>
+                {highlight.length === legendFuels.length ? labels.unhighlight : labels.highlightAll}
+              </button>
             </li>
-          ))}
-        </ul>
+          </ul>
+        </div>
       )}
 
       {detail && selection && (
@@ -320,7 +379,7 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
             </div>
             <div className="sankey__detail-actions">
               {toggle && (
-                <button type="button" className="ecl-button ecl-button--secondary" onClick={() => setDisaggregation((d) => ({ ...d, [toggle]: !d[toggle] }))}>
+                <button type="button" className="ecl-button ecl-button--secondary" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(toggleDisaggregation(disaggregation, toggle)) } }, name(selection.code))}>
                   {disaggregation[toggle] ? labels.collapse : labels.open}
                 </button>
               )}

@@ -31,8 +31,8 @@ function fromBase64Url(raw: string): string {
 
 /** The plan in its shareable form: what is needed to rebuild the dashboard, nothing else. */
 export function encodePlan(plan: Plan): string {
-  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices } = plan
-  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices }))
+  const { dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices, profile } = plan
+  return toBase64Url(JSON.stringify({ dataset, filters, time, intent, focusPeriod, allCountries, top, monthlyDataset, chart, focus, parts, balance, trade, prices, profile }))
 }
 
 /** The plan from a link, or null when it is not a valid plan for our datasets. */
@@ -72,6 +72,11 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   const pricesIn = p.prices as Plan['prices']
   // Its components view reads the components dataset; its tax view the base one.
   const isPrices = !!priced && !!pricesIn && pricesIn.product === priced.product && pricesIn.consumer === priced.consumer && priced.components === (pricesIn.view !== 'taxes')
+  if (p.profile && typeof p.profile === 'object' && filters.geo !== undefined && ds.code === 'nrg_ind_ren') {
+    const pf = p.profile as { perCapita?: unknown }
+    const time0 = p.time as TimeRange | undefined
+    if (time0) return { dataset: ds.code, filters, time: time0, intent: 'snapshot', profile: pf.perCapita === true ? { perCapita: true } : {}, ...(typeof p.focusPeriod === 'string' && PERIOD.test(p.focusPeriod) ? { focusPeriod: p.focusPeriod } : {}) }
+  }
   if (!isSheet && !isTrade && !isPrices && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
 
   const time = p.time as TimeRange | undefined

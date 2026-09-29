@@ -7,6 +7,7 @@ import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
 import { balancePlan, refineBalance } from './balance'
 import { pricesPlan, refinePrices, toComponentsPlan } from './prices'
+import { profilePlan, refineProfile } from './profile'
 import { refineTrade, tradePlan } from './trade'
 import type { Clarification, Plan } from './types'
 
@@ -82,6 +83,11 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
     if (priced) return { kind: 'refine', plan: priced }
     const prices = pricesPlan(text, dict, codelists)
     if (prices) return { kind: 'plan', plan: prices }
+    // Energy profile of a country (ENDASH): a new profile, or another country or year for the one on screen.
+    const profiled = current?.profile ? refineProfile(current, text, dict, codelists) : null
+    if (profiled) return { kind: 'refine', plan: profiled }
+    const profile = profilePlan(text, dict, codelists)
+    if (profile) return { kind: 'plan', plan: profile }
     const decomposed = current ? toComponentsPlan(current, text, dict) : null
     if (decomposed) return { kind: 'refine', plan: decomposed }
   }

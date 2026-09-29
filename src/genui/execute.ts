@@ -21,6 +21,7 @@ import { buildBalanceDashboard, type BalanceStrings } from './balance'
 import { buildTradeDashboard, type TradeStrings } from './trade'
 import { buildMonthlyDashboard, isMonthlyDataset, type MonthlyStrings } from './monthly'
 import { buildPricesDashboard, type PricesStrings } from './prices'
+import { buildProfileDashboard, type ProfileStrings } from './profile'
 
 /**
  * Executes a Plan: fetches the data from Eurostat and composes a DashboardSpec (plain JSON)
@@ -53,6 +54,7 @@ export interface DashStrings {
   trade: TradeStrings
   prices: PricesStrings
   monthly: MonthlyStrings
+  profile: ProfileStrings
   sugUnit: string
   noteCached: string
   evolution: string
@@ -143,6 +145,8 @@ export async function buildDashboard(
   if (plan.trade) return buildTradeDashboard(plan, dict, lang, s, signal)
   // Energy price structure (enprices): decomposed into its components, by country and over time.
   if (plan.prices) return buildPricesDashboard(plan, dict, lang, s, signal)
+  // Energy profile of a country (profile.ts): ENDASH's indicators side by side, in totals or per capita.
+  if (plan.profile) return buildProfileDashboard(plan, dict, lang, s, signal)
   // Monthly data (monthly.ts): the seasonal range, composition, trade and, for generation, renewables against the rest.
   if (isMonthlyDataset(plan.dataset) && plan.filters.freq !== 'A') return buildMonthlyDashboard(plan, dict, lang, s, signal)
   const ds = dict.datasets[plan.dataset]

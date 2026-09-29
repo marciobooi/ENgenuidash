@@ -56,6 +56,8 @@ export interface Plan {
    * price for one type of consumer, decomposed into its components, for one year (see prices.ts).
    */
   prices?: { product: PriceProduct; consumer: PriceConsumer; view?: 'taxes' }
+  /** The energy profile of one country (ENDASH's indicators side by side), in totals or per capita (see profile.ts). */
+  profile?: { perCapita?: true }
 }
 
 export type TradeFlow = 'imp' | 'exp'

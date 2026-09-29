@@ -108,3 +108,20 @@ test('households and industry are their own profile, in totals and per person', 
   const ind = await buildDashboard({ ...base, profile: { focus: 'industry' } }, dict, 'en', s)
   assert.match(ind.title, /^Industry/)
 })
+
+test('a profile can be set against another country, and shows prices with links to the details', async () => {
+  const { profilePlan } = await import('./profile')
+  const vs = profilePlan(' energy profile of germany vs france ', dict, codelists)!
+  assert.equal(vs.filters.geo, 'DE')
+  assert.equal(vs.profile?.compare, 'FR')
+  const d = await buildDashboard(vs, dict, 'en', s)
+  const kpis = d.widgets.find((w) => w.type === 'kpis')
+  assert.ok(kpis && kpis.type === 'kpis' && kpis.items.every((k) => !k.caption?.includes('EU:') || k.label === 'x'))
+  assert.ok(kpis.items.some((k) => k.caption?.includes('France:')))
+  assert.ok(kpis.items.some((k) => k.label === 'Household electricity price'))
+  assert.ok(d.suggestions.some((x) => x.plan?.prices))
+  const base = profilePlan(' energy profile of germany ', dict, codelists)!
+  assert.equal(refineProfile(base, 'vs Spain', dict, codelists)?.profile?.compare, 'ES')
+  assert.equal(refineProfile(base, 'and Spain?', dict, codelists)?.filters.geo, 'ES')
+  assert.equal(refineProfile(vs, 'compare with the EU', dict, codelists)?.profile?.compare, undefined)
+})

@@ -113,6 +113,21 @@ export function priceDatasetOf(dataset: string): { product: PriceProduct; consum
  * The price-structure dashboard a question asks for ("price breakdown of German electricity",
  * "what does the gas price consist of in France?", "network costs and taxes in Italy"), or null.
  */
+/** The price dashboard of one product and type of consumer for a country (the profile links to it). */
+export function pricesPlanFor(product: PriceProduct, consumer: PriceConsumer, geo: string, dict: EnergyDictionary): Plan | null {
+  const dataset = DATASETS[product][consumer]
+  const ds = dict.datasets[dataset]
+  if (!ds) return null
+  const geos = ds.dimensions.find((d) => d.id === 'geo')?.codes ?? []
+  return {
+    dataset,
+    filters: { geo: geos.includes(geo) ? geo : 'EU27_2020', nrg_cons: defaultBand(dataset, dict), currency: 'EUR', ...(ds.dimensions.some((d) => d.id === 'unit') ? { unit: ds.defaults.unit ?? 'KWH' } : {}) },
+    time: { kind: 'all' },
+    intent: 'snapshot',
+    prices: { product, consumer },
+  }
+}
+
 export function pricesPlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   const p = parse(text.replace(/[-–,?]/g, ' '))
   if (!STRUCTURE.test(p.text)) return null

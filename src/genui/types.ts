@@ -57,7 +57,7 @@ export interface Plan {
    */
   prices?: { product: PriceProduct; consumer: PriceConsumer; view?: 'taxes' }
   /** The energy profile of one country (ENDASH's indicators side by side), in totals or per capita (see profile.ts). */
-  profile?: { perCapita?: true; focus?: 'households' | 'industry' }
+  profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 
 export type TradeFlow = 'imp' | 'exp'

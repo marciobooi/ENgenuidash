@@ -73,9 +73,9 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   // Its components view reads the components dataset; its tax view the base one.
   const isPrices = !!priced && !!pricesIn && pricesIn.product === priced.product && pricesIn.consumer === priced.consumer && priced.components === (pricesIn.view !== 'taxes')
   if (p.profile && typeof p.profile === 'object' && filters.geo !== undefined && ds.code === 'nrg_ind_ren') {
-    const pf = p.profile as { perCapita?: unknown; focus?: unknown }
+    const pf = p.profile as { perCapita?: unknown; focus?: unknown; compare?: unknown }
     const time0 = p.time as TimeRange | undefined
-    if (time0) return { dataset: ds.code, filters, time: time0, intent: 'snapshot', profile: { ...(pf.perCapita === true ? { perCapita: true as const } : {}), ...(pf.focus === 'households' || pf.focus === 'industry' ? { focus: pf.focus } : {}) }, ...(typeof p.focusPeriod === 'string' && PERIOD.test(p.focusPeriod) ? { focusPeriod: p.focusPeriod } : {}) }
+    if (time0) return { dataset: ds.code, filters, time: time0, intent: 'snapshot', profile: { ...(pf.perCapita === true ? { perCapita: true as const } : {}), ...(pf.focus === 'households' || pf.focus === 'industry' ? { focus: pf.focus } : {}), ...(typeof pf.compare === 'string' && /^[A-Z]{2}$/.test(pf.compare) ? { compare: pf.compare } : {}) }, ...(typeof p.focusPeriod === 'string' && PERIOD.test(p.focusPeriod) ? { focusPeriod: p.focusPeriod } : {}) }
   }
   if (!isSheet && !isTrade && !isPrices && ds.dimensions.some((d) => d.id !== 'geo' && d.codes.length > 1 && filters[d.id] === undefined)) return null
 

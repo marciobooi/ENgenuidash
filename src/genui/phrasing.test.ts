@@ -73,10 +73,10 @@ const CASES: [string, string, string?][] = [
   ['mount a dashboard with electricity prices in germany', 'nrg_pc_204', 'DE'],
   ['build a dashboard with electricity prices in germany', 'nrg_pc_204', 'DE'],
   ['create a chart of coal consumption in poland', 'nrg_bal_c|nrg_cb_sff', 'PL'],
-  ['make me a dashboard about the energy mix of germany', 'nrg_bal', 'DE'],
+  ['make me a dashboard about the energy mix of germany', 'ten00121', 'DE'],
   ['I want to see nuclear production in france', 'nrg_bal', 'FR'],
   ['i would like to know the energy intensity of poland', 'nrg_ind_ei', 'PL'],
-  ['can you show me the energy mix of germany', 'nrg_bal', 'DE'],
+  ['can you show me the energy mix of germany', 'ten00121', 'DE'],
   ['could you please give me the renewables share in sweden', 'nrg_ind_ren', 'SE'],
   ['please display energy imports dependency of hungary', 'nrg_ind_id', 'HU'],
   ['hi, show me energy poverty in portugal please', 'ilc_mdes01', 'PT'],
@@ -93,11 +93,11 @@ const CASES: [string, string, string?][] = [
   ['tell me a joke', 'route:off-topic|answer'],
   ['show me the weather in Paris', 'route:off-topic|rephrase'],
   // The energy mix, however it is asked
-  ['energy mix of germany', 'nrg_bal', 'DE'],
-  ['energy mix in germany', 'nrg_bal', 'DE'],
-  ['the energy mix of germany', 'nrg_bal', 'DE'],
+  ['energy mix of germany', 'ten00121', 'DE'],
+  ['energy mix in germany', 'ten00121', 'DE'],
+  ['the energy mix of germany', 'ten00121', 'DE'],
   ['Electricity mix in Germany', 'nrg_bal', 'DE'],
-  ['germany energy mix', 'nrg_bal', 'DE'],
+  ['germany energy mix', 'ten00121', 'DE'],
 ]
 
 test('real-world phrasings reach the right data (or the right refusal)', () => {

@@ -57,6 +57,9 @@ const mix = (dataset: string, filters: Plan['filters']) => plan(dataset, filters
 const trend = (dataset: string, filters: Plan['filters']) => plan(dataset, filters, 'trend')
 
 export const PRESETS: Record<PresetId, Plan> = {
+  // Starters named like a Eurostat table use that table (ten0012x: built from the balance, the same
+  // products and flow), so the source shown is the one users look for. "By sector" stays on the
+  // balance: ten00124 has only 4 sectors, this shows 7.
   // Primary and final energy consumption: two measures, not parts of a total (lines, no shares).
   efficiency: { ...trend('nrg_ind_eff', { nrg_bal: ['FEC_EED', 'PEC_EED'], unit: 'MTOE' }), parts: false },
   renewables: trend('nrg_ind_ren', { nrg_bal: ['REN', 'REN_TRA', 'REN_ELC', 'REN_HEAT_CL'], unit: 'PC' }),
@@ -66,14 +69,14 @@ export const PRESETS: Record<PresetId, Plan> = {
   imports: trend('nrg_ind_id', { siec: ['G3000', 'O4000XBIO', 'O4100_TOT', 'O4200'], unit: 'PC' }),
   fossil: trend('nrg_ind_ffgae', { unit: 'PC' }),
   householdsPerCapita: trend('sdg_07_20', { unit: 'KGOE' }),
-  byProduct: mix('nrg_bal_s', { nrg_bal: 'FC_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),
+  byProduct: mix('ten00123', { nrg_bal: 'FC_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),
   bySector: mix('nrg_bal_s', { siec: 'TOTAL', nrg_bal: ['FC_IND_E', 'FC_OTH_AF_E', 'FC_OTH_CP_E', 'FC_OTH_FISH_E', 'FC_OTH_HH_E', 'FC_OTH_NSP_E', 'FC_TRA_E'], unit: 'KTOE' }),
   householdUses: mix('nrg_d_hhq', { siec: 'TOTAL', nrg_bal: ['FC_OTH_HH_E_SH', 'FC_OTH_HH_E_SC', 'FC_OTH_HH_E_WH', 'FC_OTH_HH_E_CK', 'FC_OTH_HH_E_LE', 'FC_OTH_HH_E_OE'], unit: 'TJ' }),
   // Eurostat's own table for this question (ten00126, built from the balance: the same 13 fuels).
   transport: mix('ten00126', { nrg_bal: 'FC_TRA_E', siec: [...TRANSPORT_FUELS, 'O4661XR5230B', 'O4680'], unit: 'KTOE' }),
-  road: mix('nrg_bal_c', { nrg_bal: 'FC_TRA_ROAD_E', siec: TRANSPORT_FUELS, unit: 'KTOE' }),
+  road: mix('ten00127', { nrg_bal: 'FC_TRA_ROAD_E', siec: TRANSPORT_FUELS, unit: 'KTOE' }),
   services: mix('nrg_bal_s', { nrg_bal: 'FC_OTH_CP_E', siec: ['C0000X0350-0370', 'E7000', 'G3000', 'H8000', 'O4000XBIO', 'RA000', 'W6100_6220'], unit: 'KTOE' }),
-  industry: mix('nrg_bal_s', { nrg_bal: 'FC_IND_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),
+  industry: mix('ten00129', { nrg_bal: 'FC_IND_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),
   nonEnergy: mix('nrg_bal_s', { nrg_bal: 'FC_NE', siec: ['C0000X0350-0370', 'C0350-0370', 'G3000', 'O4000XBIO', 'P1000', 'RA000', 'S2000'], unit: 'KTOE' }),
   production: mix('nrg_ind_peh', {
     plants: 'TOTAL',
@@ -89,8 +92,8 @@ export const PRESETS: Record<PresetId, Plan> = {
     siec: ['C0110', 'C0121', 'C0129', 'C0210', 'C0220', 'C0311', 'C0312', 'C0320', 'C0330', 'C0340', 'C0350', 'C0360', 'C0371', 'C0379'],
     unit: 'GWH',
   }),
-  supply: mix('nrg_bal_s', { nrg_bal: 'NRGSUP', siec: BAL_PRODUCTS, unit: 'KTOE' }),
-  gae: mix('nrg_bal_s', { nrg_bal: 'GAE', siec: BAL_PRODUCTS, unit: 'KTOE' }),
+  supply: mix('ten00122', { nrg_bal: 'NRGSUP', siec: BAL_PRODUCTS, unit: 'KTOE' }),
+  gae: mix('ten00121', { nrg_bal: 'GAE', siec: BAL_PRODUCTS, unit: 'KTOE' }),
   // Energy poverty: share of the population unable to keep their home adequately warm (EU-SILC).
   energyPoverty: trend('ilc_mdes01', { hhcomp: 'TOTAL', rskpovth: 'TOTAL', unit: 'PC' }),
 }

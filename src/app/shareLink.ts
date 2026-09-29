@@ -101,7 +101,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   // An energy balance sheet (without it, the link would ask for every line × every fuel).
   if (isSheet) plan.balance = { fuels: balance.fuels }
   if (isTrade) plan.trade = traded
-  if (isSankey) plan.sankey = { ...(typeof (sankeyIn as { nodes?: unknown }).nodes === 'string' && /^[A-Za-z,]*$/.test((sankeyIn as { nodes: string }).nodes) ? { nodes: (sankeyIn as { nodes: string }).nodes } : {}), ...(typeof sankeyIn!.fuel === 'string' && FUEL_FAMILIES.includes(sankeyIn!.fuel) ? { fuel: sankeyIn!.fuel } : {}), ...(sankeyIn!.byFuel === true ? { byFuel: true as const } : {}) }
+  if (isSankey) plan.sankey = { ...(typeof (sankeyIn as { compare?: unknown }).compare === 'string' && /^(y\d{1,2}|[A-Z0-9_]{2,10})$/.test((sankeyIn as { compare: string }).compare) ? { compare: (sankeyIn as { compare: string }).compare } : {}), ...(typeof (sankeyIn as { nodes?: unknown }).nodes === 'string' && /^[A-Za-z,]*$/.test((sankeyIn as { nodes: string }).nodes) ? { nodes: (sankeyIn as { nodes: string }).nodes } : {}), ...(typeof sankeyIn!.fuel === 'string' && FUEL_FAMILIES.includes(sankeyIn!.fuel) ? { fuel: sankeyIn!.fuel } : {}), ...(sankeyIn!.byFuel === true ? { byFuel: true as const } : {}) }
   if (isPrices) plan.prices = { product: pricesIn.product, consumer: pricesIn.consumer, ...(pricesIn.view === 'taxes' ? { view: 'taxes' as const } : {}) }
   const focus = p.focus as Plan['focus']
   if (focus?.kind === 'change') plan.focus = { kind: 'change' }

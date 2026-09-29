@@ -80,3 +80,26 @@ test('the diagram is built from the balance, with the year, the products and the
   const coloured = await buildDashboard({ ...plan, sankey: { fuel: 'RA000', byFuel: true } }, dict, 'en', s)
   assert.match(coloured.widgets.find((x) => x.type === 'sankey')!.type, /sankey/)
 })
+
+test('a flow knows what it is part of, for its share', async () => {
+  const { parentOfFlow, nodeOfFlow } = await import('./model')
+  assert.equal(parentOfFlow('F1_2'), 'N1')
+  assert.equal(parentOfFlow('F6_3'), 'N6')
+  assert.equal(parentOfFlow('F6_1_1_2'), 'F6_1_1')
+  assert.equal(parentOfFlow('F6_1_1_2_2'), 'F6_1_1_2')
+  assert.equal(parentOfFlow('F2_11_2_1'), 'F2_11_1')
+  assert.equal(parentOfFlow('F2_9_2'), 'F2_2')
+  assert.equal(parentOfFlow('N1'), null)
+  assert.equal(nodeOfFlow('F6_5_3'), 'E6_5_3')
+})
+
+test('comparing with earlier years or another country is asked in the plan and carried by the widget', async () => {
+  const base = sankeyPlan(' energy flow diagram of germany ', dict, codelists)!
+  const years = await buildDashboard({ ...base, sankey: { compare: 'y5' } }, dict, 'en', s)
+  const w = years.widgets.find((x) => x.type === 'sankey')
+  assert.ok(w && w.type === 'sankey' && w.compare?.kind === 'years' && w.compare.back === 5)
+  const other = await buildDashboard({ ...base, sankey: { compare: 'FR' } }, dict, 'en', s)
+  const o = other.widgets.find((x) => x.type === 'sankey')
+  assert.ok(o && o.type === 'sankey' && o.compare?.kind === 'geo' && o.compare.label === 'France' && !!o.compare.table)
+  assert.ok(years.controls?.choices?.some((c) => c.key === 'compare' && c.options.some((x) => x.active && x.plan.sankey?.compare === 'y5')))
+})

@@ -69,3 +69,6 @@ export function flowsNeeded(d: Disaggregation): string[] {
   if (d.energyBranch) out.push(...range('F6_5', 16))
   return out
 }
+
+/** The countries of the EU, for comparing one with the others. */
+export const EU_MEMBERS = ['BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'HR', 'IT', 'CY', 'LV', 'LT', 'LU', 'HU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'FI', 'SE']

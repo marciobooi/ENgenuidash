@@ -6,7 +6,7 @@ import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggesti
 import { sanitizeSpec } from '../validate'
 import { disaggregationOf, flowsNeeded } from './state'
 import labels from './labels.json'
-import { BalanceTable, FLOW_FORMULAS, FUEL_FAMILIES, balanceLinesFor, buildModel, displayedFuels, leafFuels, rowsOf } from './model'
+import { BalanceTable, FLOW_FORMULAS, FUEL_FAMILIES, balanceLinesFor, buildModel, displayedFuels, leafFuels, nodeOfFlow, rowsOf } from './model'
 
 /**
  * The energy flow diagram (ENSANKEY, https://ec.europa.eu/eurostat/cache/sankey/energy/sankey.html):
@@ -23,12 +23,6 @@ const GEOS = [EU, 'BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'H
 
 // The flows of the picture as first drawn (the balance lines they read are the ones fetched).
 const DEFAULT_FLOWS = ['F1_1_1', 'F1_1_2', 'F1_1', 'F1_2', 'F1_3', 'F1_4', 'N1', 'N2_1', 'N2_2', 'F3', 'F2_1', 'F2_2', 'F5_1', 'F5_2', 'F6_1_1', 'F6_1_2', 'F6_1_1_1', 'F6_1_1_2', 'F6_1_1_3', 'F6_1', 'F6_2', 'F6_3', 'F6_4', 'F6_5', 'F6_6', 'F6_7', 'F6_8', 'N6']
-
-/** The node a flow arrives at or leaves from, for its name in the pies (the flow's own name is its node's). */
-function nodeOfFlow(code: string): string {
-  const special: Record<string, string> = { F1_1: 'N1_1', F1_2: 'E1_2', F1_3: 'E1_3', F1_4: 'E1_4', F6_1: 'N6_1', F6_1_1_1: 'N6_1_1_1', F6_1_1_2: 'N6_1_1_2', F6_1_1_3: 'N6_1_1_3', F6_1_2: 'N6_1_2' }
-  return special[code] ?? `E${code.slice(1)}`
-}
 
 const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')
 
@@ -116,6 +110,20 @@ export async function buildSankeyDashboard(
   const result = await fetchEurostatData(DATASET, { filters: { geo, unit, nrg_bal: lines, siec: leaves }, lang, signal })
   const { years, rows } = rowsOf(result)
   const table = new BalanceTable(years, rows)
+  // What the diagram is compared with: earlier years (the same table) or another country's balance.
+  const asked = plan.sankey?.compare
+  let compare: Extract<WidgetSpec, { type: 'sankey' }>['compare']
+  const geoNames = (labels as Record<string, Record<string, string>>)[lang] ?? labels.en
+  if (asked && /^y\d+$/.test(asked)) {
+    const back = Number(asked.slice(1))
+    compare = { kind: 'years', back, label: fill(back === 1 ? t.yearsEarlier1 : t.yearsEarlierN, { n: String(back) }) }
+  } else if (asked && asked !== geo && GEOS.includes(asked)) {
+    const other = await fetchEurostatData(DATASET, { filters: { geo: asked, unit, nrg_bal: lines, siec: leaves }, lang, signal }).catch(() => null)
+    if (other) {
+      const o = rowsOf(other)
+      compare = { kind: 'geo', label: (geoNames[`geo:${asked}`] ?? asked).replace(/\s*\(.*?\)\s*$/, ''), years: o.years, table: o.rows }
+    }
+  }
   const model = buildModel(table, fuel, byFuel)
   const active = years.filter((y) => (model.flows(y).get('N1')?.value ?? 0) > 0 || (model.flows(y).get('N6')?.value ?? 0) > 0)
   if (!active.length) throw new NoDataError(DATASET)
@@ -233,12 +241,13 @@ export async function buildSankeyDashboard(
         byFuel,
         table: rows,
         disaggregation: dis,
+        ...(compare ? { compare } : {}),
         size: 'full',
       },
       ...around,
     ],
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
-    presentation: { template: 'sankey', kpiStyle: 'cards', controls: ['geo', 'year', 'unit', 'fuel', 'view'], primaryControls: 5, accent: 'teal' },
+    presentation: { template: 'sankey', kpiStyle: 'cards', controls: ['geo', 'year', 'unit', 'compare', 'fuel', 'view'], primaryControls: 6, accent: 'teal' },
     unit: symbol,
     source,
     suggestions: sankeySuggestions(plan, s, fuel, byFuel),
@@ -254,11 +263,20 @@ export async function buildSankeyDashboard(
 function sankeyControls(plan: Plan, dict: EnergyDictionary, years: string[], year: string, fuel: string, byFuel: boolean, t: SankeyStrings, names: Record<string, string>): DashboardControls {
   const at = (y: string): Plan => ({ ...plan, time: { kind: 'range', since: y, until: y }, focusPeriod: y })
   const units = (dict.datasets[DATASET]?.dimensions.find((d) => d.id === 'unit')?.codes ?? []).filter((u) => u in UNITS)
-  const withSankey = (over: NonNullable<Plan['sankey']>): Plan => ({ ...plan, sankey: { ...over, ...(plan.sankey?.nodes !== undefined ? { nodes: plan.sankey.nodes } : {}) } })
+  const withSankey = (over: NonNullable<Plan['sankey']>): Plan => ({ ...plan, sankey: { ...over, ...(plan.sankey?.nodes !== undefined ? { nodes: plan.sankey.nodes } : {}), ...(plan.sankey?.compare ? { compare: plan.sankey.compare } : {}) } })
   return {
     years: [...years].reverse().slice(0, 40).map((y) => ({ label: y, plan: at(y), active: y === year })),
     units: units.map((u) => ({ label: UNITS[u], plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: (plan.filters.unit ?? 'KTOE') === u })),
     choices: [
+      {
+        key: 'compare',
+        label: t.compareWith,
+        options: [
+          { label: t.compareNone, plan: { ...plan, sankey: { ...plan.sankey, compare: undefined } }, active: !plan.sankey?.compare },
+          ...[1, 5, 10].map((n) => ({ label: fill(n === 1 ? t.yearsEarlier1 : t.yearsEarlierN, { n: String(n) }), plan: { ...plan, sankey: { ...plan.sankey, compare: `y${n}` } }, active: plan.sankey?.compare === `y${n}` })),
+          ...GEOS.filter((g) => g !== String(plan.filters.geo ?? EU)).map((g) => ({ label: ((names as Record<string, string>)[`geo:${g}`] ?? g).replace(/\s*\(.*?\)\s*$/, ''), plan: { ...plan, sankey: { ...plan.sankey, compare: g } }, active: plan.sankey?.compare === g })),
+        ],
+      },
       { key: 'fuel', label: t.fuel, options: FUEL_FAMILIES.map((f) => ({ label: f === 'TOTAL' ? t.allProducts : (names[f] ?? f), plan: withSankey({ ...(f === 'TOTAL' ? {} : { fuel: f }), ...(byFuel ? { byFuel: true as const } : {}) }), active: fuel === f })) },
       {
         key: 'view',
@@ -274,7 +292,7 @@ function sankeyControls(plan: Plan, dict: EnergyDictionary, years: string[], yea
 
 function sankeySuggestions(plan: Plan, s: { sankey: SankeyStrings; sugExplain: string }, fuel: string, byFuel: boolean): Suggestion[] {
   const out: Suggestion[] = []
-  out.push({ label: byFuel ? s.sankey.viewOne : s.sankey.viewByFuel, plan: { ...plan, sankey: { ...(fuel !== 'TOTAL' ? { fuel } : {}), ...(byFuel ? {} : { byFuel: true as const }), ...(plan.sankey?.nodes !== undefined ? { nodes: plan.sankey.nodes } : {}) } } })
+  out.push({ label: byFuel ? s.sankey.viewOne : s.sankey.viewByFuel, plan: { ...plan, sankey: { ...(fuel !== 'TOTAL' ? { fuel } : {}), ...(byFuel ? {} : { byFuel: true as const }), ...(plan.sankey?.nodes !== undefined ? { nodes: plan.sankey.nodes } : {}), ...(plan.sankey?.compare ? { compare: plan.sankey.compare } : {}) } } })
   if (plan.filters.geo !== EU) out.push({ label: s.sankey.sugEu, plan: { ...plan, filters: { ...plan.filters, geo: EU } } })
   out.push({ label: s.sugExplain, explain: true })
   return out

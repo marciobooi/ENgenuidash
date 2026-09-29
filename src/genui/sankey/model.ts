@@ -162,3 +162,32 @@ export function balanceLinesFor(codes: string[], allLines: string[]): string[] {
   codes.forEach(visit)
   return [...lines].filter((l) => allLines.includes(l))
 }
+
+/** The balance of each country of an answer that has several (rows as in rowsOf). */
+export function rowsByGeo(result: EurostatResult): Record<string, { years: string[]; rows: Record<string, (number | null)[]> }> {
+  const geos = [...new Set(result.observations.map((o) => o.keys.geo))]
+  const out: Record<string, { years: string[]; rows: Record<string, (number | null)[]> }> = {}
+  for (const g of geos) out[g] = rowsOf({ ...result, observations: result.observations.filter((o) => o.keys.geo === g) })
+  return out
+}
+
+/** The node a flow arrives at or leaves from (its name is the flow's name in the pies and details). */
+export function nodeOfFlow(code: string): string {
+  const special: Record<string, string> = { N1: 'N1', N6: 'N6', F1_1: 'N1_1', F1_2: 'E1_2', F1_3: 'E1_3', F1_4: 'E1_4', F2_1: 'T2', F2_2: 'N2_2', F4: 'E4', F3: 'N3', F5_1: 'N5', F5_2: 'N5', F6_1: 'N6_1', F6_1_1: 'N6_1_1', F6_1_2: 'N6_1_2', F6_1_1_1: 'N6_1_1_1', F6_1_1_2: 'N6_1_1_2', F6_1_1_3: 'N6_1_1_3' }
+  return special[code] ?? `E${code.slice(1)}`
+}
+
+/** What a flow is a part of, for its share ("42 % of available energy"); null for the whole. */
+export function parentOfFlow(code: string): string | null {
+  const top: Record<string, string> = { F1_1: 'N1', F1_2: 'N1', F1_3: 'N1', F1_4: 'N1', F2_1: 'N1', F5_1: 'N1', F3: 'N1', F2_2: 'N6', F5_2: 'N6', F6_1: 'N6', F6_2: 'N6', F6_3: 'N6', F6_4: 'N6', F6_5: 'N6', F6_6: 'N6', F6_7: 'N6', F6_8: 'N6', F4: 'F2_1' }
+  if (code === 'N1' || code === 'N6') return null
+  if (top[code]) return top[code]
+  let m = /^F2_(\d+)_(\d)_([12])$/.exec(code)
+  if (m) return `F2_${m[1]}_${m[3]}`
+  m = /^F2_(\d+)_([12])$/.exec(code)
+  if (m) return `F2_${m[2]}`
+  m = /^F4_(\d+)/.exec(code)
+  if (m) return 'F4'
+  const i = code.lastIndexOf('_')
+  return i > 2 ? code.slice(0, i) : null
+}

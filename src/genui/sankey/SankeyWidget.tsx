@@ -204,8 +204,8 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const fuelName = (code: string) => (code === 'losses' ? name('losses') : name(code))
   const idPrefix = useId()
 
-  const onNodeActivate = (n: DrawnNode) => setSelection({ kind: 'node', code: n.code, flowCode: NODE_FLOW[n.code] ?? n.code })
-  const onFlowActivate = (f: DrawnFlow) => setSelection({ kind: 'flow', code: f.code, flowCode: f.code, source: f.source, target: f.target })
+  const onNodeActivate = (n: DrawnNode) => setSelection((prev) => (prev?.kind === 'node' && prev.code === n.code ? null : { kind: 'node', code: n.code, flowCode: NODE_FLOW[n.code] ?? n.code }))
+  const onFlowActivate = (f: DrawnFlow) => setSelection((prev) => (prev?.kind === 'flow' && prev.code === f.code && prev.source === f.source && prev.target === f.target ? null : { kind: 'flow', code: f.code, flowCode: f.code, source: f.source, target: f.target }))
   const keyActivate = (fn: () => void) => (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -225,7 +225,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const toggle = selection ? NODE_TOGGLE[selection.code] : undefined
 
   return (
-    <section className="sankey" aria-label={widget.title}>
+    <section className="sankey" aria-label={widget.title} onKeyDown={(e) => e.key === 'Escape' && setSelection(null)}>
       <div className="sankey__head">
         <h3 className="sankey__title">{widget.title}</h3>
         {widget.subtitle && <p className="sankey__subtitle">{widget.subtitle}</p>}
@@ -379,13 +379,13 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
               <p>{detail.text}</p>
             </div>
             <div className="sankey__detail-actions">
-              {toggle && (
-                <button type="button" className="sankey__btn" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(toggleDisaggregation(disaggregation, toggle)) } }, name(selection.code))}>
-                  {disaggregation[toggle] ? labels.collapse : labels.open}
-                </button>
-              )}
-              <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => setSelection(null)}>
-                <span aria-hidden="true">✕</span> {labels.close}
+              {/* One button: a node that can be opened is opened or closed; anything else is just closed. */}
+              <button
+                type="button"
+                className="sankey__btn"
+                onClick={() => (toggle ? onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(toggleDisaggregation(disaggregation, toggle)) } }, name(selection.code)) : setSelection(null))}
+              >
+                {toggle ? (disaggregation[toggle] ? labels.collapse : labels.open) : labels.close}
               </button>
             </div>
           </div>

@@ -104,6 +104,8 @@ export interface Companion {
   top?: number
   /** Only the first N rows (a ranking), without an "Others" bar. */
   rank?: number
+  /** The dataset has no total across the products asked for: add their values up (per plant type, per operator). */
+  sum?: boolean
   /** Dashed reference line (e.g. the EU 2030 renewable target). */
   reference?: { value: number; label: string }
 }
@@ -211,6 +213,15 @@ export function companionsFor(plan: Plan, dict: EnergyDictionary, s: CompanionSt
     out.push({ dataset: plan.dataset, filters: { ...base, plants: 'TOTAL', operator: 'TOTAL' }, dim: 'nrg_bal', codes: electricity ? ['NEP', 'GEP'] : ['NHP', 'GHP'], title: s.grossNet, view: 'dumbbell', unit })
     out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, operator: 'TOTAL' }, dim: 'plants', codes: electricity ? ['ELC', 'CHP'] : ['CHP', 'HEAT'], title: s.byPlant, view: 'pie', unit })
     out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, plants: 'TOTAL' }, dim: 'operator', codes: ['PRR_MAIN', 'PRR_AUTO'], title: s.byOperator, view: 'pie', unit })
+  }
+  // The same for the combustible fuels' own dataset (no total across fuels: the ones asked for are added up).
+  if (plan.dataset === 'nrg_ind_pehcf' && one(f.plants) === 'TOTAL' && one(f.operator) === 'TOTAL' && ['GEP', 'GHP'].includes(one(f.nrg_bal) ?? '') && list(f.siec).length >= 1) {
+    const flow = one(f.nrg_bal) as string
+    const electricity = flow === 'GEP'
+    const base = { siec: list(f.siec), unit: one(f.unit) ?? (electricity ? 'GWH' : 'TJ'), geo }
+    const unit = UNIT_TEXT[String(base.unit)] ?? String(base.unit)
+    out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, operator: 'TOTAL' }, dim: 'plants', codes: electricity ? ['ELC', 'CHP'] : ['CHP', 'HEAT'], title: s.byPlant, view: 'pie', unit, sum: true })
+    out.push({ dataset: plan.dataset, filters: { ...base, nrg_bal: flow, plants: 'TOTAL' }, dim: 'operator', codes: ['PRR_MAIN', 'PRR_AUTO'], title: s.byOperator, view: 'pie', unit, sum: true })
   }
   // (Producing or supplying energy → the renewable share against the 2030 target is its own section:
   // buildRenewableTarget, with a gauge, a bullet chart, the gap of every country and the way there.)
@@ -656,7 +667,11 @@ export function toWidget(c: Companion, result: EurostatResult, lang: string, for
   const times = result.dimensions.time?.codes ?? []
   const places = Array.isArray(c.filters.geo) ? (result.dimensions.geo?.codes ?? []) : []
   if (places.length > 1) return compareCountries(c, result, lang, places)
-  const value = (code: string, time: string) => result.observations.find((o) => o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
+  const value = (code: string, time: string) => {
+    const found = result.observations.filter((o) => o.keys[c.dim] === code && o.keys.time === time && o.value != null)
+    if (!c.sum) return result.observations.find((o) => o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
+    return found.length ? found.reduce((n, o) => n + (o.value as number), 0) : null
+  }
   // The latest period where most codes have a value.
   const time = [...times].reverse().find((t) => codes.filter((k) => value(k.code, t.code) != null).length >= Math.max(2, Math.ceil(codes.length / 2)))
   if (!time) return null
@@ -732,8 +747,11 @@ export function toWidget(c: Companion, result: EurostatResult, lang: string, for
 function compareCountries(c: Companion, result: EurostatResult, lang: string, places: { code: string; label: string }[]): WidgetSpec | null {
   const codes = (result.dimensions[c.dim]?.codes ?? []).filter((k) => (Array.isArray(c.codes) ? c.codes.includes(k.code) : false))
   const times = result.dimensions.time?.codes ?? []
-  const value = (geo: string, code: string, time: string) =>
-    result.observations.find((o) => o.keys.geo === geo && o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
+  const value = (geo: string, code: string, time: string) => {
+    if (!c.sum) return result.observations.find((o) => o.keys.geo === geo && o.keys[c.dim] === code && o.keys.time === time)?.value ?? null
+    const found = result.observations.filter((o) => o.keys.geo === geo && o.keys[c.dim] === code && o.keys.time === time && o.value != null)
+    return found.length ? found.reduce((n, o) => n + (o.value as number), 0) : null
+  }
   // The latest period where most countries have every part.
   // (A mix of many parts: a part a country does not report is zero, so a few parts are enough.)
   const enough = c.view === 'pie' && codes.length > 6 ? 3 : codes.length

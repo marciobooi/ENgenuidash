@@ -107,3 +107,28 @@ test('an emissions breakdown gets the same country context, on the source sector
   // The total alone (not a breakdown) gets none.
   assert.deepEqual(kinds('greenhouse gas emissions in Germany'), [])
 })
+
+test('combustible fuels: plant type and operator, adding up the fuels asked for (there is no total across fuels)', () => {
+  const p = plan('Gross production of electricity and derived heat from combustible fuels by type of plant and operator')
+  const list = companionsFor(p, dict, s)
+  const byPlant = list.find((c) => c.dim === 'plants')!
+  const byOperator = list.find((c) => c.dim === 'operator')!
+  assert.deepEqual(byPlant.codes, ['ELC', 'CHP'])
+  assert.deepEqual(byOperator.codes, ['PRR_MAIN', 'PRR_AUTO'])
+  assert.ok(byPlant.sum && byOperator.sum)
+  assert.ok(([] as string[]).concat(byPlant.filters.siec).length >= 5)
+  // The values of the fuels are added up per plant type.
+  const result = {
+    label: 'x',
+    dimensions: { plants: { label: 'p', codes: [{ code: 'ELC', label: 'Electricity' }, { code: 'CHP', label: 'CHP' }] }, siec: { label: 's', codes: [{ code: 'G3000', label: 'Gas' }, { code: 'C0220', label: 'Lignite' }] }, time: { label: 't', codes: [{ code: '2024', label: '2024' }] } },
+    observations: [
+      { keys: { plants: 'ELC', siec: 'G3000', time: '2024' }, value: 100 },
+      { keys: { plants: 'ELC', siec: 'C0220', time: '2024' }, value: 50 },
+      { keys: { plants: 'CHP', siec: 'G3000', time: '2024' }, value: 30 },
+      { keys: { plants: 'CHP', siec: 'C0220', time: '2024' }, value: null },
+    ],
+  } as unknown as EurostatResult
+  const w = toWidget(byPlant, result, 'en', String) as Extract<WidgetSpec, { type: 'pie' }>
+  assert.equal(w.type, 'pie')
+  assert.deepEqual(Object.fromEntries(w.slices.map((x) => [x.name, x.y])), { Electricity: 150, CHP: 30 })
+})

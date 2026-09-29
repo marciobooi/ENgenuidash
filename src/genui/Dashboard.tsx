@@ -1,5 +1,6 @@
 import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
+import { isCrowdedBar } from './crowded'
 import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
@@ -72,7 +73,8 @@ export function Dashboard({
 
   // Layout: 'full' charts span the width; 'half' charts pair up. A half chart without a partner
   // is widened so the grid never has an empty cell.
-  const sizes = charts.map((w) => ('size' in w && w.size === 'half' ? 'half' : 'full'))
+  // (a bar chart of many categories - a ranking of every country - is a full-width column chart)
+  const sizes = charts.map((w) => ('size' in w && w.size === 'half' && !isCrowdedBar(w) ? 'half' : 'full'))
   for (let i = 0; i < sizes.length; i++) {
     if (sizes[i] !== 'half') continue
     let run = 0
@@ -122,12 +124,12 @@ export function Dashboard({
             {...common}
             categories={w.categories}
             series={w.series}
-            orientation={w.horizontal ? 'horizontal' : 'vertical'}
+            orientation={w.horizontal && !isCrowdedBar(w) ? 'horizontal' : 'vertical'}
             stacked={w.stacked}
-            showValues={w.series.length === 1 && w.categories.length <= 30}
+            showValues={w.series.length === 1 && w.categories.length <= (isCrowdedBar(w) ? 24 : 30)}
             reference={w.reference}
             signed={w.signed}
-            height={w.horizontal ? Math.max(260, w.categories.length * 28 + 90) : 320}
+            height={w.horizontal && !isCrowdedBar(w) ? Math.max(260, w.categories.length * 28 + 90) : isCrowdedBar(w) ? 380 : 320}
           />
         )
       case 'pie':
@@ -346,11 +348,11 @@ function SwitchableBar({ widget: w, common }: { widget: BarWidget; common: Omit<
       title={view.title}
       categories={view.categories}
       series={[{ name: view.title, data: view.data }]}
-      orientation={w.horizontal ? 'horizontal' : 'vertical'}
+      orientation={w.horizontal && !isCrowdedBar(w) ? 'horizontal' : 'vertical'}
       showValues={view.categories.length <= 30}
       reference={w.reference}
       signed={w.signed}
-      height={w.horizontal ? Math.max(260, view.categories.length * 28 + 90) : 320}
+      height={w.horizontal && !isCrowdedBar(w) ? Math.max(260, view.categories.length * 28 + 90) : isCrowdedBar(w) ? 380 : 320}
       headline={
         <div className="chart-view">
           <EclSelect

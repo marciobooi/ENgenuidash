@@ -11,6 +11,7 @@ import { buildCompanions, type CompanionStrings } from './companions'
 import { comparableSum } from './sums'
 import { dropEmptyRows } from './empty'
 import { computeInsights, type InsightStrings } from './insights'
+import { MAX_BARS } from './crowded'
 import { arrange, type Kind } from './layout'
 import { datasetDescription } from '../llm/knowledge'
 import { monthlyFilters } from './planner'
@@ -76,6 +77,7 @@ export interface DashStrings {
   byPartAndCountry: string
   mixShift: string
   differenceFromEu: string
+  topTen: string
   mixGainer: string
   mixLoser: string
   mixDiversity: string
@@ -421,7 +423,11 @@ export async function buildDashboard(
 
     // 1. Europe map + ranking (same height, side by side).
     const map = byCountry ? mapOf(ranked.map((r) => r.x), focusIndex) : null
-    if (map) widgets.push({ ...map, height: Math.max(420, ranked.length * 28 + 90) })
+    // (a ranking of many countries is a full-width column chart, see crowded.ts: the map then sits
+    // next to the ten highest, at a normal height)
+    const crowded = ranked.length > MAX_BARS
+    if (map) widgets.push({ ...map, height: crowded ? 460 : Math.max(420, ranked.length * 28 + 90), ...(crowded ? { role: 'map' as const } : {}) })
+    if (map && crowded) widgets.push({ type: 'breakdown', title: fill(s.topTen, { period }), subtitle, items: breakdownItems(ranked.slice(0, 10).map((r) => r.x), focusIndex), size: 'half', role: 'map' })
     widgets.push({
       type: 'bar',
       title: fill(s.rankingIn, { period }),

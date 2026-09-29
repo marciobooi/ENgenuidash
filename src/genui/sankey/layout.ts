@@ -57,9 +57,27 @@ export interface Disaggregation {
   transformation: boolean
   afterTransformation: boolean
   finalConsumption: boolean
+  energyConsumption: boolean
+  nonEnergyConsumption: boolean
+  industry: boolean
+  transport: boolean
+  otherSectors: boolean
+  energyBranch: boolean
 }
 
-export const DEFAULT_DISAGGREGATION: Disaggregation = { production: false, allSources: true, transformation: false, afterTransformation: true, finalConsumption: false }
+export const DEFAULT_DISAGGREGATION: Disaggregation = {
+  production: false,
+  allSources: true,
+  transformation: false,
+  afterTransformation: true,
+  finalConsumption: false,
+  energyConsumption: false,
+  nonEnergyConsumption: false,
+  industry: false,
+  transport: false,
+  otherSectors: false,
+  energyBranch: false,
+}
 
 export interface FlowPath {
   d: string

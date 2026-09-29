@@ -151,7 +151,7 @@ export type WidgetSpec = (
       fuel: string
       byFuel: boolean
       table: Record<string, (number | null)[]>
-      disaggregation?: Partial<{ production: boolean; allSources: boolean; transformation: boolean; afterTransformation: boolean; finalConsumption: boolean }>
+      disaggregation?: Partial<Record<'production' | 'allSources' | 'transformation' | 'afterTransformation' | 'finalConsumption' | 'energyConsumption' | 'nonEnergyConsumption' | 'industry' | 'transport' | 'otherSectors' | 'energyBranch', boolean>>
       size?: WidgetSize
     }
   | {

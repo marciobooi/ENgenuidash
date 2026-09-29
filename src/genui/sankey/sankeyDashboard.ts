@@ -2,7 +2,7 @@ import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary } from '
 import type { Strings } from '../../i18n'
 import { NoDataError } from '../execute'
 import { detectGeos, detectTime, parse, requestedUnit } from '../planner/parse'
-import type { DashboardControls, DashboardSpec, KpiSpec, Plan, Suggestion } from '../types'
+import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggestion, WidgetSpec } from '../types'
 import { sanitizeSpec } from '../validate'
 import { DEFAULT_DISAGGREGATION } from './layout'
 import labels from './labels.json'
@@ -22,7 +22,13 @@ const UNITS: Record<string, string> = { KTOE: 'ktoe', GWH: 'GWh', TJ: 'TJ' }
 const GEOS = [EU, 'BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'HR', 'IT', 'CY', 'LV', 'LT', 'LU', 'HU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'FI', 'SE', 'IS', 'NO', 'ME', 'MK', 'AL', 'RS', 'TR', 'BA', 'XK', 'MD', 'UA', 'GE']
 
 // The flows of the picture as first drawn (the balance lines they read are the ones fetched).
-const DEFAULT_FLOWS = ['F1_1_1', 'F1_1_2', 'F1_1', 'F1_2', 'F1_3', 'F1_4', 'N1', 'N2_1', 'N2_2', 'F3', 'F2_1', 'F2_2', 'F5_1', 'F5_2', 'F6_1_1', 'F6_1_2', 'F6_1', 'F6_2', 'F6_3', 'F6_4', 'F6_5', 'F6_6', 'F6_7', 'F6_8', 'N6']
+const DEFAULT_FLOWS = ['F1_1_1', 'F1_1_2', 'F1_1', 'F1_2', 'F1_3', 'F1_4', 'N1', 'N2_1', 'N2_2', 'F3', 'F2_1', 'F2_2', 'F5_1', 'F5_2', 'F6_1_1', 'F6_1_2', 'F6_1_1_1', 'F6_1_1_2', 'F6_1_1_3', 'F6_1', 'F6_2', 'F6_3', 'F6_4', 'F6_5', 'F6_6', 'F6_7', 'F6_8', 'N6']
+
+/** The node a flow arrives at or leaves from, for its name in the pies (the flow's own name is its node's). */
+function nodeOfFlow(code: string): string {
+  const special: Record<string, string> = { F1_1: 'N1_1', F1_2: 'E1_2', F1_3: 'E1_3', F1_4: 'E1_4', F6_1: 'N6_1', F6_1_1_1: 'N6_1_1_1', F6_1_1_2: 'N6_1_1_2', F6_1_1_3: 'N6_1_1_3', F6_1_2: 'N6_1_2' }
+  return special[code] ?? `E${code.slice(1)}`
+}
 
 const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')
 
@@ -151,13 +157,64 @@ export async function buildSankeyDashboard(
     }),
   ]
 
-  const title = fill(t.title, { geo: geoName, year })
   const source = { code: DATASET, title: result.label, url: `https://ec.europa.eu/eurostat/databrowser/view/${DATASET}/default/table?lang=${lang}` }
+  // Around the diagram: where the energy comes from and where it goes, what the final consumption is
+  // made of, the products over the years and the trend of dependency.
+  const pie = (title: string, codes: string[], y = year): WidgetSpec | null => {
+    const slices = codes.map((c) => ({ name: names[c === 'F4' ? 'E4' : nodeOfFlow(c)] ?? c, y: Math.max(0, Math.round(value(c, y))) })).filter((x) => x.y > 0)
+    return slices.length > 1 ? { type: 'pie', title, subtitle: `${geoName} · ${y} · ${symbol}`, slices, unit: symbol, size: 'half', source } : null
+  }
+  const around: WidgetSpec[] = []
+  const add = (w: WidgetSpec | null) => w && around.push(w)
+  add(pie(t.pieSources, ['F1_1', 'F1_2', 'F1_3', 'F1_4']))
+  add(pie(t.pieUses, ['F6_1', 'F4', 'F6_3', 'F6_5', 'F6_4', 'F6_7', 'F6_6', 'F6_2', 'F6_8']))
+  add(pie(t.pieSectors, ['F6_1_1_1', 'F6_1_1_2', 'F6_1_1_3', 'F6_1_2']))
+  const shownYears = active.slice(-30)
+  const share = (num: string, den: string) => shownYears.map((y) => (value(den, y) > 0 ? Math.round((1000 * value(num, y)) / value(den, y)) / 10 : null))
+  around.push({
+    type: 'line',
+    title: t.trendShares,
+    subtitle: `${geoName} · %`,
+    categories: shownYears,
+    series: [
+      { name: t.importShare, data: share('F1_2', 'N1') },
+      { name: t.finalShare, data: share('F6_1', 'N1') },
+      ...(fuel === 'TOTAL' ? [{ name: t.conversion, data: shownYears.map((y) => (value('F2_1', y) > 0 ? Math.round((1000 * value('F2_2', y)) / value('F2_1', y)) / 10 : null)) }] : []),
+    ],
+    unit: '%',
+    size: 'half',
+    highlight: year,
+    source,
+  } as WidgetSpec)
+  // The products of the available energy over the years (the parts of the family, coloured as in the diagram).
+  const parts = buildModel(table, fuel, true)
+  if (parts.fuels.length > 1) {
+    const series = parts.fuels.map((f, i) => ({ name: names[f] ?? f, data: shownYears.map((y) => Math.round(parts.flows(y).get('N1')?.values[i] ?? 0)) })).filter((x) => x.data.some((v) => v > 0))
+    if (series.length > 1) around.push({ type: 'area', title: t.areaProducts, subtitle: `${geoName} · ${symbol}`, categories: shownYears, series, stacked: true, unit: symbol, size: 'full', highlight: year, source } as WidgetSpec)
+  }
+
+  const insights: Insight[] = []
+  const importNow = available > 0 ? (100 * imports) / available : 0
+  const first = active.find((y) => y <= String(Number(year) - 10)) ?? active[0]
+  const importThen = value('N1', first) > 0 ? (100 * value('F1_2', first)) / value('N1', first) : null
+  const pct1 = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 })
+  if (importThen != null && first !== year) insights.push({ tone: importNow > importThen ? 'up' : 'down', parts: [fill(importNow > importThen ? t.importsUp : t.importsDown, { geo: geoName, from: pct1.format(importThen), to: pct1.format(importNow), first, year })] })
+  if (fuel === 'TOTAL' && value('F2_1') > 0) insights.push({ tone: 'down', parts: [fill(t.lossesShare, { pct: pct1.format((100 * value('F4')) / value('F2_1')), year })] })
+  const top = parts.flows(year).get('N1')
+  if (top && parts.fuels.length > 1) {
+    const i = top.values.indexOf(Math.max(...top.values))
+    const sum = top.values.reduce((a, b) => a + b, 0)
+    if (sum > 0 && i >= 0) insights.push({ tone: 'up', parts: [fill(t.topProduct, { product: names[parts.fuels[i]] ?? parts.fuels[i], pct: pct1.format((100 * top.values[i]) / sum), year })] })
+  }
+  const peak = active.reduce((best, y) => (value('N1', y) > value('N1', best) ? y : best), active[0])
+  if (peak !== year) insights.push({ tone: 'down', parts: [fill(t.belowPeak, { year, peak, pct: pct1.format(100 * (1 - value('N1') / value('N1', peak))) })] })
+
+  const title = fill(t.title, { geo: geoName, year })
   const { spec } = sanitizeSpec({
     title,
     subtitle: fuel === 'TOTAL' ? '' : fuelLabel,
     summary,
-    insights: [],
+    insights,
     notes: yearNote,
     widgets: [
       { type: 'kpis', items: kpis },
@@ -177,8 +234,9 @@ export async function buildSankeyDashboard(
         disaggregation: { ...DEFAULT_DISAGGREGATION },
         size: 'full',
       },
+      ...around,
     ],
-    layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'suggestions'],
+    layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
     presentation: { template: 'sankey', kpiStyle: 'cards', controls: ['geo', 'year', 'unit', 'fuel', 'view'], primaryControls: 5, accent: 'teal' },
     unit: symbol,
     source,

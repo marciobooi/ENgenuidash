@@ -2,8 +2,7 @@
 .sankey__head { margin-bottom: 0.5rem; }
 .sankey__title { margin: 0; font-size: 1.125rem; }
 .sankey__subtitle, .sankey__hint { margin: 0.15rem 0 0; color: var(--ecl-color-dark-60, #595959); font-size: 0.875rem; }
-.sankey__box { position: relative; width: 100%; overflow-x: auto; }
-.sankey__svg { display: block; max-width: none; }
+.sankey__box { position: relative; width: 100%; }
 .sankey__flow, .sankey__node { cursor: pointer; outline: none; }
 .sankey__flow:focus-visible path, .sankey__node:focus-visible .sankey__shape { stroke: var(--ecl-color-primary, #004494); stroke-width: 2; }
 .sankey__flow:hover path { opacity: 0.8; }
@@ -26,3 +25,10 @@
 .sankey__detail-actions { display: flex; gap: 0.5rem; align-items: flex-start; }
 .sankey__detail-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-top: 0.75rem; }
 @media (prefers-reduced-motion: reduce) { .sankey__flow:hover path { opacity: 1; } }
+.sankey__box { overflow: hidden; }
+.sankey__svg { width: 100%; height: auto; touch-action: none; cursor: default; user-select: none; }
+.sankey__svg--zoomed { cursor: grab; }
+.sankey__zoom { position: absolute; top: 0.25rem; right: 0.25rem; z-index: 6; display: flex; gap: 0.25rem; }
+.sankey__zoom button { min-width: 2rem; height: 2rem; padding: 0 0.6rem; border: 1px solid var(--ecl-color-primary, #004494); background: #fff; color: var(--ecl-color-primary, #004494); border-radius: 4px; font-weight: 700; cursor: pointer; }
+.sankey__zoom button:disabled { opacity: 0.4; cursor: default; }
+.sankey__zoom button:focus-visible { outline: 3px solid var(--ecl-color-warning, #f4b400); outline-offset: 1px; }

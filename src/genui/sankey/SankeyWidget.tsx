@@ -22,6 +22,10 @@ export interface SankeyLabels {
   hint: string
   noData: string
   table: string
+  zoom: string
+  zoomIn: string
+  zoomOut: string
+  reset: string
 }
 
 const LABELS = labelsJson as Record<string, Record<string, string>>
@@ -51,6 +55,17 @@ const NODE_FLOW: Record<string, string> = {
 
 /** The nodes that open up into their parts (ENSANKEY: click a node), and the setting each one toggles. */
 const TOGGLES: Record<string, keyof Disaggregation> = { N1_1: 'production', N6: 'afterTransformation', N1: 'allSources' }
+
+/** The picture's own width (a drawing scaled to fit its box), and how much wider each opened node makes it (ENSANKEY's crop widths). */
+const BASE_WIDTH = 1200
+function cropOf(d: Disaggregation): number {
+  let width = 0.98
+  if (d.transformation && d.afterTransformation) width += 0.3
+  if (d.finalConsumption || d.energyBranch) width += 0.3
+  if (d.energyConsumption || d.nonEnergyConsumption) width += 0.15
+  if (d.industry || d.transport || d.otherSectors) width += 0.3
+  return width / 0.98
+}
 
 let ruler: CanvasRenderingContext2D | null = null
 function measure(text: string, fontSize: number): number {
@@ -83,25 +98,46 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
   const [selection, setSelection] = useState<{ kind: 'node' | 'flow'; code: string; flowCode: string; source?: string; target?: string } | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number; lines: string[] } | null>(null)
 
-  // The picture is as wide as its box; its height follows the 16:9 of the original.
+  // The picture has a size of its own and is scaled to fit its box (no scrolling), as the original squeezes its
+  // drawing into the window. A wide view (nodes opened) is as much wider as the original makes it.
   const box = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(960)
-  useEffect(() => {
-    const el = box.current
-    if (!el) return
-    const update = () => setWidth(Math.max(320, el.clientWidth))
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-  // As in the original the drawing sits inside margins (room for the labels at both ends); on a narrow screen it scrolls.
-  const total = Math.max(width, 900)
+  const svgRef = useRef<SVGSVGElement>(null)
+  const total = Math.round(BASE_WIDTH * cropOf(disaggregation))
   const drawWidth = Math.round(total * 0.76)
-  const drawHeight = Math.round(Math.min(drawWidth * 0.56, Math.max(420, (typeof window === 'undefined' ? 800 : window.innerHeight) * 0.8)))
+  const drawHeight = Math.round(BASE_WIDTH * 0.76 * 0.56)
   const marginLeft = Math.round(total * 0.075)
   const marginTop = Math.round(drawHeight * 0.05)
   const height = Math.round(drawHeight * 1.14)
+
+  // Zoom at the cursor (wheel or the buttons), drag to move, and a button to go back to the whole picture.
+  const [view, setView] = useState({ k: 1, x: 0, y: 0 })
+  const moved = useRef(false)
+  const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
+  const clampView = (k: number, x: number, y: number) => ({ k, x: Math.min(0, Math.max(total * (1 - k), x)), y: Math.min(0, Math.max(height * (1 - k), y)) })
+  const zoomAt = (factor: number, cx: number, cy: number) =>
+    setView((v) => {
+      const k = Math.min(10, Math.max(1, v.k * factor))
+      return clampView(k, cx - ((cx - v.x) * k) / v.k, cy - ((cy - v.y) * k) / v.k)
+    })
+  const toSvg = (clientX: number, clientY: number) => {
+    const r = svgRef.current?.getBoundingClientRect()
+    return r ? { x: ((clientX - r.left) * total) / r.width, y: ((clientY - r.top) * height) / r.height } : { x: 0, y: 0 }
+  }
+  useEffect(() => {
+    const el = svgRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const r = el.getBoundingClientRect()
+      const cx = ((e.clientX - r.left) * total) / r.width
+      const cy = ((e.clientY - r.top) * height) / r.height
+      zoomAt(Math.exp(-e.deltaY * 0.0015), cx, cy)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total, height])
+  const resetView = () => setView({ k: 1, x: 0, y: 0 })
 
   // Playing the years: one every second and a bit, from where it is to the last.
   useEffect(() => {
@@ -158,11 +194,50 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
         <p className="sankey__hint">{labels.hint}</p>
       </div>
       <div className="sankey__box" ref={box} onMouseLeave={() => setTip(null)}>
-        <svg className="sankey__svg" width={total} height={height} viewBox={`0 0 ${total} ${height}`} role="group" aria-label={widget.title}>
+        <div className="sankey__zoom" role="group" aria-label={labels.zoom}>
+          <button type="button" onClick={() => zoomAt(1.5, total / 2, height / 2)} aria-label={labels.zoomIn}>
+            +
+          </button>
+          <button type="button" onClick={() => zoomAt(1 / 1.5, total / 2, height / 2)} aria-label={labels.zoomOut} disabled={view.k <= 1}>
+            −
+          </button>
+          <button type="button" onClick={resetView} disabled={view.k <= 1 && view.x === 0 && view.y === 0} className="sankey__reset">
+            {labels.reset}
+          </button>
+        </div>
+        <svg
+          ref={svgRef}
+          className={`sankey__svg${view.k > 1 ? ' sankey__svg--zoomed' : ''}`}
+          viewBox={`0 0 ${total} ${height}`}
+          role="group"
+          aria-label={widget.title}
+          onPointerDown={(e) => {
+            const p = toSvg(e.clientX, e.clientY)
+            drag.current = { px: p.x, py: p.y, x: view.x, y: view.y }
+            moved.current = false
+          }}
+          onPointerMove={(e) => {
+            const d = drag.current
+            if (!d || view.k <= 1) return
+            const p = toSvg(e.clientX, e.clientY)
+            if (Math.abs(p.x - d.px) + Math.abs(p.y - d.py) > 4) moved.current = true
+            if (moved.current) setView((v) => clampView(v.k, d.x + p.x - d.px, d.y + p.y - d.py))
+          }}
+          onPointerUp={() => (drag.current = null)}
+          onPointerLeave={() => (drag.current = null)}
+          onKeyDown={(e) => {
+            if (e.key === '+' || e.key === '=') zoomAt(1.5, total / 2, height / 2)
+            else if (e.key === '-') zoomAt(1 / 1.5, total / 2, height / 2)
+            else if (e.key === '0') resetView()
+          }}
+        >
+          <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
           <g transform={`translate(${marginLeft} ${marginTop})`}>
           <g className="sankey__flows">
             {layout.flows.map((f) => (
-              <g key={f.key} className="sankey__flow" role="button" tabIndex={0} aria-label={`${labels.fromTo.replace('{source}', name(f.source)).replace('{target}', name(f.target))}: ${formatValue(f.paths.reduce((s, p) => s + p.value, 0))} ${widget.unit}`} onClick={() => onFlowActivate(f)} onKeyDown={keyActivate(() => onFlowActivate(f))}>
+              <g key={f.key} className="sankey__flow" role="button" tabIndex={0} aria-label={`${labels.fromTo.replace('{source}', name(f.source)).replace('{target}', name(f.target))}: ${formatValue(f.paths.reduce((s, p) => s + p.value, 0))} ${widget.unit}`} onClick={() => {
+                  if (!moved.current) onFlowActivate(f)
+                }} onKeyDown={keyActivate(() => onFlowActivate(f))}>
                 {f.paths.map((p) => (
                   <path
                     key={p.index}
@@ -180,7 +255,9 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
           </g>
           <g className="sankey__nodes">
             {layout.nodes.map((n) => (
-              <g key={n.code} className="sankey__node" role="button" tabIndex={0} aria-label={`${name(n.code)}: ${formatValue(n.value)} ${widget.unit}`} onClick={() => onNodeActivate(n)} onKeyDown={keyActivate(() => onNodeActivate(n))}>
+              <g key={n.code} className="sankey__node" role="button" tabIndex={0} aria-label={`${name(n.code)}: ${formatValue(n.value)} ${widget.unit}`} onClick={() => {
+                  if (!moved.current) onNodeActivate(n)
+                }} onKeyDown={keyActivate(() => onNodeActivate(n))}>
                 <text fontSize={n.fontSize} fontFamily="Arial, sans-serif" className="sankey__label" pointerEvents="none">
                   {n.labelLines.map((l, i) => (
                     <tspan key={i} x={l.x} y={l.y}>
@@ -195,6 +272,7 @@ export function SankeyWidget({ widget, labels, renderChart }: { widget: SankeyWi
                 {n.hit && <path d={n.hit} fill="#000" opacity={0} onMouseMove={(e) => showTip(e, [name(n.code), `${formatValue(n.value)} ${widget.unit}`])} onMouseLeave={() => setTip(null)} />}
               </g>
             ))}
+          </g>
           </g>
           </g>
         </svg>

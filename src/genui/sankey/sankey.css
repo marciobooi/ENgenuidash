@@ -42,3 +42,8 @@
 .sankey__breakdown, .sankey__legend-all { border: 1px solid var(--ecl-color-dark-20, #ccc); background: #fff; border-radius: 1rem; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.8125rem; }
 .sankey__legend-all { font-weight: 600; color: var(--ecl-color-primary, #004494); }
 .sankey__legend-menu { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: var(--ecl-color-dark-5, #f5f5f5); border-radius: 6px; }
+.sankey__btn { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2.5rem; padding: 0.4rem 1rem; border: 2px solid var(--ecl-color-primary, #004494); border-radius: 4px; background: #fff; color: var(--ecl-color-primary, #004494); font: inherit; font-weight: 600; cursor: pointer; }
+.sankey__btn:hover { background: var(--ecl-color-primary-5, #eaf1fb); }
+.sankey__btn:focus-visible { outline: 3px solid var(--ecl-color-warning, #f4b400); outline-offset: 2px; }
+.sankey__btn--quiet { border-color: var(--ecl-color-dark-20, #c8c8c8); color: var(--ecl-color-dark-80, #333); font-weight: 500; }
+.sankey__detail-actions { align-items: center; }

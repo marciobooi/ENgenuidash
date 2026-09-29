@@ -232,10 +232,10 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
         <p className="sankey__hint">{labels.hint}</p>
       </div>
       <div className="sankey__actions">
-        <button type="button" className="ecl-button ecl-button--secondary" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(allOpen()) } }, labels.expandAll)}>
+        <button type="button" className="sankey__btn" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(allOpen()) } }, labels.expandAll)}>
           {labels.expandAll}
         </button>
-        <button type="button" className="ecl-button ecl-button--ghost" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: undefined } }, labels.collapseAll)}>
+        <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: undefined } }, labels.collapseAll)}>
           {labels.collapseAll}
         </button>
       </div>
@@ -380,12 +380,12 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
             </div>
             <div className="sankey__detail-actions">
               {toggle && (
-                <button type="button" className="ecl-button ecl-button--secondary" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(toggleDisaggregation(disaggregation, toggle)) } }, name(selection.code))}>
+                <button type="button" className="sankey__btn" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(toggleDisaggregation(disaggregation, toggle)) } }, name(selection.code))}>
                   {disaggregation[toggle] ? labels.collapse : labels.open}
                 </button>
               )}
-              <button type="button" className="ecl-button ecl-button--ghost" onClick={() => setSelection(null)}>
-                {labels.close}
+              <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => setSelection(null)}>
+                <span aria-hidden="true">✕</span> {labels.close}
               </button>
             </div>
           </div>

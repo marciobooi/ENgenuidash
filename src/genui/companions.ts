@@ -158,7 +158,7 @@ function needsRenewableTarget(plan: Plan): boolean {
   const flow = Array.isArray(f.nrg_bal) ? undefined : f.nrg_bal
   return (
     PRODUCTION_DATASETS.includes(plan.dataset) ||
-    (['nrg_bal_s', 'nrg_bal_c', 'ten00121', 'ten00122'].includes(plan.dataset) && siecs.length > 1 && SUPPLY_FLOWS.includes(flow ?? '')) ||
+    (['nrg_bal_c', 'ten00121', 'ten00122'].includes(plan.dataset) && siecs.length > 1 && SUPPLY_FLOWS.includes(flow ?? '')) ||
     (plan.dataset === 'nrg_ind_ren' && flow === 'REN')
   )
 }

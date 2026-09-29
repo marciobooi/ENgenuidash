@@ -41,7 +41,7 @@ export type PresetId =
   | 'gae'
   | 'energyPoverty'
 
-// Main products of the simplified energy balance (nrg_bal_s).
+// Main products of the complete energy balances (nrg_bal_c).
 const BAL_PRODUCTS = ['C0000X0350-0370', 'C0350-0370', 'P1000', 'S2000', 'G3000', 'O4000XBIO', 'RA000', 'W6100_6220', 'N900H', 'E7000', 'H8000']
 const TRANSPORT_FUELS = ['G3000', 'O4630', 'O4652XR5210B', 'O4671XR5220B', 'R5210P', 'R5210B', 'R5220P', 'R5220B', 'R5290', 'R5300', 'E7000']
 
@@ -70,14 +70,14 @@ export const PRESETS: Record<PresetId, Plan> = {
   fossil: trend('nrg_ind_ffgae', { unit: 'PC' }),
   householdsPerCapita: trend('sdg_07_20', { unit: 'KGOE' }),
   byProduct: mix('ten00123', { nrg_bal: 'FC_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),
-  bySector: mix('nrg_bal_s', { siec: 'TOTAL', nrg_bal: ['FC_IND_E', 'FC_OTH_AF_E', 'FC_OTH_CP_E', 'FC_OTH_FISH_E', 'FC_OTH_HH_E', 'FC_OTH_NSP_E', 'FC_TRA_E'], unit: 'KTOE' }),
+  bySector: mix('nrg_bal_c', { siec: 'TOTAL', nrg_bal: ['FC_IND_E', 'FC_OTH_AF_E', 'FC_OTH_CP_E', 'FC_OTH_FISH_E', 'FC_OTH_HH_E', 'FC_OTH_NSP_E', 'FC_TRA_E'], unit: 'KTOE' }),
   householdUses: mix('nrg_d_hhq', { siec: 'TOTAL', nrg_bal: ['FC_OTH_HH_E_SH', 'FC_OTH_HH_E_SC', 'FC_OTH_HH_E_WH', 'FC_OTH_HH_E_CK', 'FC_OTH_HH_E_LE', 'FC_OTH_HH_E_OE'], unit: 'TJ' }),
   // Eurostat's own table for this question (ten00126, built from the balance: the same 13 fuels).
   transport: mix('ten00126', { nrg_bal: 'FC_TRA_E', siec: [...TRANSPORT_FUELS, 'O4661XR5230B', 'O4680'], unit: 'KTOE' }),
   road: mix('ten00127', { nrg_bal: 'FC_TRA_ROAD_E', siec: TRANSPORT_FUELS, unit: 'KTOE' }),
-  services: mix('nrg_bal_s', { nrg_bal: 'FC_OTH_CP_E', siec: ['C0000X0350-0370', 'E7000', 'G3000', 'H8000', 'O4000XBIO', 'RA000', 'W6100_6220'], unit: 'KTOE' }),
+  services: mix('nrg_bal_c', { nrg_bal: 'FC_OTH_CP_E', siec: ['C0000X0350-0370', 'E7000', 'G3000', 'H8000', 'O4000XBIO', 'RA000', 'W6100_6220'], unit: 'KTOE' }),
   industry: mix('ten00129', { nrg_bal: 'FC_IND_E', siec: BAL_PRODUCTS, unit: 'KTOE' }),
-  nonEnergy: mix('nrg_bal_s', { nrg_bal: 'FC_NE', siec: ['C0000X0350-0370', 'C0350-0370', 'G3000', 'O4000XBIO', 'P1000', 'RA000', 'S2000'], unit: 'KTOE' }),
+  nonEnergy: mix('nrg_bal_c', { nrg_bal: 'FC_NE', siec: ['C0000X0350-0370', 'C0350-0370', 'G3000', 'O4000XBIO', 'P1000', 'RA000', 'S2000'], unit: 'KTOE' }),
   production: mix('nrg_ind_peh', {
     plants: 'TOTAL',
     operator: 'TOTAL',

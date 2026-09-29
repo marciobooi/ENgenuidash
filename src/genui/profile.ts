@@ -99,9 +99,9 @@ const INDICATORS: Indicator[] = [
 const PER_CAPITA: Indicator[] = [
   { key: 'pecPc', dataset: 'nrg_ind_eff', filters: { nrg_bal: 'PEC_EED', unit: 'MTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e9 },
   { key: 'fecPc', dataset: 'nrg_ind_eff', filters: { nrg_bal: 'FEC_EED', unit: 'MTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e9 },
-  { key: 'hhPc', dataset: 'nrg_bal_s', filters: { siec: 'TOTAL', nrg_bal: 'FC_OTH_HH_E', unit: 'KTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e6 },
-  { key: 'traPc', dataset: 'nrg_bal_s', filters: { siec: 'TOTAL', nrg_bal: 'FC_TRA_E', unit: 'KTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e6 },
-  { key: 'indPc', dataset: 'nrg_bal_s', filters: { siec: 'TOTAL', nrg_bal: 'FC_IND_E', unit: 'KTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e6 },
+  { key: 'hhPc', dataset: 'nrg_bal_c', filters: { siec: 'TOTAL', nrg_bal: 'FC_OTH_HH_E', unit: 'KTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e6 },
+  { key: 'traPc', dataset: 'nrg_bal_c', filters: { siec: 'TOTAL', nrg_bal: 'FC_TRA_E', unit: 'KTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e6 },
+  { key: 'indPc', dataset: 'nrg_bal_c', filters: { siec: 'TOTAL', nrg_bal: 'FC_IND_E', unit: 'KTOE' }, unit: 'kgoe', good: 'down', decimals: 0, per: 1e6 },
   { key: 'elcPc', dataset: 'nrg_ind_peh', filters: { siec: 'TOTAL', nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, unit: 'kWh', good: 'neutral', decimals: 0, per: 1e6 },
 ]
 
@@ -183,8 +183,8 @@ export async function buildProfileDashboard(
   const population = perCapita ? await fetchEurostatData('demo_pjan', { filters: { geo: geos, age: 'TOTAL', sex: 'T', unit: 'NR' }, lang, signal, ...timeQuery }).catch(() => null) : null
   const [indicatorData, sectors, products, electricity] = await Promise.all([
     Promise.all(list.map((i) => ask(i.dataset, i.filters))),
-    ask('nrg_bal_s', { geo: [geo], siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
-    ask('nrg_bal_s', { geo: [geo], siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
+    ask('nrg_bal_c', { geo: [geo], siec: 'TOTAL', nrg_bal: SECTORS, unit: 'KTOE' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
+    ask('nrg_bal_c', { geo: [geo], siec: PRODUCTS, nrg_bal: 'FC_E', unit: 'KTOE' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
     ask('nrg_ind_peh', { geo: [geo], siec: ELECTRICITY, nrg_bal: 'GEP', plants: 'TOTAL', operator: 'TOTAL', unit: 'GWH' }, { lastTimePeriod: 4, ...(until ? { untilTimePeriod: until } : {}) }),
   ])
   const geoName = (indicatorData.find(Boolean)?.dimensions.geo?.codes.find((c) => c.code === geo)?.label ?? geo).replace(/\s*\(.*?\)\s*$/, '')
@@ -241,8 +241,8 @@ export async function buildProfileDashboard(
 
   // Consumption and production: how they are made up.
   const parts: [string, EurostatResult | null, string, string, string][] = [
-    [t.bySector, sectors, 'nrg_bal', 'nrg_bal_s', 'ktoe'],
-    [t.byProduct, products, 'siec', 'nrg_bal_s', 'ktoe'],
+    [t.bySector, sectors, 'nrg_bal', 'nrg_bal_c', 'ktoe'],
+    [t.byProduct, products, 'siec', 'nrg_bal_c', 'ktoe'],
     [t.electricity, electricity, 'siec', 'nrg_ind_peh', 'GWh'],
   ]
   const pies: WidgetSpec[] = []

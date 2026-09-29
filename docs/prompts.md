@@ -6,12 +6,17 @@ Entrade:
 
 ENbal: 
 	- energy balance of the EU 2024
+    - European Union (27 countries), Total - main fuel families, 2024
 
 Enprices: 
 	- what does the electricity price consist of
 	- show all available countries for Electricity prices for household consumers
 	- Gas price for non-household: Netherlands, 2025
 	- now components
+
+Entrade:
+    - show energy trade between spain and germany
+     oil and petroleum products trade between france and germany, 2022
 
 
 Endsash: 

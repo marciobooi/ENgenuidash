@@ -6,6 +6,7 @@ import { recordMiss } from '../eval/missLog'
 import { buildDashboard, NoDataError, type ChooseVariant } from '../genui/execute'
 import { variantPrompt } from '../genui/layout'
 import { applyFilter, filterControls } from '../genui/filters'
+import { sankeyAtYear } from '../genui/sankey/sankeyDashboard'
 import { planQuestion } from '../genui/planner'
 import { dashStrings } from '../genui/strings'
 import type { DashboardSpec, Plan } from '../genui/types'
@@ -160,7 +161,10 @@ export function useDashboards({
     setActive(0)
   }
 
-  return { dashboards, active, setActive, current, hasDashboard, building, filters, runPlan, onFilter, back, clear }
+  /** The year of the energy flow diagram moved on its timeline: the dashboard follows in the browser, without a rebuild. */
+  const setLiveYear = (year: string) => setDashboards((d) => d.map((old, i) => (i === active ? { ...sankeyAtYear(old, year, t.sankey), question: old.question } : old)))
+
+  return { dashboards, active, setActive, current, hasDashboard, building, filters, runPlan, onFilter, back, clear, setLiveYear }
 }
 
 export type Dashboards = ReturnType<typeof useDashboards>

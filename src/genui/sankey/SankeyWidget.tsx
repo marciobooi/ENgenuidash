@@ -146,7 +146,7 @@ function measure(text: string, fontSize: number): number {
   return ruler.measureText(text).width
 }
 
-export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { widget: SankeyWidgetSpec; plan: Plan; labels: SankeyLabels; renderChart: (w: WidgetSpec) => ReactNode; onPlan: (plan: Plan, label: string) => void }) {
+export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear }: { widget: SankeyWidgetSpec; plan: Plan; labels: SankeyLabels; renderChart: (w: WidgetSpec) => ReactNode; onPlan: (plan: Plan, label: string) => void; onYear: (year: string) => void }) {
   const lang = widget.lang
   const names = LABELS[lang] ?? LABELS.en
   const name = (code: string) => names[code] ?? LABELS.en[code] ?? code
@@ -161,7 +161,9 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const parts = widget.byFuel || highlight.length > 0
   const model = useMemo(() => buildModel(table, widget.fuel, parts), [table, widget.fuel, parts])
 
-  const [year, setYear] = useState(widget.year)
+  // The year belongs to the dashboard (its figures and charts follow it): the timeline only asks to change it.
+  const year = widget.year
+  const setYear = onYear
   const disaggregation: Disaggregation = { ...DEFAULT_DISAGGREGATION, ...widget.disaggregation }
   const [playing, setPlaying] = useState(false)
   const [selection, setSelection] = useState<{ kind: 'node' | 'flow'; code: string; flowCode: string; source?: string; target?: string } | null>(null)
@@ -229,7 +231,6 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const [shown, setShown] = useState(widget)
   if (shown !== widget) {
     setShown(widget)
-    setYear(widget.year)
     // Only the year changed (the timeline or the toolbar): the view, selection and highlight stay as they are.
     const sameFrame = shown.geo === widget.geo && shown.fuel === widget.fuel && shown.byFuel === widget.byFuel && shown.unit === widget.unit && JSON.stringify(shown.disaggregation) === JSON.stringify(widget.disaggregation) && shown.compare?.label === widget.compare?.label
     if (!sameFrame) {
@@ -239,21 +240,13 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
     }
   }
 
-  // The whole dashboard follows the year of the timeline (KPIs, charts, insights, the Year list): when the
-  // timeline is let go, or a played run stops, the year is asked for like any other change in the toolbar.
-  const commitYear = (y: string) => {
-    if (y !== widget.year) onPlan({ ...plan, time: { kind: 'range', since: y, until: y }, focusPeriod: y }, y)
-  }
-
   // Playing the years: one every second and a bit, from where it is to the last.
   useEffect(() => {
     if (!playing) return
     const i = widget.years.indexOf(year)
     const t = window.setTimeout(() => {
-      if (i >= widget.years.length - 1) {
-        setPlaying(false)
-        commitYear(widget.years[i])
-      } else setYear(widget.years[i + 1])
+      if (i >= widget.years.length - 1) setPlaying(false)
+      else setYear(widget.years[i + 1])
     }, 900)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -549,15 +542,12 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
       </div>
 
       <div className="sankey__timeline">
-        <button type="button" className="sankey__play" onClick={() => {
-            if (playing) commitYear(year)
-            setPlaying((p) => !p)
-          }} aria-pressed={playing} aria-label={playing ? labels.pause : labels.play}>
+        <button type="button" className="sankey__play" onClick={() => setPlaying((p) => !p)} aria-pressed={playing} aria-label={playing ? labels.pause : labels.play}>
           {playing ? '❚❚' : '▶'}
         </button>
         <label className="sankey__range" htmlFor={`${idPrefix}-year`}>
           <span className="sankey__sr">{labels.year}</span>
-          <input id={`${idPrefix}-year`} type="range" min={0} max={widget.years.length - 1} value={Math.max(0, widget.years.indexOf(year))} onChange={(e) => setYear(widget.years[Number(e.target.value)])} onPointerUp={() => commitYear(year)} onKeyUp={() => commitYear(year)} onBlur={() => commitYear(year)} />
+          <input id={`${idPrefix}-year`} type="range" min={0} max={widget.years.length - 1} value={Math.max(0, widget.years.indexOf(year))} onChange={(e) => setYear(widget.years[Number(e.target.value)])} />
         </label>
         <output className="sankey__year" aria-live="polite">
           {year}
@@ -566,10 +556,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
 
       <div className="sankey__events" role="group" aria-label={labels.events}>
         {EVENT_YEARS.filter(([y]) => widget.years.includes(y)).map(([y, key]) => (
-          <button key={y} type="button" className={`sankey__event${year === y ? ' is-on' : ''}`} aria-pressed={year === y} onClick={() => {
-              setYear(y)
-              commitYear(y)
-            }}>
+          <button key={y} type="button" className={`sankey__event${year === y ? ' is-on' : ''}`} aria-pressed={year === y} onClick={() => setYear(y)}>
             <strong>{y}</strong> {labels[key]}
           </button>
         ))}

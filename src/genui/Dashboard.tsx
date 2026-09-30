@@ -58,6 +58,7 @@ export function Dashboard({
   onFilter,
   multiSelectLabels,
   busy,
+  onYear,
   actions,
 }: {
   spec: DashboardSpec
@@ -70,6 +71,8 @@ export function Dashboard({
   onFilter?: (control: FilterControl, codes: string[]) => void
   multiSelectLabels?: EclMultiSelectLabels
   busy?: boolean
+  /** The year moved on a timeline inside the dashboard (the energy flow diagram): the dashboard follows. */
+  onYear?: (year: string) => void
   /** Buttons next to the title (e.g. copy the link to this dashboard). */
   actions?: ReactNode
 }) {
@@ -162,7 +165,7 @@ export function Dashboard({
       case 'progress':
         return <ProgressChart {...common} categories={w.categories} values={w.values} targets={w.targets} max={w.max} />
       case 'sankey':
-        return <SankeyWidget widget={w} plan={spec.plan} labels={labels.sankey} renderChart={renderChart} onPlan={(plan, label) => onSuggestion({ label, plan })} />
+        return <SankeyWidget widget={w} plan={spec.plan} labels={labels.sankey} renderChart={renderChart} onPlan={(plan, label) => onSuggestion({ label, plan })} onYear={(y) => onYear?.(y)} />
       case 'gauge':
         return <GaugeChart {...common} value={w.value} label={w.label} max={w.max} targets={w.targets} goal={w.goal} />
       case 'bubble':

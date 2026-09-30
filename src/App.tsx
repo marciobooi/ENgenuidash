@@ -281,6 +281,7 @@ export default function App() {
           <Dashboard
             key={dash.active}
             spec={current}
+            onYear={dash.setLiveYear}
             lang={lang}
             busy={busy}
             labels={{

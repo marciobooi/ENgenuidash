@@ -27,9 +27,9 @@ const fill = (template: string, values: Record<string, string>) => template.repl
 
 // ---------- questions ----------
 
-const OIL = / (oil|petroleum|crude|brent|erdol|mineralol|petrole) /
+const OIL = / (oil|petroleum|crude|brent|erdol\w*|\w*olversorgung|mineralol\w*|petrole|petroli\w+|petrol) /
 // (not "prices" or "stocks" alone: those are the monthly dashboards)
-const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|cover|coverage|reichweite|autonomie|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance) /
+const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|cover|coverage|days of|reichweite|autonomie|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance) /
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
 /** The oil dashboard a question asks for ("oil security in Germany", "how dependent is Italy on Russian oil"), or null. */

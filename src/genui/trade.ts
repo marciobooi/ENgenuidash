@@ -1,6 +1,6 @@
 import { codeLabel, fetchEurostatData, loadEnergyCodelists, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
-import { EU27 } from './concepts'
+import { EU27, MONTH_NAMES } from './concepts'
 import { planQuestion } from './planner'
 import { detectGeos, detectTime, parse, requestedUnit, type Parsed } from './planner/parse'
 import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggestion, TradeFlow, TradeFuel, WidgetSpec } from './types'
@@ -16,10 +16,10 @@ import { sanitizeSpec } from './validate'
  */
 
 /** The datasets of each fuel: imports (nrg_ti_*) and exports (nrg_te_*). */
-const DATASETS: Record<TradeFuel, { imp: string; exp: string; siec: string }> = {
-  gas: { imp: 'nrg_ti_gas', exp: 'nrg_te_gas', siec: 'G3000' },
+const DATASETS: Record<TradeFuel, { imp: string; exp: string; siec: string; impM?: string; expM?: string }> = {
+  gas: { imp: 'nrg_ti_gas', exp: 'nrg_te_gas', siec: 'G3000', impM: 'nrg_ti_gasm', expM: 'nrg_te_gasm' },
   solid: { imp: 'nrg_ti_sff', exp: 'nrg_te_sff', siec: 'C0000X0350-0370' },
-  oil: { imp: 'nrg_ti_oil', exp: 'nrg_te_oil', siec: 'O4000' },
+  oil: { imp: 'nrg_ti_oil', exp: 'nrg_te_oil', siec: 'O4000', impM: 'nrg_ti_oilm', expM: 'nrg_te_oilm' },
   bio: { imp: 'nrg_ti_bio', exp: 'nrg_te_bio', siec: 'R5111' },
   electricity: { imp: 'nrg_ti_eh', exp: 'nrg_te_eh', siec: 'E7000' },
 }
@@ -31,15 +31,27 @@ const PRESENT = 0.05
 const TOP_BARS = 10
 const TOP_SLICES = 5
 
-export function tradeDataset(trade: { flow: TradeFlow; fuel: TradeFuel }): string {
-  return DATASETS[trade.fuel][trade.flow]
+/** The dataset of a trade view: the monthly one when the fuel has monthly data and months are asked for. */
+export function datasetOf(trade: { flow: TradeFlow; fuel: TradeFuel; monthly?: true }): string {
+  const d = DATASETS[trade.fuel]
+  return trade.monthly ? ((trade.flow === 'imp' ? d.impM : d.expM) ?? d[trade.flow]) : d[trade.flow]
+}
+export const hasMonthly = (fuel: TradeFuel) => !!DATASETS[fuel].impM
+
+export function tradeDataset(trade: { flow: TradeFlow; fuel: TradeFuel; monthly?: true }): string {
+  return datasetOf(trade)
 }
 
+/** The same month a year before (or the year before, for a year). */
+const yearBefore = (period: string) => (period.length > 4 ? `${Number(period.slice(0, 4)) - 1}${period.slice(4)}` : String(Number(period) - 1))
+
 /** The fuel and flow of a trade dataset (nrg_ti_gas → gas imports), or null. */
-export function tradeOf(dataset: string): { flow: TradeFlow; fuel: TradeFuel } | null {
+export function tradeOf(dataset: string): { flow: TradeFlow; fuel: TradeFuel; monthly?: true } | null {
   for (const [fuel, d] of Object.entries(DATASETS) as [TradeFuel, (typeof DATASETS)[TradeFuel]][]) {
     if (d.imp === dataset) return { flow: 'imp', fuel }
     if (d.exp === dataset) return { flow: 'exp', fuel }
+    if (d.impM === dataset) return { flow: 'imp', fuel, monthly: true }
+    if (d.expM === dataset) return { flow: 'exp', fuel, monthly: true }
   }
   return null
 }
@@ -50,6 +62,8 @@ export function tradeOf(dataset: string): { flow: TradeFlow; fuel: TradeFuel } |
 // gas from", "suppliers", "trade partners", "energy trade", in English, German and French.
 const PARTNERS =
   / (by partners?( countries| country)?|by (country of )?origin|by destination|per partner|partner countr(y|ies)|trade partners?|trading partners?|suppliers?|supplying countries|where (does|do|did) .*(import|export|buy|get|come)|where .* (comes?|came) from|come from|comes from|energy trade|trade between|trade with|trade of|trade in|nach partner(land|landern)?|nach herkunft\w*|nach bestimmung\w*|handelspartner|lieferland|lieferlander|woher|herkunftsland\w*|energiehandel|par partenaire|par pays (partenaire|d origine|de destination)|par origine|par provenance|fournisseurs?|partenaires commerciaux|d ou (viennent|vient|provient|proviennent)|commerce (de l energie|d energie|du gaz|du petrole|du charbon|de l electricite)) /
+const IMPORT_EXPORT = /\b(imports?|exports?|einfuhr\w*|ausfuhr\w*|importations?|exportations?)\b/
+const NOT_TRADE = /\b(balance|supply|transformation|consumption|stock|stocks|storage|price|prices|generation|production|bill|gross|net)\b/
 const EXPORTS = /\b(export\w*|ausfuhr\w*|exportation\w*|exporte\w*)\b/
 const FUEL_WORDS: [TradeFuel, RegExp][] = [
   ['electricity', / (electricity|power|heat|strom|elektrizitat|warme|electricite|chaleur) /],
@@ -72,7 +86,10 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
   const p = parse(text.replace(/[-–,?]/g, ' '))
   const planned = planQuestion(text, dict, codelists)
   const byPartner = planned.kind === 'plan' && !!tradeOf(planned.plan.dataset) && Array.isArray(planned.plan.filters.partner)
-  if (!byPartner && !PARTNERS.test(p.text)) return null
+  const time = detectTime(p)
+  // "Imports: Natural gas, Germany, July 2025": imports or exports of gas or oil in a named month are the monthly trade by partner.
+  const monthlyAsk = !!time.month && IMPORT_EXPORT.test(p.text) && !NOT_TRADE.test(p.text) && ['gas', 'oil'].includes(fuelOf(p) ?? '')
+  if (!byPartner && !PARTNERS.test(p.text) && !monthlyAsk) return null
   if (planned.kind === 'plan' && typeof planned.plan.filters.partner === 'string') return null
   const flow: TradeFlow = EXPORTS.test(p.text) ? 'exp' : 'imp'
   // The product the planner read ("crude oil" → O4100_TOT), when a trade dataset has it; without
@@ -81,23 +98,28 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
   const siecOf = reread.kind === 'plan' ? [reread.plan.filters.siec].flat()[0] : undefined
   const fromPlanner = (Object.keys(DATASETS) as TradeFuel[]).find((f) => siecOf && codesOf(dict, DATASETS[f][flow], 'siec').includes(siecOf))
   const fuel = fromPlanner ?? fuelOf(p) ?? 'gas'
-  const dataset = DATASETS[fuel][flow]
+  const places0 = detectGeos(p, codelists)
+  const twoCountries = places0.codes.filter((c) => isCountry(c)).length >= 2
+  const monthly = (time.month || time.monthly) && hasMonthly(fuel) && !twoCountries ? (true as const) : undefined
+  const dataset = datasetOf({ flow, fuel, monthly })
   const ds = dict.datasets[dataset]
   if (!ds) return null
-  const siec = fromPlanner && siecOf ? siecOf : DATASETS[fuel].siec
-  const places = detectGeos(p, codelists)
+  const siec0 = fromPlanner && siecOf ? siecOf : DATASETS[fuel].siec
+  const siec = codesOf(dict, dataset, 'siec').includes(siec0) ? siec0 : DATASETS[fuel].siec
+  const places = places0
   const geos = codesOf(dict, dataset, 'geo')
   // Two countries asked for ("between Spain and Germany"): the trade between them.
   const named = places.codes.filter((c) => geos.includes(c) && isCountry(c))
   const geo = named.length >= 2 ? named.slice(0, 2) : (places.codes.find((c) => geos.includes(c)) ?? 'EU27_2020')
-  const year = detectTime(p).years.at(-1)
+  const year = time.years.at(-1)
+  const period = monthly ? (time.month ? `${time.month.year}-${String(time.month.month).padStart(2, '0')}` : undefined) : year ? String(year) : undefined
   return {
     dataset,
     filters: { geo, siec, unit: requestedUnit(p, ds) ?? DEFAULT_UNIT[fuel] },
     time: { kind: 'all' },
-    ...(year ? { focusPeriod: String(year) } : {}),
+    ...(period ? { focusPeriod: period } : {}),
     intent: 'snapshot',
-    trade: { flow, fuel, ...(Array.isArray(geo) && !fromPlanner && !fuelOf(p) ? { auto: true as const } : {}) },
+    trade: { flow, fuel, ...(monthly ? { monthly } : {}), ...(Array.isArray(geo) && !fromPlanner && !fuelOf(p) ? { auto: true as const } : {}) },
   }
 }
 
@@ -108,15 +130,18 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
 export function refineTrade(current: Plan, text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   if (!current.trade) return null
   const p = parse(text.replace(/[-–,?]/g, ' '))
-  const words = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|des|the|la|le|les|das|die|der|what|about|now|jetzt|maintenant|show|zeige|montre|between|zwischen|entre|with|mit|avec|trade|handel|commerce|\d{4})$/.test(w))
+  const words = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|des|the|la|le|les|das|die|der|what|about|now|jetzt|maintenant|show|zeige|montre|between|zwischen|entre|with|mit|avec|trade|handel|commerce|monthly|yearly|annual|monatlich|mensuel\w*|annuel\w*|\d{4})$/.test(w) && !MONTH_NAMES[w])
   const places = detectGeos(p, codelists)
-  const year = detectTime(p).years.at(-1)
+  const time = detectTime(p)
+  const year = time.years.at(-1)
+  const asksMonthly = time.month || time.monthly ? true : /\b(annual|yearly|per year|jahres\w*|annuel\w*)\b/.test(p.text) ? false : undefined
   const flow: TradeFlow | undefined = EXPORTS.test(p.text) ? 'exp' : /\b(import\w*|einfuhr\w*|importation\w*)\b/.test(p.text) ? 'imp' : undefined
   const fuel = fuelOf(p)
   const known = words.every((w) => EXPORTS.test(w) || /^(import\w*|einfuhr\w*|importation\w*|ktoe|gwh|tj|m3)$/.test(w) || fuelOf(parse(w)) || detectGeos(parse(w), codelists).codes.length || detectGeos(parse(w), codelists).eu)
-  if (!known || !(places.codes.length || places.eu || year || flow || fuel)) return null
+  if (!known || !(places.codes.length || places.eu || year || flow || fuel || asksMonthly !== undefined)) return null
   const next = { flow: flow ?? current.trade.flow, fuel: fuel ?? current.trade.fuel }
-  const dataset = DATASETS[next.fuel][next.flow]
+  const monthly = (asksMonthly ?? !!current.trade.monthly) && hasMonthly(next.fuel) ? (true as const) : undefined
+  const dataset = datasetOf({ ...next, monthly })
   const ds = dict.datasets[dataset]
   const geos = codesOf(dict, dataset, 'geo')
   const named = places.codes.filter((c) => geos.includes(c) && isCountry(c))
@@ -124,7 +149,21 @@ export function refineTrade(current: Plan, text: string, dict: EnergyDictionary,
   const sameFuel = next.fuel === current.trade.fuel
   const siec = sameFuel && codesOf(dict, dataset, 'siec').includes(String(current.filters.siec)) ? String(current.filters.siec) : DATASETS[next.fuel].siec
   const unit = requestedUnit(p, ds) ?? (ds.units.includes(String(current.filters.unit)) ? String(current.filters.unit) : DEFAULT_UNIT[next.fuel])
-  return { ...current, dataset, filters: { geo, siec, unit }, ...(year ? { focusPeriod: String(year) } : {}), trade: next, notes: [] }
+  // A month asked for, or the year asked for in the month on screen; a change between monthly and yearly starts from the latest period.
+  const focusPeriod = time.month
+    ? `${time.month.year}-${String(time.month.month).padStart(2, '0')}`
+    : monthly
+      ? year && current.focusPeriod?.length === 7
+        ? `${year}${current.focusPeriod.slice(4)}`
+        : current.trade.monthly
+          ? current.focusPeriod
+          : undefined
+      : year
+        ? String(year)
+        : current.trade.monthly
+          ? undefined
+          : current.focusPeriod
+  return { ...current, dataset, filters: { geo, siec, unit }, focusPeriod, trade: { ...next, ...(monthly ? { monthly } : {}) }, notes: [] }
 }
 
 const codesOf = (dict: EnergyDictionary, dataset: string, dim: string) => dict.datasets[dataset]?.dimensions.find((d) => d.id === dim)?.codes ?? []
@@ -158,8 +197,10 @@ export async function buildTradeDashboard(
 ): Promise<DashboardSpec> {
   const t = s.trade
   const trade = plan.trade!
-  const dataset = DATASETS[trade.fuel][trade.flow]
   const between = ([] as string[]).concat(plan.filters.geo ?? []).filter(isCountry)
+  // The trade between two countries is a yearly view: monthly data by partner are for one reporting country.
+  if (trade.monthly && between.length >= 2) return buildTradeDashboard({ ...plan, dataset: DATASETS[trade.fuel][trade.flow], trade: { flow: trade.flow, fuel: trade.fuel }, focusPeriod: undefined }, dict, lang, s, signal)
+  const dataset = datasetOf(trade)
   if (between.length >= 2) return buildBetweenDashboard(plan, between[0], between[1], dict, lang, s, signal)
   const geo = ([] as string[]).concat(plan.filters.geo ?? 'EU27_2020')[0]
   const unit = String(plan.filters.unit ?? DEFAULT_UNIT[trade.fuel])
@@ -187,7 +228,7 @@ export async function buildTradeDashboard(
   const flowTitle = t.flows[trade.flow]
   const symbol = UNIT_SYMBOL[unit] ?? unit
   if (!year) throw new NoDataError(dataset)
-  const prev = withData.includes(String(Number(year) - 1)) ? String(Number(year) - 1) : undefined
+  const prev = withData.includes(yearBefore(year)) ? yearBefore(year) : undefined
 
   const total = totalOf(year)
   const now = ranked(values, year)
@@ -313,7 +354,7 @@ export async function buildTradeDashboard(
   if (peakYear === year) insights.push({ tone: 'record', parts: [fill(t.peakNow, { year, peak: `${nf.format(totalOf(peakYear))} ${symbol}` })] })
   else insights.push({ tone: 'down', parts: [fill(t.peak, { peakYear, peak: `${nf.format(totalOf(peakYear))} ${symbol}`, year, pct: fmtPct(100 * (1 - total / totalOf(peakYear))) })] })
   const last5 = withData.filter((y) => y < year).slice(-5)
-  if (last5.length === 5) {
+  if (last5.length === 5 && !trade.monthly) {
     const avg = last5.reduce((sum, y) => sum + totalOf(y), 0) / 5
     const diff = (100 * (total - avg)) / avg
     insights.push({ tone: diff >= 0 ? 'up' : 'down', parts: [fill(t.average, { from: last5[0], to: last5[4], year, pct: `${diff >= 0 ? '+' : '−'}${fmtPct(Math.abs(diff))}` })] })
@@ -337,7 +378,7 @@ export async function buildTradeDashboard(
     notes: [],
     widgets,
     layout: ['summary', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
-    presentation: { template: 'trade', kpiStyle: 'cards', controls: ['geo', 'year', 'flow', 'fuel', 'product', 'unit'], primaryControls: 4, accent: 'teal' },
+    presentation: { template: 'trade', kpiStyle: 'cards', controls: ['geo', 'year', 'period', 'flow', 'fuel', 'product', 'unit'], primaryControls: 4, accent: 'teal' },
     unit: symbol,
     source: { code: dataset, title: result.label, url: `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=${lang}` },
     suggestions: tradeSuggestions(plan, s),
@@ -593,14 +634,23 @@ async function tradeControls(
 ): Promise<DashboardControls> {
   const trade = plan.trade!
   const at = (next: { flow: TradeFlow; fuel: TradeFuel }): Plan => {
-    const dataset = DATASETS[next.fuel][next.flow]
+    const monthly = trade.monthly && hasMonthly(next.fuel) ? (true as const) : undefined
+    const dataset = datasetOf({ ...next, monthly })
     const ds = dict.datasets[dataset]
     const sameFuel = next.fuel === trade.fuel
     const unit = ds.units.includes(String(plan.filters.unit)) ? String(plan.filters.unit) : DEFAULT_UNIT[next.fuel]
     const siec = sameFuel ? String(plan.filters.siec) : DATASETS[next.fuel].siec
     const geos = codesOf(dict, dataset, 'geo')
     const kept = ([] as string[]).concat(plan.filters.geo ?? []).filter((g) => geos.includes(g))
-    return { ...plan, dataset, filters: { geo: kept.length > 1 ? kept.slice(0, 2) : (kept[0] ?? 'EU27_2020'), siec, unit }, trade: next }
+    return { ...plan, dataset, filters: { geo: kept.length > 1 ? kept.slice(0, 2) : (kept[0] ?? 'EU27_2020'), siec, unit }, trade: { ...next, ...(monthly ? { monthly } : {}) } }
+  }
+  // Yearly or monthly (gas and oil have monthly data): from the latest period of the other kind.
+  const periodPlan = (monthly: boolean): Plan => {
+    const dataset = datasetOf({ flow: trade.flow, fuel: trade.fuel, ...(monthly ? { monthly: true as const } : {}) })
+    const ds = dict.datasets[dataset]
+    const unit = ds.units.includes(String(plan.filters.unit)) ? String(plan.filters.unit) : DEFAULT_UNIT[trade.fuel]
+    const siec = codesOf(dict, dataset, 'siec').includes(String(plan.filters.siec)) ? String(plan.filters.siec) : DATASETS[trade.fuel].siec
+    return { ...plan, dataset, filters: { ...plan.filters, siec, unit }, focusPeriod: undefined, trade: { flow: trade.flow, fuel: trade.fuel, ...(monthly ? { monthly: true as const } : {}) } }
   }
   const ds = dict.datasets[plan.dataset]
   const siecNames = codesOf(dict, plan.dataset, 'siec')
@@ -613,6 +663,9 @@ async function tradeControls(
     years: [...years].reverse().slice(0, 15).map((y) => ({ label: y, plan: { ...plan, focusPeriod: y }, active: y === year })),
     units: ds.units.map((u) => ({ label: UNIT_SYMBOL[u] ?? u, plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: plan.filters.unit === u })),
     choices: [
+      ...(hasMonthly(trade.fuel) && ([] as string[]).concat(plan.filters.geo ?? []).filter(isCountry).length < 2
+        ? [{ key: 'period', label: t.period, options: [{ label: t.yearly, plan: periodPlan(false), active: !trade.monthly }, { label: t.monthlyData, plan: periodPlan(true), active: !!trade.monthly }] }]
+        : []),
       // Both directions are shown for two countries: no flow to choose.
       ...(([] as string[]).concat(plan.filters.geo ?? []).filter(isCountry).length >= 2 ? [] : [{ key: 'flow', label: t.flow, options: (['imp', 'exp'] as TradeFlow[]).map((f) => ({ label: t.flows[f], plan: at({ flow: f, fuel: trade.fuel }), active: trade.flow === f })) }]),
       { key: 'fuel', label: t.fuel, options: (Object.keys(DATASETS) as TradeFuel[]).map((f) => ({ label: t.fuels[f], plan: at({ flow: trade.flow, fuel: f }), active: trade.fuel === f })) },
@@ -629,7 +682,7 @@ function tradeSuggestions(plan: Plan, s: { trade: TradeStrings; sugExplain: stri
   const trade = plan.trade!
   const other: TradeFlow = trade.flow === 'imp' ? 'exp' : 'imp'
   const out: Suggestion[] = [
-    { label: fill(s.trade.sugOther, { flow: s.trade.flowWords[other] }), plan: { ...plan, dataset: DATASETS[trade.fuel][other], trade: { ...trade, flow: other } } },
+    { label: fill(s.trade.sugOther, { flow: s.trade.flowWords[other] }), plan: { ...plan, dataset: datasetOf({ flow: other, fuel: trade.fuel, monthly: trade.monthly }), trade: { ...trade, flow: other } } },
   ]
   if (plan.filters.geo !== 'EU27_2020') out.push({ label: s.trade.sugEu, plan: { ...plan, filters: { ...plan.filters, geo: 'EU27_2020' } } })
   out.push({ label: s.sugExplain, explain: true })

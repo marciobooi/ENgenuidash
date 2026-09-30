@@ -4,9 +4,10 @@ Entrade:
 	- Imports of oil and petroleum products by partner: Eu , 2024
 	- Imports of natural gas by partner: France, 2024
 	- Imports: Natural gas, Germany, July 2025
+	- Exports of oil and petroleum products by partner, EU, March 2023
+	- where does France import gas from in May 2024
   	- show energy trade between spain and germany
   	- Oil and petroleum products trade between france and germany, 2022
-	- Crude oil imports: price and volume, 27 countries selected (weighted average), July 2026
 
 ENbal: 
 	- energy balance of the EU 2024
@@ -17,7 +18,6 @@ Enprices:
 	- show all available countries for Electricity prices for household consumers
 	- Gas price for non-household: Netherlands, 2025
 	- now components
-	- crude oil prices
 
 
 Endash: 
@@ -54,6 +54,9 @@ Enmonthly:
 	- Net electricity generation, renewables and non-renewables: EU-27, June 2026
 	- Net electricity generation, renewables and non-renewables: Germany, Spain, France, July 2026
 	- Closing stock - national territory: Oil and petroleum products, EU-27, June 2026
+	- Crude oil imports: price and volume, 27 countries selected (weighted average), July 2026
+	- crude oil prices
+	- monthly imports of natural gas by partner Germany
 	- monthly oil stocks in the EU
 
 Enoil:
@@ -83,6 +86,6 @@ Not a view of their own (they keep their ordinary dashboard):
 	- what is a sankey diagram
 
 Notes (kept in step with src/genui/prompts.test.ts, which runs every line above):
-	* "Imports: Natural gas, Germany, July 2025" names a month, so it opens the monthly gas dashboard (its imports line); yearly trade by partner is Entrade.
-	* "Crude oil imports: price and volume ..." is the monthly crude oil dashboard (Enmonthly), not Entrade.
+	* Gas and oil imports/exports with a month named ("... July 2025") open the monthly trade by partner in Entrade (Yearly/Monthly switch in its toolbar); "monthly gas imports of Germany" and "gas balance ..." are the monthly gas balance.
+	* "Crude oil imports: price and volume ..." and "crude oil prices" are the monthly crude oil dashboard (Enmonthly).
 	* "now components" is a follow-up: it works on the price dashboard already on screen.

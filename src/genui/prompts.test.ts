@@ -26,7 +26,7 @@ function view(r: Route): string {
   if (r.kind !== 'plan' && r.kind !== 'refine') return `(${r.kind})`
   const p = r.plan
   if (p.balance) return 'ENbal'
-  if (p.trade) return 'Entrade'
+  if (p.trade) return p.trade.monthly ? 'Entrade monthly' : 'Entrade'
   if (p.prices) return 'Enprices'
   if (p.oil) return 'Enoil'
   if (p.sankey) return p.sankey.scope === 'households' ? 'Ensankey households' : 'Ensankey'
@@ -38,11 +38,17 @@ const EXPECTED: [string, string][] = [
   // Entrade
   ['Entrade', 'Imports of oil and petroleum products by partner: Eu , 2024'],
   ['Entrade', 'Imports of natural gas by partner: France, 2024'],
-  // a month asked for: the monthly gas balance (its imports line), not the yearly trade by partner
-  ['Enmonthly nrg_cb_gasm', 'Imports: Natural gas, Germany, July 2025'],
+  // a month asked for: the monthly trade by partner (gas and oil have monthly data)
+  ['Entrade monthly', 'Imports: Natural gas, Germany, July 2025'],
+  ['Entrade monthly', 'Exports of oil and petroleum products by partner, EU, March 2023'],
+  ['Entrade monthly', 'where does France import gas from in May 2024'],
+  // the monthly gas balance keeps its own questions
+  ['Enmonthly nrg_cb_gasm', 'monthly gas imports of Germany'],
+  ['Enmonthly nrg_cb_gasm', 'gas balance Germany July 2025'],
   ['Entrade', 'show energy trade between spain and germany'],
   ['Entrade', 'Oil and petroleum products trade between france and germany, 2022'],
   ['Enmonthly nrg_cb_cosm', 'Crude oil imports: price and volume, 27 countries selected (weighted average), July 2026'],
+  ['Entrade monthly', 'monthly imports of natural gas by partner Germany'],
   // ENbal
   ['ENbal', 'energy balance of the EU 2024'],
   ['ENbal', 'European Union (27 countries), Total - main fuel families, 2024'],

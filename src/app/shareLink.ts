@@ -68,7 +68,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   // A trade dashboard asks for every partner on purpose; it must match its dataset.
   const traded = tradeOf(ds.code)
   const tradeIn = p.trade as Plan['trade']
-  const isTrade = !!traded && !!tradeIn && tradeIn.flow === traded.flow && tradeIn.fuel === traded.fuel
+  const isTrade = !!traded && !!tradeIn && tradeIn.flow === traded.flow && tradeIn.fuel === traded.fuel && !!tradeIn.monthly === !!traded.monthly
   // A price dashboard's own dimension (nrg_prc) is set per widget, not per filter.
   const priced = priceDatasetOf(ds.code)
   const pricesIn = p.prices as Plan['prices']

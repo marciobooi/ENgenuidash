@@ -298,6 +298,9 @@ const en = {
     turnover: 'Since {prev}: {new} new partners, {gone} no longer present.',
     streak: '{top} has been the top partner for {n} consecutive years.',
     sugOther: 'Show {flow}',
+    period: 'Period',
+    yearly: 'Yearly',
+    monthlyData: 'Monthly',
     between: {
       title: '{fuel} trade between {a} and {b}, {year}',
       from: '{a} imports from {b}',
@@ -1182,6 +1185,9 @@ export const STRINGS: Record<Lang, Strings> = {
       turnover: 'Seit {prev}: {new} neue Partner, {gone} nicht mehr vertreten.',
       streak: '{top} ist seit {n} Jahren in Folge der wichtigste Partner.',
       sugOther: '{flow} anzeigen',
+      period: 'Zeitraum',
+      yearly: 'Jährlich',
+      monthlyData: 'Monatlich',
       between: {
         title: '{fuel}handel zwischen {a} und {b}, {year}',
         from: '{a} importiert aus {b}',
@@ -2061,6 +2067,9 @@ export const STRINGS: Record<Lang, Strings> = {
       turnover: 'Depuis {prev} : {new} nouveaux partenaires, {gone} ne sont plus présents.',
       streak: '{top} est le premier partenaire depuis {n} années consécutives.',
       sugOther: 'Afficher les {flow}',
+      period: 'Période',
+      yearly: 'Annuelle',
+      monthlyData: 'Mensuelle',
       between: {
         title: 'Commerce de {fuel} entre {a} et {b}, {year}',
         from: 'Importations de {a} depuis {b}',

@@ -50,7 +50,7 @@ export interface Plan {
    * Energy trade by partner (as Eurostat's entrade visualisation): one country's imports or
    * exports of one product, by partner country, for one year (see trade.ts).
    */
-  trade?: { flow: TradeFlow; fuel: TradeFuel; /** The fuel was not named: trade between two countries may switch to one that has data. */ auto?: true }
+  trade?: { flow: TradeFlow; fuel: TradeFuel; /** Monthly data (gas and oil have them): periods are months. */ monthly?: true; /** The fuel was not named: trade between two countries may switch to one that has data. */ auto?: true }
   /**
    * Energy price structure (as Eurostat's energy prices visualisation, enprices): one product's
    * price for one type of consumer, decomposed into its components, for one year (see prices.ts).

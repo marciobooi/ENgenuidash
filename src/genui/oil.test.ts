@@ -23,6 +23,8 @@ test('oil security is asked for by wording, with the country', () => {
   assert.equal(oilPlan(' oil security dashboard of germany ', dict, codelists)?.filters.geo, 'DE')
   assert.equal(oilPlan(' how dependent is italy on russian oil ', dict, codelists)?.filters.geo, 'IT')
   assert.equal(oilPlan(' oil crisis in the eu ', dict, codelists)?.filters.geo, 'EU27_2020')
+  assert.ok(oilPlan(' oil stock cover in germany ', dict, codelists)?.oil)
+  assert.ok(oilPlan(' russian oil in the eu ', dict, codelists)?.oil)
   // the monthly dashboards keep their own questions
   assert.equal(oilPlan(' monthly oil stocks in the eu ', dict, codelists), null)
   assert.equal(oilPlan(' crude oil prices ', dict, codelists), null)

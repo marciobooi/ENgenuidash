@@ -29,7 +29,7 @@ const fill = (template: string, values: Record<string, string>) => template.repl
 
 const OIL = / (oil|petroleum|crude|brent|erdol|mineralol|petrole) /
 // (not "prices" or "stocks" alone: those are the monthly dashboards)
-const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance) /
+const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|cover|coverage|reichweite|autonomie|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance) /
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
 /** The oil dashboard a question asks for ("oil security in Germany", "how dependent is Italy on Russian oil"), or null. */
@@ -91,7 +91,7 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
   const ask = (dataset: string, filters: Record<string, string | string[]>, query: Record<string, string> = {}) =>
     dict.datasets[dataset] ? fetchEurostatData(dataset, { filters, lang, signal, ...query }).catch(() => null) : Promise.resolve(null)
   const productCodes = Object.keys(PRODUCT_SIEC)
-  const [crude, products, stocks, cosm, balance, dependency, russiaByCountry, productImports, dieselRu, productStocks] = await Promise.all([
+  const [crude, products, stocks, cosm, balance, dependency, russiaByCountry, productImports, dieselRu, productStocks, exportsAll] = await Promise.all([
     ask(DATASET, { geo, siec: 'O4100_TOT', partner: [...CRUDE_PARTNERS, 'TOTAL'], unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask(DATASET, { geo, siec: 'O4000', partner: ['TOTAL', 'RU'], unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask('nrg_stk_oilm', { geo, siec: 'O4000', stk_flow: 'STK_CL', unit: 'THS_T' }),
@@ -102,6 +102,7 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     ask(DATASET, { geo, siec: productCodes, partner: 'TOTAL', unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask(DATASET, { geo, siec: 'O4671XR5220B', partner: ['TOTAL', 'RU'], unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask('nrg_stk_oilm', { geo, siec: ['O4100_TOT', ...productCodes], stk_flow: 'STK_CL', unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
+    ask('nrg_te_oilm', { geo, siec: 'O4000', partner: 'TOTAL', unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
   ])
   if (!crude && !products && !cosm && !balance) throw new NoDataError(DATASET)
 
@@ -168,6 +169,25 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
   const stockAgoKey = lastStock ? `${Number(yearOf(lastStock)) - 1}${lastStock.slice(4)}` : undefined
   const stockAgo = stockAgoKey && stockSeries.has(stockAgoKey) ? stockSeries.get(stockAgoKey)! / 1000 : undefined
 
+  // ----- stock cover: days of net imports the stocks would cover (imports minus exports of the 12 months before) -----
+  const exportsTotal = seriesOf(exportsAll, (k) => k.partner === 'TOTAL')
+  const cover: Month = new Map()
+  {
+    const netMonths = sortedKeys(totalAll)
+    const net = new Map(netMonths.map((m) => [m, (totalAll.get(m) ?? 0) - (exportsTotal.get(m) ?? 0)]))
+    for (let i = 11; i < netMonths.length; i++) {
+      const m = netMonths[i]
+      const window = netMonths.slice(i - 11, i + 1)
+      if (window.some((w) => !net.has(w)) || !stockSeries.has(m)) continue
+      const daily = window.reduce((a, w) => a + net.get(w)!, 0) / 365
+      if (daily > 0) cover.set(m, stockSeries.get(m)! / daily)
+    }
+  }
+  const coverMonths = sortedKeys(cover)
+  const coverNow = coverMonths.length ? cover.get(coverMonths.at(-1)!)! : undefined
+  const coverAgoKey = coverMonths.length ? `${Number(yearOf(coverMonths.at(-1)!)) - 1}${coverMonths.at(-1)!.slice(4)}` : undefined
+  const coverAgo = coverAgoKey ? cover.get(coverAgoKey) : undefined
+
   // ----- annual: balance and dependency -----
   const bal = (siec: string, line: string, year: string) => balance?.observations.find((o) => o.keys.siec === siec && o.keys.nrg_bal === line && o.keys.time === year)?.value ?? null
   const balYears = [...new Set((balance?.observations ?? []).map((o) => o.keys.time))].sort()
@@ -199,6 +219,8 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     kpis.push({ label: t.kpiPrice, value: Math.round(priceNow * 10) / 10, unit: t.unitPrice, decimals: 1, ...(priceYearAgo != null ? { delta: Math.round((priceNow - priceYearAgo) * 10) / 10, deltaUnit: t.unitPrice, deltaLabel: yearAgoMonth } : {}), caption: lastPriceMonth, goodDirection: 'down', trend: priceMonths.slice(-24).map((m) => Math.round(price.get(m)! * 10) / 10) })
   if (stockNow != null && lastStock)
     kpis.push({ label: t.kpiStocks, value: Math.round(stockNow * 10) / 10, unit: t.unitStocks, decimals: 1, ...(stockAgo != null ? { delta: Math.round((stockNow - stockAgo) * 10) / 10, deltaUnit: t.unitStocks, deltaLabel: stockAgoKey } : {}), caption: lastStock, goodDirection: 'up', trend: stockMonths.slice(-24).map((m) => Math.round((stockSeries.get(m)! / 1000) * 10) / 10) })
+  if (coverNow != null && coverMonths.length)
+    kpis.push({ label: t.kpiCover, value: Math.round(coverNow), unit: t.unitDays, decimals: 0, ...(coverAgo != null ? { delta: Math.round(coverNow - coverAgo), deltaUnit: t.unitDays, deltaLabel: coverAgoKey } : {}), caption: coverMonths.at(-1), goodDirection: 'up', trend: coverMonths.slice(-24).map((m) => Math.round(cover.get(m)!)) })
   if (mixNow != null && mixYear) kpis.push({ label: t.kpiShare, value: Math.round(mixNow * 10) / 10, unit: '%', decimals: 1, caption: mixYear, goodDirection: 'down', trend: mixYears.slice(-15).map((y) => Math.round(shareOfMix(y)! * 10) / 10) })
   widgets.push({ type: 'kpis', items: kpis })
 
@@ -206,6 +228,14 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
   if (priceNow != null && priceAvg != null && lastPriceMonth) {
     const max = Math.ceil((Math.max(priceNow, priceAvg * 1.6) * 1.05) / 10) * 10
     widgets.push({ type: 'gauge', title: t.cGauge, subtitle: `${lastPriceMonth} · ${nf(1).format(priceNow)} ${t.unitPrice} · ${nf(1).format(priceAvg)} ${t.unitPrice} (5y)`, value: Math.round(priceNow * 10) / 10, label: `${geoName}, ${lastPriceMonth}`, max, targets: [{ value: Math.round(priceAvg * 10) / 10, label: `${nf(0).format(priceAvg)}` }], unit: t.unitPrice, goal: 'stay-under', size: 'half', source: source('nrg_cb_cosm', label(cosm, 'geo', geo)) })
+  }
+
+  // ----- the cover against the 90 days: a gauge and its history -----
+  if (coverNow != null && coverMonths.length > 12) {
+    const lastCover = coverMonths.at(-1)!
+    widgets.push({ type: 'gauge', title: t.cGaugeCover, subtitle: `${lastCover} · ${nf(0).format(coverNow)} ${t.unitDays}`, value: Math.round(coverNow), label: `${geoName}, ${lastCover}`, max: Math.max(180, Math.ceil((coverNow * 1.1) / 30) * 30), targets: [{ value: 90, label: `90 ${t.unitDays}` }], unit: t.unitDays, goal: 'reach', size: 'half', source: source('nrg_stk_oilm', label(stocks, 'siec', 'O4000')) })
+    const shownCover = coverMonths.filter((m) => m >= '2016-01')
+    widgets.push({ type: 'line', title: t.cCover, subtitle: `${geoName} · ${t.unitDays}`, categories: shownCover, series: [{ name: geoName, data: shownCover.map((m) => Math.round(cover.get(m)!)) }], unit: t.unitDays, size: 'half', highlight: shownCover.includes(WAR_MONTH) ? WAR_MONTH : undefined, reference: { value: 90, label: `90 ${t.unitDays}` }, source: source('nrg_stk_oilm', label(stocks, 'siec', 'O4000')) } as WidgetSpec)
   }
 
   // ----- where the crude comes from: monthly by origin (absolute and shares) -----
@@ -349,6 +379,7 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     const d = (100 * (stockNow - stockAgo)) / stockAgo
     insights.push({ tone: d < 0 ? 'down' : 'up', parts: [fill(t.insStocks, { pct: pct(Math.abs(d)), dir: d < 0 ? t.lower : t.higher })] })
   }
+  if (coverNow != null) insights.push({ tone: coverNow >= 90 ? 'up' : 'down', parts: [fill(t.insCover, { days: nf(0).format(coverNow) })] })
   if (mixNow != null && mixYear && mixYears.length > 1) insights.push({ tone: 'down', parts: [fill(t.insShare, { pct: pct(mixNow), year: mixYear, then: pct(shareOfMix(mixYears[0])!), first: mixYears[0] })] })
   if (depNow != null && depYear) insights.push({ tone: 'down', parts: [fill(t.insDependency, { pct: pct(depNow), year: depYear })] })
 
@@ -367,7 +398,7 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     subtitle: t.subtitle,
     summary,
     insights: insights.slice(0, 5),
-    notes: [t.note],
+    notes: [t.note, ...(coverNow != null ? [t.noteCover] : [])],
     widgets,
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
     presentation: { template: 'oil', kpiStyle: 'cards', controls: ['geo'], primaryControls: 1, accent: 'orange' },

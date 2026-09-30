@@ -474,6 +474,12 @@ const en = {
     cNet: 'Net imports by product (imports minus exports)',
     dieselRu: 'Diesel and gas oil from Russia',
     allRu: 'All oil and products from Russia',
+    kpiCover: 'Stock cover',
+    unitDays: 'days',
+    cCover: 'Stock cover: days of net oil imports',
+    cGaugeCover: 'Stock cover against the 90-day yardstick',
+    insCover: 'Oil stocks would cover {days} days of net imports at the pace of the last 12 months; the EU yardstick for emergency stocks is 90 days.',
+    noteCover: 'Stock cover is all oil stocks held divided by the average daily net imports (imports minus exports) of the 12 months before; it is an indication, not the legal emergency stock, which is measured separately (Directive 2009/119/EC).',
   },
   profile: {
     title: 'Energy profile: {geo}',
@@ -1352,6 +1358,12 @@ export const STRINGS: Record<Lang, Strings> = {
     cNet: 'Nettoimporte nach Produkt (Importe minus Exporte)',
     dieselRu: 'Diesel und Gasöl aus Russland',
     allRu: 'Öl und Produkte insgesamt aus Russland',
+    kpiCover: 'Vorratsreichweite',
+    unitDays: 'Tage',
+    cCover: 'Vorratsreichweite: Tage der Netto-Ölimporte',
+    cGaugeCover: 'Vorratsreichweite im Vergleich zur 90-Tage-Marke',
+    insCover: 'Die Ölvorräte würden beim Tempo der letzten 12 Monate {days} Tage der Nettoimporte decken; die EU-Marke für Notvorräte liegt bei 90 Tagen.',
+    noteCover: 'Die Vorratsreichweite ist der gesamte Ölvorrat geteilt durch die durchschnittlichen täglichen Nettoimporte (Importe minus Exporte) der 12 Monate davor; sie ist ein Anhaltspunkt, nicht die gesetzliche Notfallreserve, die gesondert gemessen wird (Richtlinie 2009/119/EG).',
     },
     profile: {
       title: 'Energieprofil: {geo}',
@@ -2225,6 +2237,12 @@ export const STRINGS: Record<Lang, Strings> = {
     cNet: 'Importations nettes par produit (importations moins exportations)',
     dieselRu: 'Diesel et gazole de Russie',
     allRu: 'Pétrole et produits de Russie, au total',
+    kpiCover: 'Autonomie des stocks',
+    unitDays: 'jours',
+    cCover: 'Autonomie des stocks : jours d\u2019importations nettes de pétrole',
+    cGaugeCover: 'Autonomie des stocks par rapport au repère de 90 jours',
+    insCover: 'Les stocks de pétrole couvriraient {days} jours d\u2019importations nettes au rythme des 12 derniers mois ; le repère de l\u2019UE pour les stocks d\u2019urgence est de 90 jours.',
+    noteCover: 'L\u2019autonomie des stocks est l\u2019ensemble des stocks de pétrole divisé par les importations nettes quotidiennes moyennes (importations moins exportations) des 12 mois précédents ; c\u2019est une indication, pas le stock d\u2019urgence légal, mesuré séparément (directive 2009/119/CE).'
     },
     profile: {
       title: 'Profil énergétique : {geo}',

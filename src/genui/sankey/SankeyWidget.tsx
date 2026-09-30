@@ -560,7 +560,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
                 <th scope="col">{labels.colSource}</th>
                 <th scope="col">{labels.colTarget}</th>
                 <th scope="col">{labels.colProduct}</th>
-                <th scope="col">{labels.colValue}</th>
+                <th scope="col" className="sankey__num">{`${labels.colValue} (${widget.unit})`}</th>
               </tr>
             </thead>
             <tbody>

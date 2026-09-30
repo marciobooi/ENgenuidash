@@ -155,8 +155,8 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const box = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const drawWidth = Math.round(BASE_WIDTH * 0.76 * cropOf(disaggregation))
-  // Taller than the 16:9 of the first version: this card is the point of the dashboard; opened views get more room still.
-  const drawHeight = Math.round(BASE_WIDTH * 0.76 * (cropOf(disaggregation) > 1.25 ? 0.8 : 0.66))
+  // The original's proportion: its drawing is about 2:1 (its height follows the window, its width the screen), and an opened view is wider, not taller.
+  const drawHeight = Math.round(BASE_WIDTH * 0.76 * 0.46)
   // What is drawn decides the frame: the picture is fitted to its contents, however many nodes are open.
   const content = useRef<SVGGElement>(null)
   const [bounds, setBounds] = useState({ x: 0, y: 0, w: drawWidth, h: drawHeight })

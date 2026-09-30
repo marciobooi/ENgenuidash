@@ -622,11 +622,18 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
                 )}
               </li>
             ))}
-            <li>
-              <button type="button" className="sankey__legend-all" onClick={() => setHighlight((h) => (h.length === legendFuels.length ? [] : [...legendFuels]))}>
-                {highlight.length === legendFuels.length ? labels.unhighlight : labels.highlightAll}
-              </button>
-            </li>
+            {/* Coloured already (by product, or the households view): "all" only means something once some are picked out. */}
+            {(highlight.length > 0 || !(widget.byFuel || scope)) && (
+              <li>
+                <button
+                  type="button"
+                  className="sankey__legend-all"
+                  onClick={() => setHighlight(highlight.length > 0 && (widget.byFuel || scope || highlight.length === legendFuels.length) ? [] : [...legendFuels])}
+                >
+                  {highlight.length > 0 && (widget.byFuel || scope || highlight.length === legendFuels.length) ? labels.unhighlight : labels.highlightAll}
+                </button>
+              </li>
+            )}
           </ul>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { Tooltip } from '../tooltip'
 import { ChartColumn, ChevronRight } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import './table.css'
@@ -104,30 +105,33 @@ export function BalanceTable({
                 <tr key={r.code} className={`balance-table__row balance-table__row--l${Math.min(r.level, 3)}${chartLine === r.code ? ' balance-table__row--active' : ''}`}>
                   <th scope="row" className="data-table__sticky balance-table__line" style={{ paddingLeft: `${12 + r.level * 16}px` }}>
                     {expandable ? (
-                      <button
-                        type="button"
-                        className="balance-table__toggle"
-                        aria-expanded={isOpen}
-                        aria-label={(isOpen ? labels.collapse : labels.expand).replace('{row}', r.label)}
-                        onClick={() => toggle(r.code)}
-                      >
-                        <ChevronRight size={16} aria-hidden="true" className="balance-table__chevron" />
-                      </button>
+                      <Tooltip content={(isOpen ? labels.collapse : labels.expand).replace('{row}', r.label)}>
+                        <button
+                          type="button"
+                          className="balance-table__toggle"
+                          aria-expanded={isOpen}
+                          aria-label={(isOpen ? labels.collapse : labels.expand).replace('{row}', r.label)}
+                          onClick={() => toggle(r.code)}
+                        >
+                          <ChevronRight size={16} aria-hidden="true" className="balance-table__chevron" />
+                        </button>
+                      </Tooltip>
                     ) : (
                       <span className="balance-table__spacer" aria-hidden="true" />
                     )}
                     <span className="balance-table__label">{r.label}</span>
                     {onChart && (
-                      <button
-                        type="button"
-                        className="balance-table__chart"
-                        aria-pressed={chartLine === r.code}
-                        aria-label={(labels.showCharts ?? '{row}').replace('{row}', r.label)}
-                        title={(labels.showCharts ?? '{row}').replace('{row}', r.label)}
-                        onClick={() => onChart(r.code)}
-                      >
-                        <ChartColumn size={14} aria-hidden="true" />
-                      </button>
+                      <Tooltip content={(labels.showCharts ?? '{row}').replace('{row}', r.label)}>
+                        <button
+                          type="button"
+                          className="balance-table__chart"
+                          aria-pressed={chartLine === r.code}
+                          aria-label={(labels.showCharts ?? '{row}').replace('{row}', r.label)}
+                          onClick={() => onChart(r.code)}
+                        >
+                          <ChartColumn size={14} aria-hidden="true" />
+                        </button>
+                      </Tooltip>
                     )}
                   </th>
                   {r.values.map((v, i) => (

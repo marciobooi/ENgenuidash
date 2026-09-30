@@ -330,6 +330,38 @@ main:focus {
   padding-inline: max(1rem, calc((100% - 680px) / 2 + 1rem));
 }
 
+.thread__jump {
+  position: sticky;
+  bottom: 0;
+  height: 0;
+  margin-top: -20px; /* the thread's gap: takes no room */
+  text-align: center;
+  pointer-events: none;
+}
+
+.thread__jump-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--ecl-color-dark-20, #b0b0b0);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ecl-color-primary, #004494);
+  box-shadow: 0 4px 12px -4px var(--ecl-color-dark-alpha-500);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.thread__jump-btn:hover {
+  background: var(--ecl-color-dark-5);
+}
+
 .msg {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

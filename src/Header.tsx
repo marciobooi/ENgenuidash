@@ -106,9 +106,11 @@ export function Header({ lang, t, onLangChange }: { lang: Lang; t: Strings; onLa
           <img alt="" src={ribbon} />
         </div>
 
-        <a className="es-header__logo" href="https://ec.europa.eu/eurostat/" target="_blank" rel="noreferrer">
-          <img alt={t.home} src={estatLogo} />
-        </a>
+        <Tooltip content={t.home} placement="bottom">
+          <a className="es-header__logo" href="https://ec.europa.eu/eurostat/" target="_blank" rel="noreferrer">
+            <img alt={t.home} src={estatLogo} />
+          </a>
+        </Tooltip>
       </div>
     </header>
   )

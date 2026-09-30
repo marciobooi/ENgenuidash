@@ -1,3 +1,4 @@
+import { Tooltip } from '../../components/tooltip'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { WidgetSpec } from '../types'
 import labelsJson from './labels.json'
@@ -584,9 +585,11 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
       </div>
 
       <div className="sankey__timeline">
-        <button type="button" className="sankey__play" onClick={() => setPlaying((p) => !p)} aria-pressed={playing} aria-label={playing ? labels.pause : labels.play}>
-          {playing ? '❚❚' : '▶'}
-        </button>
+        <Tooltip content={playing ? labels.pause : labels.play}>
+          <button type="button" className="sankey__play" onClick={() => setPlaying((p) => !p)} aria-pressed={playing} aria-label={playing ? labels.pause : labels.play}>
+            {playing ? '❚❚' : '▶'}
+          </button>
+        </Tooltip>
         <label className="sankey__range" htmlFor={`${idPrefix}-year`}>
           <span className="sankey__sr">{labels.year}</span>
           <input id={`${idPrefix}-year`} type="range" min={0} max={widget.years.length - 1} value={Math.max(0, widget.years.indexOf(year))} onChange={(e) => setYear(widget.years[Number(e.target.value)])} />
@@ -617,22 +620,25 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
                 </button>
                 {scope ? (
                   scope.children?.[f] && (
-                    <button
-                      type="button"
-                      className={`sankey__breakdown${openProducts.includes(f) ? ' is-on' : ''}`}
-                      title={openProducts.includes(f) ? labels.collapse : labels.open}
-                      aria-label={`${openProducts.includes(f) ? labels.collapse : labels.open}: ${fuelName(f)}`}
-                      aria-pressed={openProducts.includes(f)}
-                      onClick={() => setOpenProducts((o) => (o.includes(f) ? o.filter((x) => x !== f) : [...o, f]))}
-                    >
-                      {openProducts.includes(f) ? '⤴' : '⤵'}
-                    </button>
+                    <Tooltip content={openProducts.includes(f) ? labels.collapse : labels.open}>
+                      <button
+                        type="button"
+                        className={`sankey__breakdown${openProducts.includes(f) ? ' is-on' : ''}`}
+                        aria-label={`${openProducts.includes(f) ? labels.collapse : labels.open}: ${fuelName(f)}`}
+                        aria-pressed={openProducts.includes(f)}
+                        onClick={() => setOpenProducts((o) => (o.includes(f) ? o.filter((x) => x !== f) : [...o, f]))}
+                      >
+                        {openProducts.includes(f) ? '⤴' : '⤵'}
+                      </button>
+                    </Tooltip>
                   )
                 ) : (
                   FUEL_TABLE[f] && (
-                    <button type="button" className="sankey__breakdown" title={labels.breakDown} aria-label={`${labels.breakDown}: ${fuelName(f)}`} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, fuel: f, byFuel: true } }, fuelName(f))}>
-                      ⤵
-                    </button>
+                    <Tooltip content={labels.breakDown}>
+                      <button type="button" className="sankey__breakdown" aria-label={`${labels.breakDown}: ${fuelName(f)}`} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, fuel: f, byFuel: true } }, fuelName(f))}>
+                        ⤵
+                      </button>
+                    </Tooltip>
                   )
                 )}
               </li>

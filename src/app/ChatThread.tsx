@@ -1,5 +1,6 @@
-import { CircleAlert, Database, ExternalLink, LayoutDashboard, ShieldAlert } from 'lucide-react'
-import type { RefObject } from 'react'
+import { ArrowDown, CircleAlert, Database, ExternalLink, LayoutDashboard, ShieldAlert } from 'lucide-react'
+import { useState, type RefObject } from 'react'
+import { Tooltip } from '../components/tooltip'
 import type { Strings } from '../i18n'
 import type { UIMessage } from '../llm/useLocalLLM'
 
@@ -33,8 +34,19 @@ export function ChatThread({
   onChoice: (choice: Choice) => void
   endRef: RefObject<HTMLDivElement | null>
 }) {
+  // Far from the newest message (a long conversation, scrolled up): an arrow takes you back down.
+  const [away, setAway] = useState(false)
   return (
-    <div className="thread" role="log" aria-label={t.conversation} aria-busy={busy}>
+    <div
+      className="thread"
+      role="log"
+      aria-label={t.conversation}
+      aria-busy={busy}
+      onScroll={(e) => {
+        const el = e.currentTarget
+        setAway(el.scrollHeight - el.scrollTop - el.clientHeight > 120)
+      }}
+    >
       {messages.map((m, i) => (
         <div key={i} className={`msg msg--${m.role}${m.kind ? ` msg--${m.kind}` : ''}${m.pending ? ' msg--status' : ''}`}>
           <span className="sr-only">{m.role === 'user' ? t.you : t.assistant}: </span>
@@ -100,6 +112,20 @@ export function ChatThread({
         </div>
       )}
       <div ref={endRef} />
+      {away && (
+        <div className="thread__jump">
+          <Tooltip content={t.scrollToBottom} placement="top">
+            <button
+              type="button"
+              className="thread__jump-btn"
+              aria-label={t.scrollToBottom}
+              onClick={() => endRef.current?.scrollIntoView({ block: 'end', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}
+            >
+              <ArrowDown size={18} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </div>
+      )}
     </div>
   )
 }

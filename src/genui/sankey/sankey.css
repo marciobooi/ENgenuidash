@@ -85,3 +85,4 @@
 .sankey__menu button:hover, .sankey__menu button:focus-visible { background: var(--ecl-color-primary-5, #eaf1fb); outline: none; }
 @media (prefers-reduced-motion: reduce) { .sankey__icon::after { transition: none; } }
 .sankey__legend-value { color: var(--ecl-color-dark-60, #595959); font-variant-numeric: tabular-nums; }
+.sankey__breakdown.is-on { background: var(--ecl-color-primary, #004494); color: #fff; border-color: var(--ecl-color-primary, #004494); }

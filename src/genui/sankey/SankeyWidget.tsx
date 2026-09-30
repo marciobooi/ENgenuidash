@@ -615,10 +615,25 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
                   {fuelName(f)}
                   {scope && <span className="sankey__legend-value">{formatValue(scope.right.reduce((sum, r) => sum + scopeValue(f, r), 0))}</span>}
                 </button>
-                {FUEL_TABLE[f] && (
-                  <button type="button" className="sankey__breakdown" title={labels.breakDown} aria-label={`${labels.breakDown}: ${fuelName(f)}`} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, fuel: f, byFuel: true } }, fuelName(f))}>
-                    ⤵
-                  </button>
+                {scope ? (
+                  scope.children?.[f] && (
+                    <button
+                      type="button"
+                      className={`sankey__breakdown${openProducts.includes(f) ? ' is-on' : ''}`}
+                      title={openProducts.includes(f) ? labels.collapse : labels.open}
+                      aria-label={`${openProducts.includes(f) ? labels.collapse : labels.open}: ${fuelName(f)}`}
+                      aria-pressed={openProducts.includes(f)}
+                      onClick={() => setOpenProducts((o) => (o.includes(f) ? o.filter((x) => x !== f) : [...o, f]))}
+                    >
+                      {openProducts.includes(f) ? '⤴' : '⤵'}
+                    </button>
+                  )
+                ) : (
+                  FUEL_TABLE[f] && (
+                    <button type="button" className="sankey__breakdown" title={labels.breakDown} aria-label={`${labels.breakDown}: ${fuelName(f)}`} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, fuel: f, byFuel: true } }, fuelName(f))}>
+                      ⤵
+                    </button>
+                  )
                 )}
               </li>
             ))}

@@ -35,6 +35,7 @@ export interface SankeyLabels {
   highlightAll: string
   unhighlight: string
   breakDown: string
+  flowDetails: string
   compareLegend: string
   changeVs: string
   exportPng: string
@@ -340,6 +341,14 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
         <p className="sankey__hint">{labels.hint}</p>
       </div>
       <div className="sankey__actions">
+        <button
+          type="button"
+          className={`sankey__btn sankey__toggle${widget.byFuel ? ' is-on' : ''}`}
+          aria-pressed={widget.byFuel}
+          onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, ...(widget.byFuel ? { byFuel: undefined } : { byFuel: true as const }) } }, labels.flowDetails)}
+        >
+          {labels.flowDetails}
+        </button>
         <button type="button" className="sankey__btn" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(allOpen()) } }, labels.expandAll)}>
           {labels.expandAll}
         </button>

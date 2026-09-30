@@ -76,7 +76,7 @@ test('the diagram is built from the balance, with the year, the products and the
   assert.ok(w && w.type === 'sankey')
   assert.ok(w.years.length > 10 && Object.values(w.table).every((r) => r.length === w.years.length))
   assert.match(d.title, /Energy flow diagram: Germany/)
-  assert.ok(d.controls?.choices?.some((c) => c.key === 'fuel') && d.controls?.choices?.some((c) => c.key === 'view'))
+  assert.ok(d.controls?.choices?.some((c) => c.key === 'fuel'))
   const coloured = await buildDashboard({ ...plan, sankey: { fuel: 'RA000', byFuel: true } }, dict, 'en', s)
   assert.match(coloured.widgets.find((x) => x.type === 'sankey')!.type, /sankey/)
 })

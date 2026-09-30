@@ -250,7 +250,7 @@ export async function buildSankeyDashboard(
       ...around,
     ],
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
-    presentation: { template: 'sankey', kpiStyle: 'cards', controls: ['geo', 'year', 'unit', 'compare', 'fuel', 'view'], primaryControls: 6, accent: 'teal' },
+    presentation: { template: 'sankey', kpiStyle: 'cards', controls: ['geo', 'year', 'unit', 'compare', 'fuel'], primaryControls: 5, accent: 'teal' },
     unit: symbol,
     source,
     suggestions: sankeySuggestions(plan, s, fuel, byFuel),
@@ -281,14 +281,6 @@ function sankeyControls(plan: Plan, dict: EnergyDictionary, years: string[], yea
         ],
       },
       { key: 'fuel', label: t.fuel, options: FUEL_FAMILIES.map((f) => ({ label: f === 'TOTAL' ? t.allProducts : (names[f] ?? f), plan: withSankey({ ...(f === 'TOTAL' ? {} : { fuel: f }), ...(byFuel ? { byFuel: true as const } : {}) }), active: fuel === f })) },
-      {
-        key: 'view',
-        label: t.view,
-        options: [
-          { label: t.viewOne, plan: withSankey({ ...(fuel !== 'TOTAL' ? { fuel } : {}) }), active: !byFuel },
-          { label: t.viewByFuel, plan: withSankey({ ...(fuel !== 'TOTAL' ? { fuel } : {}), byFuel: true }), active: byFuel },
-        ],
-      },
     ],
   }
 }

@@ -66,3 +66,5 @@
 .sankey--full { overflow: auto; background: #fff; padding: 1.5rem; }
 .sankey--full .sankey__box { max-height: 82vh; }
 .sankey--full .sankey__svg { max-height: 78vh; }
+.sankey__toggle.is-on { background: var(--ecl-color-primary, #004494); color: #fff; }
+.sankey__toggle.is-on:hover { background: var(--ecl-color-primary-dark, #003170); }

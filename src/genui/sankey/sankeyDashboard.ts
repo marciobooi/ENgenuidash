@@ -4,7 +4,7 @@ import { NoDataError } from '../execute'
 import { detectGeos, detectTime, parse, requestedUnit } from '../planner/parse'
 import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggestion, WidgetSpec } from '../types'
 import { sanitizeSpec } from '../validate'
-import { disaggregationOf, flowsNeeded } from './state'
+import { UNIT_TABLE, disaggregationOf, flowsNeeded } from './state'
 import labels from './labels.json'
 import { BalanceTable, FLOW_FORMULAS, FUEL_FAMILIES, balanceLinesFor, buildModel, displayedFuels, leafFuels, nodeOfFlow, rowsOf } from './model'
 
@@ -18,7 +18,6 @@ export type SankeyStrings = Strings['sankey']
 
 const DATASET = 'nrg_bal_c'
 const EU = 'EU27_2020'
-const UNITS: Record<string, string> = { KTOE: 'ktoe', GWH: 'GWh', TJ: 'TJ' }
 const GEOS = [EU, 'BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'HR', 'IT', 'CY', 'LV', 'LT', 'LU', 'HU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'FI', 'SE', 'IS', 'NO', 'ME', 'MK', 'AL', 'RS', 'TR', 'BA', 'XK', 'MD', 'UA', 'GE']
 
 // The flows of the picture as first drawn (the balance lines they read are the ones fetched).
@@ -98,7 +97,8 @@ export async function buildSankeyDashboard(
   const t = s.sankey
   const ds = dict.datasets[DATASET]
   const geo = String(plan.filters.geo ?? EU)
-  const unit = String(plan.filters.unit ?? 'KTOE')
+  const unit = String(plan.filters.unit ?? 'KTOE') in UNIT_TABLE ? String(plan.filters.unit ?? 'KTOE') : 'KTOE'
+  const factor = UNIT_TABLE[unit].factor
   const fuel = plan.sankey?.fuel && FUEL_FAMILIES.includes(plan.sankey.fuel) ? plan.sankey.fuel : 'TOTAL'
   const byFuel = !!plan.sankey?.byFuel
   const siecCodes = ds.dimensions.find((d) => d.id === 'siec')?.codes ?? []
@@ -107,7 +107,7 @@ export async function buildSankeyDashboard(
   const leaves = [...new Set(displayedFuels(fuel, byFuel).flatMap(leafFuels))].filter((c) => siecCodes.includes(c))
   const dis = disaggregationOf(plan.sankey?.nodes)
   const lines = balanceLinesFor([...DEFAULT_FLOWS, ...flowsNeeded(dis)], lineCodes)
-  const result = await fetchEurostatData(DATASET, { filters: { geo, unit, nrg_bal: lines, siec: leaves }, lang, signal })
+  const result = await fetchEurostatData(DATASET, { filters: { geo, unit: 'KTOE', nrg_bal: lines, siec: leaves }, lang, signal })
   const { years, rows } = rowsOf(result)
   const table = new BalanceTable(years, rows)
   // What the diagram is compared with: earlier years (the same table) or another country's balance.
@@ -118,7 +118,7 @@ export async function buildSankeyDashboard(
     const back = Number(asked.slice(1))
     compare = { kind: 'years', back, label: fill(back === 1 ? t.yearsEarlier1 : t.yearsEarlierN, { n: String(back) }) }
   } else if (asked && asked !== geo && GEOS.includes(asked)) {
-    const other = await fetchEurostatData(DATASET, { filters: { geo: asked, unit, nrg_bal: lines, siec: leaves }, lang, signal }).catch(() => null)
+    const other = await fetchEurostatData(DATASET, { filters: { geo: asked, unit: 'KTOE', nrg_bal: lines, siec: leaves }, lang, signal }).catch(() => null)
     if (other) {
       const o = rowsOf(other)
       compare = { kind: 'geo', label: (geoNames[`geo:${asked}`] ?? asked).replace(/\s*\(.*?\)\s*$/, ''), years: o.years, table: o.rows }
@@ -133,19 +133,21 @@ export async function buildSankeyDashboard(
   const geoName = (result.dimensions.geo?.codes.find((c) => c.code === geo)?.label ?? geo).replace(/\s*\(.*?\)\s*$/, '')
   const names = (labels as Record<string, Record<string, string>>)[lang] ?? labels.en
   const fuelLabel = names[fuel] ?? fuel
-  const nf = new Intl.NumberFormat(lang, { maximumFractionDigits: 0 })
   const value = (code: string, y = year) => model.flows(y).get(code)?.value ?? 0
-  const symbol = UNITS[unit] ?? unit
-  const fmt = (v: number) => `${nf.format(Math.round(v))} ${symbol}`
+  const symbol = UNIT_TABLE[unit].symbol
+  // The data are in ktoe; what is shown is in the unit chosen.
+  const digits = factor < 1 ? 10 : 1
+  const show = (v: number) => Math.round(v * factor * digits) / digits
+  const fmt = (v: number) => `${new Intl.NumberFormat(lang, { maximumFractionDigits: factor < 1 ? 1 : 0 }).format(show(v))} ${symbol}`
 
   const before = active[active.indexOf(year) - 1]
   const kpi = (label: string, code: string, extra?: Partial<KpiSpec>): KpiSpec => ({
     label,
-    value: Math.round(value(code)),
+    value: show(value(code)),
     unit: symbol,
     decimals: 0,
-    ...(before && value(code, before) > 0 ? { delta: Math.round(value(code) - value(code, before)), deltaUnit: symbol, deltaLabel: `${before}` } : {}),
-    trend: active.slice(-15).map((y) => Math.round(value(code, y))),
+    ...(before && value(code, before) > 0 ? { delta: show(value(code) - value(code, before)), deltaUnit: symbol, deltaLabel: `${before}` } : {}),
+    trend: active.slice(-15).map((y) => show(value(code, y))),
     ...extra,
   })
   const kpis: KpiSpec[] = [kpi(names.N1, 'N1', { goodDirection: 'neutral' }), kpi(names.E1_2, 'F1_2', { goodDirection: 'neutral' }), kpi(names.N6_1, 'F6_1', { goodDirection: 'neutral' })]
@@ -170,7 +172,7 @@ export async function buildSankeyDashboard(
   // Around the diagram: where the energy comes from and where it goes, what the final consumption is
   // made of, the products over the years and the trend of dependency.
   const pie = (title: string, codes: string[], y = year): WidgetSpec | null => {
-    const slices = codes.map((c) => ({ name: names[c === 'F4' ? 'E4' : nodeOfFlow(c)] ?? c, y: Math.max(0, Math.round(value(c, y))) })).filter((x) => x.y > 0)
+    const slices = codes.map((c) => ({ name: names[c === 'F4' ? 'E4' : nodeOfFlow(c)] ?? c, y: Math.max(0, show(value(c, y))) })).filter((x) => x.y > 0)
     return slices.length > 1 ? { type: 'pie', title, subtitle: `${geoName} · ${y} · ${symbol}`, slices, unit: symbol, size: 'half', source } : null
   }
   const around: WidgetSpec[] = []
@@ -198,7 +200,7 @@ export async function buildSankeyDashboard(
   // The products of the available energy over the years (the parts of the family, coloured as in the diagram).
   const parts = buildModel(table, fuel, true)
   if (parts.fuels.length > 1) {
-    const series = parts.fuels.map((f, i) => ({ name: names[f] ?? f, data: shownYears.map((y) => Math.round(parts.flows(y).get('N1')?.values[i] ?? 0)) })).filter((x) => x.data.some((v) => v > 0))
+    const series = parts.fuels.map((f, i) => ({ name: names[f] ?? f, data: shownYears.map((y) => show(parts.flows(y).get('N1')?.values[i] ?? 0)) })).filter((x) => x.data.some((v) => v > 0))
     if (series.length > 1) around.push({ type: 'area', title: t.areaProducts, subtitle: `${geoName} · ${symbol}`, categories: shownYears, series, stacked: true, unit: symbol, size: 'full', highlight: year, source } as WidgetSpec)
   }
 
@@ -234,6 +236,7 @@ export async function buildSankeyDashboard(
         geo,
         geoName,
         unit: symbol,
+        factor,
         lang: ['de', 'fr'].includes(lang) ? lang : 'en',
         years,
         year,
@@ -262,11 +265,11 @@ export async function buildSankeyDashboard(
 
 function sankeyControls(plan: Plan, dict: EnergyDictionary, years: string[], year: string, fuel: string, byFuel: boolean, t: SankeyStrings, names: Record<string, string>): DashboardControls {
   const at = (y: string): Plan => ({ ...plan, time: { kind: 'range', since: y, until: y }, focusPeriod: y })
-  const units = (dict.datasets[DATASET]?.dimensions.find((d) => d.id === 'unit')?.codes ?? []).filter((u) => u in UNITS)
+  void dict
   const withSankey = (over: NonNullable<Plan['sankey']>): Plan => ({ ...plan, sankey: { ...over, ...(plan.sankey?.nodes !== undefined ? { nodes: plan.sankey.nodes } : {}), ...(plan.sankey?.compare ? { compare: plan.sankey.compare } : {}) } })
   return {
     years: [...years].reverse().slice(0, 40).map((y) => ({ label: y, plan: at(y), active: y === year })),
-    units: units.map((u) => ({ label: UNITS[u], plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: (plan.filters.unit ?? 'KTOE') === u })),
+    units: Object.keys(UNIT_TABLE).map((u) => ({ label: names[`unit:${u}`] ?? UNIT_TABLE[u].symbol, plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: (plan.filters.unit ?? 'KTOE') === u })),
     choices: [
       {
         key: 'compare',

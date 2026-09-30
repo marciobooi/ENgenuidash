@@ -170,7 +170,14 @@
   "geo:XK": "Kosovo (UN SCR 1244/99)",
   "geo:MD": "Moldova",
   "geo:UA": "Ukraine",
-  "geo:GE": "Georgia"
+  "geo:GE": "Georgia",
+  "unit:KTOE": "Kilotonnes of oil equivalent",
+  "unit:GJ": "Gigajoules",
+  "unit:TJ": "Terajoules",
+  "unit:GWH": "Gigawatt hours",
+  "unit:GCAL": "Gigacalories",
+  "unit:TCAL": "Teracalories",
+  "unit:GBTU": "Giga British thermal unit"
  },
  "de": {
   "N1": "Verfügbar aus allen Bezugsquellen",
@@ -343,7 +350,14 @@
   "geo:XK": "Kosovo (RSR VN 1244/99)",
   "geo:MD": "Moldau",
   "geo:UA": "Ukraine",
-  "geo:GE": "Georgia"
+  "geo:GE": "Georgia",
+  "unit:KTOE": "Tausend Tonnen Rohöleinheiten",
+  "unit:GJ": "Gigajoule",
+  "unit:TJ": "Terajoule",
+  "unit:GWH": "Gigawattstunden",
+  "unit:GCAL": "Gigakalorien",
+  "unit:TCAL": "Terakalorien",
+  "unit:GBTU": "Giga British thermal unit"
  },
  "fr": {
   "N1": "Disponible de toutes les sources",
@@ -516,6 +530,13 @@
   "geo:XK": "Kosovo (RCSNU 1244/99)",
   "geo:MD": "Moldavie",
   "geo:UA": "Ukraine",
-  "geo:GE": "Géorgie"
+  "geo:GE": "Géorgie",
+  "unit:KTOE": "Milliers de tonnes équivalent pétrole",
+  "unit:GJ": "Gigajoules",
+  "unit:TJ": "Térajoules",
+  "unit:GWH": "Gigawattheures",
+  "unit:GCAL": "Gigacalories",
+  "unit:TCAL": "Téracalories",
+  "unit:GBTU": "Giga British thermal unit"
  }
 }

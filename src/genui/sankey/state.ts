@@ -70,5 +70,19 @@ export function flowsNeeded(d: Disaggregation): string[] {
   return out
 }
 
+/**
+ * The units of the diagram: Eurostat carries ktoe, GWh and TJ; the others are worked out from ktoe with
+ * ENSANKEY's factors (its energyUnits). The data are kept in ktoe and converted for what is shown.
+ */
+export const UNIT_TABLE: Record<string, { factor: number; symbol: string }> = {
+  KTOE: { factor: 1, symbol: 'ktoe' },
+  GJ: { factor: 41868, symbol: 'GJ' },
+  TJ: { factor: 41.868, symbol: 'TJ' },
+  GWH: { factor: 11.63, symbol: 'GWh' },
+  GCAL: { factor: 238.846, symbol: 'Gcal' },
+  TCAL: { factor: 0.238846, symbol: 'Tcal' },
+  GBTU: { factor: 39.68305120087957, symbol: 'GBtu' },
+}
+
 /** The countries of the EU, for comparing one with the others. */
 export const EU_MEMBERS = ['BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'HR', 'IT', 'CY', 'LV', 'LT', 'LU', 'HU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'FI', 'SE']

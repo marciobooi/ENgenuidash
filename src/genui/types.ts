@@ -144,6 +144,8 @@ export type WidgetSpec = (
       geo: string
       geoName: string
       unit: string
+      /** From the ktoe of the table to the unit shown (ENSANKEY's conversion factors). */
+      factor?: number
       lang: string
       years: string[]
       year: string

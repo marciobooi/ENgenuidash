@@ -65,13 +65,13 @@ export function svgToPng(svg: SVGSVGElement, title: string): Promise<Blob> {
 const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
 
 /** Every flow of the picture by product: source, target, product, value. */
-export function flowsCsv(flows: DrawnFlow[], name: (code: string) => string, fuel: (code: string) => string, unit: string): string {
+export function flowsCsv(flows: DrawnFlow[], name: (code: string) => string, fuel: (code: string) => string, unit: string, factor = 1): string {
   const rows = [['source', 'target', 'product', `value (${unit})`].map(csvCell).join(',')]
-  for (const f of flows) for (const p of f.paths) rows.push([name(f.source), name(f.target), p.fuel === 'losses' ? '' : fuel(p.fuel), Math.round(p.value * 10) / 10].map(csvCell).join(','))
+  for (const f of flows) for (const p of f.paths) rows.push([name(f.source), name(f.target), p.fuel === 'losses' ? '' : fuel(p.fuel), Math.round(p.value * factor * 100) / 100].map(csvCell).join(','))
   return rows.join('\n')
 }
 
 /** The nodes of the picture and their values. */
-export function nodesCsv(nodes: DrawnNode[], name: (code: string) => string, unit: string): string {
-  return [['node', `value (${unit})`].map(csvCell).join(','), ...nodes.map((n) => [name(n.code), Math.round(n.value * 10) / 10].map(csvCell).join(','))].join('\n')
+export function nodesCsv(nodes: DrawnNode[], name: (code: string) => string, unit: string, factor = 1): string {
+  return [['node', `value (${unit})`].map(csvCell).join(','), ...nodes.map((n) => [name(n.code), Math.round(n.value * factor * 100) / 100].map(csvCell).join(','))].join('\n')
 }

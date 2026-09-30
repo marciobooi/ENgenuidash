@@ -67,7 +67,6 @@ const EVENT_YEARS: [string, 'event2009' | 'event2020' | 'event2022'][] = [
 ]
 /** The balance lines behind every flow (real lines of nrg_bal_c: the operands that are not flows themselves). */
 const ALL_LINES = [...new Set(Object.values(FLOW_FORMULAS).flatMap((f) => [f.operand1, f.operand2, f.operand3, f.operand4].flatMap((o) => o ?? [])))].filter((n) => !(n in FLOW_FORMULAS))
-const UNIT_CODE: Record<string, string> = { ktoe: 'KTOE', GWh: 'GWH', TJ: 'TJ' }
 
 const LABELS = labelsJson as Record<string, Record<string, string>>
 
@@ -125,8 +124,10 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const lang = widget.lang
   const names = LABELS[lang] ?? LABELS.en
   const name = (code: string) => names[code] ?? LABELS.en[code] ?? code
-  const nf = useMemo(() => new Intl.NumberFormat(lang, { maximumFractionDigits: 0 }), [lang])
-  const formatValue = (v: number) => nf.format(Math.round(v)).replace(/\s/g, '\u2009')
+  const factor = widget.factor ?? 1
+  const nf = useMemo(() => new Intl.NumberFormat(lang, { maximumFractionDigits: (widget.factor ?? 1) < 1 ? 1 : 0 }), [lang, widget.factor])
+  // The table is in ktoe; what is shown is in the unit chosen.
+  const formatValue = (v: number) => nf.format(v * factor).replace(/\s/g, '\u2009')
 
   const table = useMemo(() => new BalanceTable(widget.years, widget.table), [widget.years, widget.table])
   // Products can be picked out (highlighted) in either view: the flows are then drawn by product, the others grey.
@@ -306,7 +307,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
     const lines = balanceLinesFor([selection.flowCode, parentCode], ALL_LINES)
     const leaves = [...new Set(Object.keys(widget.table).map((k) => k.split('|')[1]))]
     const title = fill(labels.countriesTitle, { flow: selection.kind === 'flow' && selection.source && selection.target ? `${name(selection.source)} → ${name(selection.target)}` : name(selection.code), parent: name(nodeOfFlow(parentCode)) })
-    fetchEurostatData('nrg_bal_c', { filters: { geo: EU_MEMBERS, unit: UNIT_CODE[widget.unit] ?? 'KTOE', nrg_bal: lines, siec: leaves }, sinceTimePeriod: year, untilTimePeriod: year, lang: widget.lang, signal: ctrl.signal })
+    fetchEurostatData('nrg_bal_c', { filters: { geo: EU_MEMBERS, unit: 'KTOE', nrg_bal: lines, siec: leaves }, sinceTimePeriod: year, untilTimePeriod: year, lang: widget.lang, signal: ctrl.signal })
       .then((result) => {
         const rows: { geo: string; pct: number }[] = []
         for (const [geo, g] of Object.entries(rowsByGeo(result))) {
@@ -352,7 +353,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
         <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => svgRef.current && download(new Blob([svgMarkup(svgRef.current, widget.title)], { type: 'image/svg+xml' }), `${fileBase}.svg`)}>
           {labels.exportSvg}
         </button>
-        <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => download(new Blob(['\ufeff', flowsCsv(layout.flows, name, fuelName, widget.unit), '\n\n', nodesCsv(layout.nodes, name, widget.unit)], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`)}>
+        <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => download(new Blob(['\ufeff', flowsCsv(layout.flows, name, fuelName, widget.unit, factor), '\n\n', nodesCsv(layout.nodes, name, widget.unit, factor)], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`)}>
           {labels.exportCsv}
         </button>
         <button
@@ -640,11 +641,13 @@ function buildDetail(
     extra.push(fill(labels.changeVs, { delta: `${d >= 0 ? '+' : ''}${pct.format(d)} %`, ref: refLabel }))
   }
   const years = model.years
+  const conv = widget.factor ?? 1
+  const cv = (v: number) => Math.round(v * conv * (conv < 1 ? 10 : 1)) / (conv < 1 ? 10 : 1)
   const widgets: WidgetSpec[] = []
   const series =
     model.fuels.length > 1
-      ? model.fuels.map((f, i) => ({ name: fuelName(f), data: years.map((y) => Math.round(at(y)?.values[i] ?? 0)) }))
-      : [{ name: name(sel.code), data: years.map((y) => Math.round(at(y)?.value ?? 0)) }]
+      ? model.fuels.map((f, i) => ({ name: fuelName(f), data: years.map((y) => cv(at(y)?.values[i] ?? 0)) }))
+      : [{ name: name(sel.code), data: years.map((y) => cv(at(y)?.value ?? 0)) }]
   if (series.every((s) => s.data.every((v) => v === 0))) return { title, text, extra, widgets }
   widgets.push({
     type: model.fuels.length > 1 ? 'area' : 'line',
@@ -658,7 +661,7 @@ function buildDetail(
     highlight: year,
   } as WidgetSpec)
   if (model.fuels.length > 1 && nowFlow) {
-    const slices = nowFlow.fuels.map((f, i) => ({ name: fuelName(f), y: Math.max(0, nowFlow.values[i]) })).filter((s) => s.y > 0.5)
+    const slices = nowFlow.fuels.map((f, i) => ({ name: fuelName(f), y: Math.max(0, cv(nowFlow.values[i])) })).filter((s) => s.y > 0)
     if (slices.length > 1) widgets.push({ type: 'pie', title: `${title} · ${year}`, subtitle: widget.geoName, slices, unit: widget.unit, size: 'half' })
   }
   return { title, text, extra, widgets }

@@ -5,6 +5,7 @@ import { COMPUTED_GEOS } from '../genui/monthly'
 import { priceDatasetOf } from '../genui/prices'
 import { tradeOf } from '../genui/trade'
 import { FUEL_FAMILIES } from '../genui/sankey/model'
+import { UNIT_TABLE } from '../genui/sankey/state'
 
 /**
  * Shareable dashboards: the URL carries the question (readable) and the plan (exact, including
@@ -53,7 +54,7 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
   if (!p.filters || typeof p.filters !== 'object' || Array.isArray(p.filters)) return null
   const filters: Plan['filters'] = {}
   for (const [dim, value] of Object.entries(p.filters as Record<string, unknown>)) {
-    const codes = [...(ds.dimensions.find((d) => d.id === dim)?.codes ?? []), ...(dim === 'geo' ? (COMPUTED_GEOS[ds.code] ?? []) : [])]
+    const codes = [...(ds.dimensions.find((d) => d.id === dim)?.codes ?? []), ...(dim === 'geo' ? (COMPUTED_GEOS[ds.code] ?? []) : []), ...(dim === 'unit' && p.sankey ? Object.keys(UNIT_TABLE) : [])]
     const list = Array.isArray(value) ? value : [value]
     if (!codes.length || !list.length || list.length > 60 || !list.every((c) => typeof c === 'string' && codes.includes(c))) return null
     filters[dim] = Array.isArray(value) ? (list as string[]) : (value as string)

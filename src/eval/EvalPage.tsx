@@ -3,6 +3,7 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { loadKnowledge } from '../llm/knowledge'
 import { KnowledgeEval } from './KnowledgeEval'
 import { AnswerEval } from './AnswerEval'
+import { IntentEval } from './IntentEval'
 import { MissLog } from './MissLogPanel'
 import { EVAL_CASES } from './cases'
 import { runEval, summarize, type CaseResult, type Choose } from './runEval'
@@ -105,6 +106,7 @@ export default function EvalPage({
           </tbody>
         </table>
       )}
+      <IntentEval dict={dict} codelists={codelists} choose={choose} ready={ready} />
       <AnswerEval dict={dict} codelists={codelists} complete={complete} ready={ready} />
       <KnowledgeEval dict={dict} codelists={codelists} complete={complete} ready={ready} modelKey={modelKey} />
       <MissLog />

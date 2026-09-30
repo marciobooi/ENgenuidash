@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { recordMiss } from '../eval/missLog'
 import { dashboardActions, rankByOverlap, type DashboardAction } from '../genui/actions'
+import { INTENTS, MAX_BUTTONS, intentMessages, planForIntent, rankIntents } from '../genui/intent'
+import { detectGeos, parse } from '../genui/planner/parse'
 import { prepareQuestion } from '../genui/prepare'
 import { routeMessage } from '../genui/route'
 import type { Plan, Suggestion } from '../genui/types'
@@ -99,6 +101,50 @@ export function useChatFlow({
   /** Buttons that open the dashboards related to an answer (each is a question the router turns into one). */
   const dashboardChoices = (queries: string[]) => (queries.length ? queries.map((q) => ({ label: q, query: q })) : undefined)
 
+  /**
+   * The rules could not read the question: the model says which kinds of dashboard it may ask for
+   * (genui/intent.ts) and they are offered as buttons, each built by the rules from the places and
+   * period in the question. Never opens anything by itself (the model's word is not trusted that far:
+   * see src/eval/IntentEval.tsx). Without the model, or when it finds nothing, `fallback` is said.
+   */
+  function respondUnread(typed: string, fallback: { content: string; kind?: 'refusal'; choices?: NonNullable<typeof llm.messages[number]['choices']> }, missKind: 'rephrase' | 'refused' | 'unclear') {
+    const say = (m: { content: string; kind?: 'refusal'; choices?: typeof fallback.choices }) => {
+      llm.append({ role: 'user', content: typed }, { role: 'assistant', ...m })
+      announce(m.content)
+    }
+    const miss = () => recordMiss({ text: typed, lang, kind: missKind, followUp: hasDashboard })
+    if (!ready || !dict || !codelists || llm.generating || dash.building) {
+      miss()
+      say(fallback)
+      return
+    }
+    llm.append({ role: 'user', content: typed }, { role: 'assistant', content: t.checkingIntent, pending: true })
+    announce(t.checkingIntent)
+    const timeout = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000))
+    void Promise.race([llm.choose(intentMessages(typed), INTENTS.length + 1).catch(() => null), timeout]).then((probs) => {
+      const routeAny = (q: string) =>
+        routeMessage(q, { current: null, dict, codelists, classify: (x) => scope.classify(x, []), unknownWords: (x) => vocabulary.unknownWords(x, knowledgeDocFreq()), correct: (w) => vocabulary.correct(w, knowledgeDocFreq()), previous: [] })
+      const geoName = (plan: Plan) => {
+        const g = plan.filters.geo
+        return typeof g === 'string' ? (codelists.codelists.GEO?.codes?.[g]?.[lang] ?? '').replace(/\s*\(.*?\)\s*$/, '') : ''
+      }
+      const choices = (probs ? rankIntents(probs).slice(0, MAX_BUTTONS) : [])
+        .map((c) => ({ id: c.id, plan: planForIntent(c.id, typed, routeAny, codelists) }))
+        .filter((c): c is { id: typeof c.id; plan: Plan } => !!c.plan)
+        .map((c) => ({ label: [t.intents[c.id], geoName(c.plan)].filter(Boolean).join(' – '), query: typed, plan: c.plan }))
+      if (choices.length) {
+        recordMiss({ text: typed, lang, kind: 'intent', followUp: hasDashboard })
+        llm.updateLast((m) => !!m.pending, { content: t.intentDidYouMean, pending: false, choices })
+        announce(t.intentDidYouMean)
+      } else {
+        miss()
+        llm.updateLast((m) => !!m.pending, { ...fallback, pending: false })
+        announce(fallback.content)
+      }
+      if (hasDashboard) openChat()
+    })
+  }
+
   function send(typed: string) {
     const previous = llm.messages.filter((m) => m.role === 'user').map((m) => m.content)
     const unknownWords = (x: string) => vocabulary.unknownWords(x, knowledgeDocFreq())
@@ -154,17 +200,20 @@ export function useChatFlow({
         // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
         if (route.tryActions && resolveWithActions(typed)) return
         const message = route.tryActions ? t.notApplied : t.offTopic
-        recordMiss({ text: typed, lang, kind: 'refused', followUp: hasDashboard })
-        llm.reply(typed, message, 'refusal')
-        announce(message)
+        // A place named ("Croatia snapshot pls"): the model may still recognise a request for a dashboard.
+        const namesPlace = !!codelists && (() => { const g = detectGeos(parse(text), codelists); return g.codes.length > 0 || g.eu })()
+        if (namesPlace) respondUnread(typed, { content: message, kind: 'refusal' }, 'refused')
+        else {
+          recordMiss({ text: typed, lang, kind: 'refused', followUp: hasDashboard })
+          llm.reply(typed, message, 'refusal')
+          announce(message)
+        }
         if (hasDashboard) openChat()
         return
       }
       case 'rephrase': {
         const message = `${fill(t.notUnderstoodWord, { word: route.unknown.slice(0, 2).join('”, “') })} ${t.notUnderstood}`
-        recordMiss({ text: typed, lang, kind: 'rephrase', followUp: hasDashboard })
-        llm.append({ role: 'user', content: typed }, { role: 'assistant', content: message, choices: ideaChoices })
-        announce(message)
+        respondUnread(typed, { content: message, choices: ideaChoices }, 'rephrase')
         if (hasDashboard) openChat()
         return
       }
@@ -227,9 +276,7 @@ export function useChatFlow({
     void answerFromDocuments(typed, query).then((outcome) => {
       if (outcome === 'model') askModel(typed, verdict, previous, conceptual)
       else if (outcome === 'unclear') {
-        recordMiss({ text: typed, lang, kind: 'unclear', followUp: hasDashboard })
-        llm.append({ role: 'user', content: typed }, { role: 'assistant', content: t.notUnderstood, choices: ideaChoices })
-        announce(t.notUnderstood)
+        respondUnread(typed, { content: t.notUnderstood, choices: ideaChoices }, 'unclear')
       }
     })
     if (hasDashboard) openChat()

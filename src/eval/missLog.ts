@@ -5,7 +5,7 @@
  * Nothing is sent anywhere.
  */
 
-export type MissKind = 'refused' | 'rephrase' | 'unclear' | 'buttons' | 'nodata'
+export type MissKind = 'refused' | 'rephrase' | 'unclear' | 'buttons' | 'nodata' | 'intent'
 
 export interface Miss {
   text: string

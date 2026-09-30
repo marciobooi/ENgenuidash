@@ -63,6 +63,7 @@ export function widgetProblem(w: WidgetSpec): string | null {
         ? null
         : 'seasonal: values do not match the months'
     case 'sankey':
+      if (w.scope) return Object.values(w.scope.values).every((r) => values(r, w.years.length)) && (!w.scope.total || values(w.scope.total, w.years.length)) ? null : 'sankey: household values do not match the years'
       return Array.isArray(w.years) && w.years.length > 0 && text(w.year) && text(w.fuel) && !!w.table && Object.values(w.table).every((r) => values(r, w.years.length)) ? null : 'sankey: table does not match the years'
     case 'progress':
       if (!texts(w.categories) || !w.categories.length) return 'progress: categories'

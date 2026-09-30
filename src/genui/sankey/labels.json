@@ -177,7 +177,14 @@
   "unit:GWH": "Gigawatt hours",
   "unit:GCAL": "Gigacalories",
   "unit:TCAL": "Teracalories",
-  "unit:GBTU": "Giga British thermal unit"
+  "unit:GBTU": "Giga British thermal unit",
+  "FC_OTH_HH_E_SH": "Space heating",
+  "FC_OTH_HH_E_SC": "Space cooling",
+  "FC_OTH_HH_E_WH": "Water heating",
+  "FC_OTH_HH_E_CK": "Cooking",
+  "FC_OTH_HH_E_LE": "Lighting and electrical appliances",
+  "FC_OTH_HH_E_OE": "Other end uses",
+  "HH_TOTAL": "Households"
  },
  "de": {
   "N1": "Verfügbar aus allen Bezugsquellen",
@@ -357,7 +364,14 @@
   "unit:GWH": "Gigawattstunden",
   "unit:GCAL": "Gigakalorien",
   "unit:TCAL": "Terakalorien",
-  "unit:GBTU": "Giga British thermal unit"
+  "unit:GBTU": "Giga British thermal unit",
+  "FC_OTH_HH_E_SH": "Raumheizung",
+  "FC_OTH_HH_E_SC": "Raumkühlung",
+  "FC_OTH_HH_E_WH": "Warmwasserbereitung",
+  "FC_OTH_HH_E_CK": "Kochen",
+  "FC_OTH_HH_E_LE": "Beleuchtung und Elektrogeräte",
+  "FC_OTH_HH_E_OE": "Sonstige Verwendungen",
+  "HH_TOTAL": "Haushalte"
  },
  "fr": {
   "N1": "Disponible de toutes les sources",
@@ -537,6 +551,13 @@
   "unit:GWH": "Gigawattheures",
   "unit:GCAL": "Gigacalories",
   "unit:TCAL": "Téracalories",
-  "unit:GBTU": "Giga British thermal unit"
+  "unit:GBTU": "Giga British thermal unit",
+  "FC_OTH_HH_E_SH": "Chauffage des locaux",
+  "FC_OTH_HH_E_SC": "Refroidissement des locaux",
+  "FC_OTH_HH_E_WH": "Chauffage de l’eau",
+  "FC_OTH_HH_E_CK": "Cuisson",
+  "FC_OTH_HH_E_LE": "Éclairage et appareils électriques",
+  "FC_OTH_HH_E_OE": "Autres usages",
+  "HH_TOTAL": "Ménages"
  }
 }

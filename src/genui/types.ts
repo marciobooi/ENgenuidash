@@ -58,7 +58,7 @@ export interface Plan {
   prices?: { product: PriceProduct; consumer: PriceConsumer; view?: 'taxes' }
   /** The energy profile of one country (ENDASH's indicators side by side), in totals or per capita (see profile.ts). */
   /** The energy flow diagram (sankey/): the fuel family shown, and whether flows are split by fuel. */
-  sankey?: { fuel?: string; byFuel?: true; /** What to compare with: "y1", "y5", "y10" (years earlier) or a country code. */ compare?: string; /** The nodes opened up, by name (sankey/state.ts); the first picture when absent. */ nodes?: string }
+  sankey?: { fuel?: string; byFuel?: true; /** The households view (products into the uses of households) instead of the whole balance. */ scope?: 'households'; /** What to compare with: "y1", "y5", "y10" (years earlier) or a country code. */ compare?: string; /** The nodes opened up, by name (sankey/state.ts); the first picture when absent. */ nodes?: string }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 
@@ -154,6 +154,8 @@ export type WidgetSpec = (
       byFuel: boolean
       table: Record<string, (number | null)[]>
       /** A reference to draw behind the diagram: earlier years of the same table, or another country's. */
+      /** The households view: the value of each product → use flow in ktoe by year (Eurostat's nrg_d_hhq), instead of the balance table. */
+      scope?: { kind: 'households'; left: string[]; right: string[]; values: Record<string, (number | null)[]>; total?: (number | null)[] }
       compare?: { kind: 'years' | 'geo'; label: string; back?: number; years?: string[]; table?: Record<string, (number | null)[]> }
       disaggregation?: Partial<Record<'production' | 'allSources' | 'transformation' | 'afterTransformation' | 'finalConsumption' | 'energyConsumption' | 'nonEnergyConsumption' | 'industry' | 'transport' | 'otherSectors' | 'energyBranch', boolean>>
       size?: WidgetSize

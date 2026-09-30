@@ -4,6 +4,7 @@ import { NoDataError } from '../execute'
 import { detectGeos, detectTime, parse, requestedUnit } from '../planner/parse'
 import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggestion, WidgetSpec } from '../types'
 import { sanitizeSpec } from '../validate'
+import { buildHouseholdsDashboard, householdsAtYear } from './households'
 import { UNIT_TABLE, disaggregationOf, flowsNeeded } from './state'
 import labels from './labels.json'
 import { BalanceTable, FLOW_FORMULAS, FUEL_FAMILIES, balanceLinesFor, buildModel, displayedFuels, leafFuels, nodeOfFlow, rowsOf } from './model'
@@ -39,6 +40,9 @@ const FUEL_WORDS: [string, RegExp][] = [
   ['H8000', / (heat|warme|chaleur) /],
   ['E7000', / (electricity|strom|electricite) /],
 ]
+// The households view ("energy flow diagram households") and the way back.
+const HOUSEHOLDS = / (households?|domestic|residential|haushalte?|privathaushalte|menages?) /
+const ALL_SECTORS = / (all sectors|whole balance|entire balance|alle sektoren|tous les secteurs) /
 const BY_FUEL = / (by (fuel|product|source)s?|coloured|colored|nach (brennstoff|energietrager)\w*|par (combustible|produit)s?) /
 
 /** The diagram a question asks for ("energy flow diagram of Germany 2022"), or null. */
@@ -57,7 +61,7 @@ export function sankeyPlan(text: string, dict: EnergyDictionary, codelists: Ener
     time: year ? { kind: 'range', since: String(year), until: String(year) } : { kind: 'last', n: 1 },
     focusPeriod: year ? String(year) : undefined,
     intent: 'snapshot',
-    sankey: { ...(fuel ? { fuel } : {}), ...(fuel || BY_FUEL.test(p.text) ? { byFuel: true as const } : {}) },
+    sankey: { ...(HOUSEHOLDS.test(p.text) ? { scope: 'households' as const } : {}), ...(fuel ? { fuel } : {}), ...(fuel || BY_FUEL.test(p.text) ? { byFuel: true as const } : {}) },
   }
 }
 
@@ -72,10 +76,11 @@ export function refineSankey(current: Plan, text: string, dict: EnergyDictionary
   const unit = requestedUnit(p, ds)
   const fuel = FUEL_WORDS.find(([, re]) => re.test(p.text))?.[0]
   const byFuel = BY_FUEL.test(p.text)
-  const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|by|fuel|fuels|product|products|colou?red|as|only|just|nur|seulement|\d{4}|ktoe|gwh|tj)$/.test(w))
+  const scopeAsked = ALL_SECTORS.test(p.text) ? null : HOUSEHOLDS.test(p.text) ? ('households' as const) : undefined
+  const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|households?|domestic|residential|haushalte?|menages?|all|sectors?|sektoren|secteurs|tous|alle|by|fuel|fuels|product|products|colou?red|as|only|just|nur|seulement|\d{4}|ktoe|gwh|tj)$/.test(w))
   const known = rest.every((w) => FUEL_WORDS.some(([, re]) => re.test(` ${w} `)) || detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)
-  if (!(geo || year || unit || fuel || byFuel) || (!known && !SANKEY.test(p.text))) return null
-  const sankey = { ...current.sankey, ...(fuel ? { fuel } : {}), ...(fuel || byFuel ? { byFuel: true as const } : {}) }
+  if (!(geo || year || unit || fuel || byFuel || scopeAsked !== undefined) || (!known && !SANKEY.test(p.text))) return null
+  const sankey = { ...current.sankey, ...(fuel ? { fuel } : {}), ...(fuel || byFuel ? { byFuel: true as const } : {}), ...(scopeAsked !== undefined ? { scope: scopeAsked ?? undefined } : {}) }
   return {
     ...current,
     filters: { ...current.filters, ...(geo ? { geo } : {}), ...(unit ? { unit } : {}) },
@@ -211,6 +216,7 @@ export async function buildSankeyDashboard(
   s: { sankey: SankeyStrings; sugExplain: string },
   signal?: AbortSignal,
 ): Promise<DashboardSpec> {
+  if (plan.sankey?.scope === 'households') return buildHouseholdsDashboard(plan, dict, lang, s, signal)
   const t = s.sankey
   const ds = dict.datasets[DATASET]
   const geo = String(plan.filters.geo ?? EU)
@@ -297,13 +303,13 @@ export async function buildSankeyDashboard(
   return spec
 }
 
-export function sankeyControls(plan: Plan, years: string[], year: string, fuel: string, byFuel: boolean, t: SankeyStrings, names: Record<string, string>): DashboardControls {
+export function sankeyControls(plan: Plan, years: string[], year: string, fuel: string, byFuel: boolean, t: SankeyStrings, names: Record<string, string>, scoped = false): DashboardControls {
   const at = (y: string): Plan => ({ ...plan, time: { kind: 'range', since: y, until: y }, focusPeriod: y })
   const withSankey = (over: NonNullable<Plan['sankey']>): Plan => ({ ...plan, sankey: { ...over, ...(plan.sankey?.nodes !== undefined ? { nodes: plan.sankey.nodes } : {}), ...(plan.sankey?.compare ? { compare: plan.sankey.compare } : {}) } })
   return {
     years: [...years].reverse().slice(0, 40).map((y) => ({ label: y, plan: at(y), active: y === year })),
     units: Object.keys(UNIT_TABLE).map((u) => ({ label: names[`unit:${u}`] ?? UNIT_TABLE[u].symbol, plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: (plan.filters.unit ?? 'KTOE') === u })),
-    choices: [
+    choices: scoped ? [] : [
       {
         key: 'compare',
         label: t.compareWith,
@@ -335,6 +341,7 @@ const tables = new WeakMap<object, BalanceTable>()
 export function sankeyAtYear(spec: DashboardSpec, year: string, t: SankeyStrings): DashboardSpec {
   const w = spec.widgets.find((x) => x.type === 'sankey')
   if (!w || w.type !== 'sankey' || w.year === year || !w.years.includes(year)) return spec
+  if (w.scope) return householdsAtYear(spec, year, t)
   let table = tables.get(w.table)
   if (!table) tables.set(w.table, (table = new BalanceTable(w.years, w.table)))
   const model = modelFor(table, w.fuel, false)

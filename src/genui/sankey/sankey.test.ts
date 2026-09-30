@@ -103,3 +103,20 @@ test('comparing with earlier years or another country is asked in the plan and c
   assert.ok(o && o.type === 'sankey' && o.compare?.kind === 'geo' && o.compare.label === 'France' && !!o.compare.table)
   assert.ok(years.controls?.choices?.some((c) => c.key === 'compare' && c.options.some((x) => x.active && x.plan.sankey?.compare === 'y5')))
 })
+
+test('the households view: asked for by wording, built from the household data, and back to all sectors', async () => {
+  const p = sankeyPlan(' energy flow diagram households germany ', dict, codelists)!
+  assert.equal(p.sankey?.scope, 'households')
+  const on = sankeyPlan(' energy flow diagram of germany ', dict, codelists)!
+  assert.equal(refineSankey(on, 'households', dict, codelists)?.sankey?.scope, 'households')
+  assert.equal(refineSankey(p, 'all sectors', dict, codelists)?.sankey?.scope, undefined)
+  const d = await buildDashboard(p, dict, 'en', s)
+  const w = d.widgets.find((x) => x.type === 'sankey')
+  assert.ok(w && w.type === 'sankey' && w.scope?.kind === 'households' && w.scope.right.length === 6)
+  assert.match(d.title, /households/i)
+  assert.ok(Object.values(w.scope.values).every((r) => r.length === w.years.length))
+  const { sankeyAtYear } = await import('./sankeyDashboard')
+  const other = w.years.find((y) => y !== w.year)!
+  const moved = sankeyAtYear(d, other, STRINGS.en.sankey)
+  assert.match(moved.title, new RegExp(other))
+})

@@ -3,6 +3,7 @@ import type { WidgetSpec } from '../types'
 import labelsJson from './labels.json'
 import { fetchEurostatData } from '../../data/eurostat'
 import type { Plan } from '../types'
+import { layoutBipartite } from './bipartite'
 import { DEFAULT_DISAGGREGATION, layoutSankey, type Disaggregation, type DrawnFlow, type DrawnNode } from './layout'
 import { EU_MEMBERS, NODE_TOGGLE, allOpen, nodesOf, toggleDisaggregation } from './state'
 import { download, flowsCsv, nodesCsv, svgMarkup, svgToPng } from './export'
@@ -37,6 +38,9 @@ export interface SankeyLabels {
   breakDown: string
   flowDetails: string
   download: string
+  hhHint: string
+  scopeAll: string
+  scopeHouseholds: string
   compareLegend: string
   changeVs: string
   exportPng: string
@@ -124,6 +128,7 @@ const ICONS: Record<string, string> = {
   table: 'M3 3h18v18H3V3zm2 2v4h6V5H5zm8 0v4h6V5h-6zM5 11v3h6v-3H5zm8 0v3h6v-3h-6zM5 16v3h6v-3H5zm8 0v3h6v-3h-6z',
   zoomIn: 'M11 6h2v5h5v2h-5v5h-2v-5H6v-2h5V6z',
   zoomOut: 'M6 11h12v2H6z',
+  home: 'M12 3 2 12h3v8h5v-6h4v6h5v-8h3L12 3z',
   reset: 'M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z',
 }
 
@@ -261,11 +266,15 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, year, parts, highlight, widget.byFuel])
+  const scope = widget.scope
+  const scopeValue = (left: string, right: string) => scope?.values[`${left}|${right}`]?.[widget.years.indexOf(year)] ?? 0
   const layout = useMemo(
     () =>
-      layoutSankey({ flows, width: drawWidth, height: drawHeight, scaleMax: model.scaleMax, disaggregation, transformationShift: disaggregation.transformation ? 0.3 : 0, name, format: formatValue, unit: widget.unit, measure }),
+      scope
+        ? layoutBipartite({ width: drawWidth, height: drawHeight, left: scope.left.map((code) => ({ code, color: colorFor(code) })), right: scope.right.map((code) => ({ code })), values: scopeValue, colorOf: colorFor, name, format: formatValue, unit: widget.unit, measure })
+        : layoutSankey({ flows, width: drawWidth, height: drawHeight, scaleMax: model.scaleMax, disaggregation, transformationShift: disaggregation.transformation ? 0.3 : 0, name, format: formatValue, unit: widget.unit, measure }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flows, drawWidth, drawHeight, model.scaleMax, widget.disaggregation, widget.unit, lang],
+    [flows, drawWidth, drawHeight, model.scaleMax, widget.disaggregation, widget.unit, lang, scope, year, highlight],
   )
 
   // What the picture is compared with, drawn behind it (earlier years: as they were; another country: its structure at this size).
@@ -329,11 +338,11 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
   }
 
   // What is used in the picture: the products drawn (legend).
-  const legendFuels = displayedFuels(widget.fuel, true).filter((f) => f !== 'TOTAL')
+  const legendFuels = scope ? scope.left : displayedFuels(widget.fuel, true).filter((f) => f !== 'TOTAL')
 
   // The selection across the countries of the EU, in the same year (fetched when asked for).
   const [countries, setCountries] = useState<{ key: string; widget: WidgetSpec | null } | null>(null)
-  const parentCode = selection ? parentOfFlow(selection.flowCode) : null
+  const parentCode = selection && !scope ? parentOfFlow(selection.flowCode) : null
   const countryKey = selection && parentCode ? `${selection.flowCode}|${year}|${widget.fuel}|${widget.unit}|${widget.lang}` : ''
   useEffect(() => {
     if (!selection || !parentCode || !countryKey) return
@@ -363,8 +372,8 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countryKey])
 
-  const detail = selection ? buildDetail(selection, model, widget, name, fuelName, formatValue, year, labels, refNode, refLabel) : null
-  const toggle = selection ? NODE_TOGGLE[selection.code] : undefined
+  const detail = selection ? (scope ? buildScopeDetail(selection, widget, scope, name, formatValue, year, labels) : buildDetail(selection, model, widget, name, fuelName, formatValue, year, labels, refNode, refLabel)) : null
+  const toggle = selection && !scope ? NODE_TOGGLE[selection.code] : undefined
 
   return (
     <section ref={sectionRef} className={`sankey${isFull ? ' sankey--full' : ''}`} aria-label={widget.title} onKeyDown={(e) => {
@@ -376,16 +385,17 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
       <div className="sankey__head">
         <h3 className="sankey__title">{widget.title}</h3>
         {widget.subtitle && <p className="sankey__subtitle">{widget.subtitle}</p>}
-        <p className="sankey__hint">{labels.hint}</p>
+        <p className="sankey__hint">{scope ? labels.hhHint : labels.hint}</p>
       </div>
       <div className="sankey__actions" role="toolbar" aria-label={widget.title}>
-        <IconButton icon="details" label={labels.flowDetails} pressed={widget.byFuel} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, ...(widget.byFuel ? { byFuel: undefined } : { byFuel: true as const }) } }, labels.flowDetails)} />
-        <IconButton
+        <IconButton icon="home" label={scope ? labels.scopeAll : labels.scopeHouseholds} pressed={!!scope} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, scope: scope ? undefined : ('households' as const) } }, scope ? labels.scopeAll : labels.scopeHouseholds)} />
+        {!scope && <IconButton icon="details" label={labels.flowDetails} pressed={widget.byFuel} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, ...(widget.byFuel ? { byFuel: undefined } : { byFuel: true as const }) } }, labels.flowDetails)} />}
+        {!scope && <IconButton
           icon={allExpanded ? 'collapse' : 'expand'}
           label={allExpanded ? labels.collapseAll : labels.expandAll}
           pressed={allExpanded}
           onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: allExpanded ? undefined : nodesOf(allOpen()) } }, allExpanded ? labels.collapseAll : labels.expandAll)}
-        />
+        />}
         <span className="sankey__spacer" />
         <IconButton icon="table" label={showTable ? labels.tableHide : labels.tableShow} pressed={showTable} onClick={() => setShowTable((v) => !v)} />
         <div className="sankey__menuwrap">
@@ -639,6 +649,48 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
       )}
     </section>
   )
+}
+
+/** The numbers behind a product, a use or a flow of the households view: over the years and split. */
+function buildScopeDetail(
+  sel: { kind: 'node' | 'flow'; code: string; flowCode: string; source?: string; target?: string },
+  widget: SankeyWidgetSpec,
+  scope: NonNullable<SankeyWidgetSpec['scope']>,
+  name: (code: string) => string,
+  format: (v: number) => string,
+  year: string,
+  labels: SankeyLabels,
+): { title: string; text: string; extra: string[]; widgets: WidgetSpec[] } {
+  const conv = widget.factor ?? 1
+  const cv = (v: number) => Math.round(v * conv * (conv < 1 ? 10 : 1)) / (conv < 1 ? 10 : 1)
+  const years = widget.years
+  const at = (left: string, right: string, y: string) => scope.values[`${left}|${right}`]?.[years.indexOf(y)] ?? 0
+  const isFlow = sel.code.includes('|')
+  const [a, b] = sel.code.split('|')
+  const isLeft = scope.left.includes(sel.code)
+  const title = isFlow ? `${name(a)} → ${name(b)}` : name(sel.code)
+  const rightsOf = (y: string) => scope.right.map((r) => ({ r, v: scope.left.reduce((s, l) => s + at(l, r, y), 0) }))
+  const total = (y: string) => scope.right.reduce((s, r) => s + scope.left.reduce((t, l) => t + at(l, r, y), 0), 0)
+  const value = (y: string) => (isFlow ? at(a, b, y) : isLeft ? scope.right.reduce((s, r) => s + at(sel.code, r, y), 0) : scope.left.reduce((s, l) => s + at(l, sel.code, y), 0))
+  const now = value(year)
+  const pct = new Intl.NumberFormat(widget.lang, { maximumFractionDigits: 1 })
+  const extra: string[] = []
+  if (total(year) > 0) extra.push(fill(labels.shareOf, { pct: pct.format((100 * now) / total(year)), parent: name('HH_TOTAL').toLowerCase() }))
+  const prev = String(Number(year) - 1)
+  if (years.includes(prev) && value(prev) > 0) {
+    const d = (100 * (now - value(prev))) / value(prev)
+    extra.push(fill(labels.versusPrev, { delta: `${d >= 0 ? '+' : ''}${pct.format(d)} %`, year: prev }))
+  }
+  const parts = isFlow ? null : isLeft ? scope.right.map((r) => ({ code: r, get: (y: string) => at(sel.code, r, y) })) : scope.left.map((l) => ({ code: l, get: (y: string) => at(l, sel.code, y) }))
+  const widgets: WidgetSpec[] = []
+  if (parts) {
+    const series = parts.map((p) => ({ name: name(p.code), data: years.map((y) => cv(p.get(y))) })).filter((x) => x.data.some((v) => v > 0))
+    if (series.length > 1) widgets.push({ type: 'area', title, subtitle: `${widget.geoName} · ${widget.unit}`, categories: years, series, stacked: true, unit: widget.unit, size: 'half', highlight: year } as WidgetSpec)
+    const slices = parts.map((p) => ({ name: name(p.code), y: Math.max(0, cv(p.get(year))) })).filter((x) => x.y > 0)
+    if (slices.length > 1) widgets.push({ type: 'pie', title: `${title} · ${year}`, subtitle: widget.geoName, slices, unit: widget.unit, size: 'half' })
+  } else widgets.push({ type: 'line', title, subtitle: `${widget.geoName} · ${widget.unit}`, categories: years, series: [{ name: title, data: years.map((y) => cv(value(y))) }], unit: widget.unit, size: 'half', highlight: year } as WidgetSpec)
+  void rightsOf
+  return { title, text: `${widget.geoName}, ${year}: ${format(now)} ${widget.unit}`, extra, widgets }
 }
 
 const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')

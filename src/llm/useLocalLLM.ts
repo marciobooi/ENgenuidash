@@ -335,12 +335,12 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
   )
 
   /** Adds a question and a fixed answer without running the model (e.g. off-topic refusal). */
-  const reply = useCallback((question: string, answer: string, kind?: UIMessage['kind'], sources?: Source[]) => {
+  const reply = useCallback((question: string, answer: string, kind?: UIMessage['kind'], sources?: Source[], choices?: UIMessage['choices']) => {
     setError(null)
     setMessages((m) => [
       ...m,
       { role: 'user', content: question, local: true },
-      { role: 'assistant', content: answer, kind, local: true, sources },
+      { role: 'assistant', content: answer, kind, local: true, sources, choices },
     ])
   }, [])
 

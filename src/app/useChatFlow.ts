@@ -7,7 +7,7 @@ import { routeMessage } from '../genui/route'
 import type { Plan, Suggestion } from '../genui/types'
 import { STRINGS, type Lang, type Strings } from '../i18n'
 import { documentAnswer, smallTalkReply } from '../llm/answers'
-import { conceptAnswer } from '../llm/concepts'
+import { conceptAnswer, glossaryDashboards } from '../llm/concepts'
 import { EXPLAIN_GENERATION, GENERATION, SYSTEM_PROMPT } from '../llm/config'
 import { questionLanguage, searchQuery } from '../llm/crossLingual'
 import type { createScopeChecker } from '../llm/energyScope'
@@ -96,6 +96,9 @@ export function useChatFlow({
     assistant.requestDownload(question)
   }
 
+  /** Buttons that open the dashboards related to an answer (each is a question the router turns into one). */
+  const dashboardChoices = (queries: string[]) => (queries.length ? queries.map((q) => ({ label: q, query: q })) : undefined)
+
   function send(typed: string) {
     const previous = llm.messages.filter((m) => m.role === 'user').map((m) => m.content)
     const unknownWords = (x: string) => vocabulary.unknownWords(x, knowledgeDocFreq())
@@ -109,7 +112,7 @@ export function useChatFlow({
     // routing: "where does the wind data come from?" is not a request for a dashboard).
     const concept = verdict !== 'small-talk' ? conceptAnswer([typed, text], questionLanguage(typed, lang)) : null
     if (concept) {
-      llm.reply(typed, concept.text, undefined, concept.sources.length ? concept.sources : undefined)
+      llm.reply(typed, concept.text, undefined, concept.sources.length ? concept.sources : undefined, dashboardChoices(concept.dashboards))
       announce(concept.text)
       if (hasDashboard) openChat()
       return
@@ -203,7 +206,7 @@ export function useChatFlow({
     const definition = verdict !== 'small-talk' ? directDefinition(text) : null
     if (definition) {
       const answer = definitionText(definition)
-      llm.reply(typed, answer, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined)
+      llm.reply(typed, answer, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined, dashboardChoices(glossaryDashboards(definition.term, questionLanguage(typed, lang))))
       announce(answer)
       if (hasDashboard) openChat()
       return

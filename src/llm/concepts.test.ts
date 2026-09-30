@@ -94,3 +94,37 @@ test('questions that ask for figures, or for more than the concept, are left to 
     assert.equal(conceptAnswer([q], 'en'), null, q)
   }
 })
+
+test('the dashboards offered with an answer are written in every language and each one opens a dashboard', async () => {
+  const { createScopeChecker } = await import('./energyScope')
+  const { buildKnowledgeIndex } = await import('./knowledge')
+  const { buildVocabulary } = await import('./vocabulary')
+  const { routeMessage } = await import('../genui/route')
+  const { prepareQuestion } = await import('../genui/prepare')
+  const read = (f: string) => JSON.parse(readFileSync(`public/data/eurostat/energy/${f}`, 'utf8'))
+  const dict = read('dictionary.json')
+  const codelists = read('codelists.json')
+  const { docFreq } = buildKnowledgeIndex(read('knowledge.json').passages)
+  const scope = createScopeChecker(dict, codelists)
+  const vocabulary = buildVocabulary(dict, codelists, scope.places)
+  const unknownWords = (x: string) => vocabulary.unknownWords(x, docFreq)
+  const correct = (w: string) => vocabulary.correct(w, docFreq)
+
+  const all = [...data.concepts.flatMap((c) => c.dashboards ?? []), ...Object.values(data.glossaryDashboards).flat()] as Record<string, string>[]
+  const bad: string[] = []
+  for (const q of new Set(all)) {
+    for (const l of ['en', 'de', 'fr']) {
+      const text = prepareQuestion(q[l], { unknownWords, correct })
+      const r = routeMessage(text, { current: null, dict, codelists, classify: () => scope.classify(text, []), unknownWords, correct, previous: [] })
+      if (r.kind !== 'plan') bad.push(`${l}: ${q[l]} → ${r.kind}`)
+      if (conceptAnswer([q[l]], l as 'en' | 'de' | 'fr')) bad.push(`${l}: ${q[l]} → would be answered as a concept`)
+    }
+  }
+  assert.deepEqual(bad, [])
+})
+
+test('an answer comes with the dashboards related to it', () => {
+  assert.deepEqual(conceptAnswer(['why are renewables important?'], 'en')?.dashboards, ['Renewable share vs the 2030 target in eu', 'Renewable energy share in the EU'])
+  assert.equal(conceptAnswer(['how is gross available energy calculated?'], 'en')?.dashboards[0], 'Energy flow diagram for the EU')
+  assert.equal(conceptAnswer(['what is biogas?'], 'de')?.dashboards[0], 'Anteil erneuerbarer Energien in der EU')
+})

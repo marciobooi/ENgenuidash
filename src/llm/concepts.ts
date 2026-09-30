@@ -23,6 +23,8 @@ interface Concept {
   how?: Texts
   data?: Texts
   sources: { title: string; url: string }[]
+  /** Dashboards on the same subject, as questions that open them. */
+  dashboards?: Texts[]
 }
 
 export interface ConceptAnswer {
@@ -30,9 +32,17 @@ export interface ConceptAnswer {
   concept: string
   kind: ConceptKind
   sources: { code: string; title: string; url: string }[]
+  /** Questions that open the dashboards related to the answer, in the language asked. */
+  dashboards: string[]
 }
 
 const CONCEPTS = data.concepts as Concept[]
+const GLOSSARY_DASHBOARDS = data.glossaryDashboards as Record<string, Texts[]>
+
+/** Dashboards related to a glossary term (its name, any case), as questions in the language asked. */
+export function glossaryDashboards(term: string, lang: Lang): string[] {
+  return (GLOSSARY_DASHBOARDS[term.toLowerCase()] ?? []).map((t) => t[lang] ?? t.en)
+}
 
 const clean = (s: string) => ` ${normalize(s).replace(/[’']/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()} `
 
@@ -82,6 +92,7 @@ function leftovers(text: string, concept: Concept): string[] {
     .filter((w) => w.length > 1 && !STOP.has(w) && !own.has(w) && !/^\d{4}$/.test(w) && !['energy', 'power', 'eu', 'europe', 'european', 'source', 'sources', 'difference', 'between', 'versus', 'vs'].includes(w))
 }
 
+const dashboardsOf = (c: Concept, lang: Lang) => (c.dashboards ?? []).map((t) => t[lang] ?? t.en)
 const sourcesOf = (c: Concept) => c.sources.map((s) => ({ code: 'Eurostat', title: s.title, url: s.url }))
 
 /** "How is it calculated?" for a glossary term: the sentence or formula of its official text that says so. */
@@ -110,13 +121,13 @@ export function conceptAnswer(questions: string[], lang: Lang): ConceptAnswer | 
       const texts = concept[kind]
       // "What is …?" only when the question is that concept and nothing else ("what is wind energy?").
       if (texts && (kind !== 'what' || (leftovers(q, concept).length === 0 && q.split(/\s+/).length <= 9))) {
-        return { text: texts[lang] ?? texts.en, concept: concept.name[lang] ?? concept.name.en, kind, sources: sourcesOf(concept) }
+        return { text: texts[lang] ?? texts.en, concept: concept.name[lang] ?? concept.name.en, kind, sources: sourcesOf(concept), dashboards: dashboardsOf(concept, lang) }
       }
     }
     if (kind === 'how') {
       const entry = findEntries(q, 1)[0]
       const text = entry && howFromGlossary(entry)
-      if (entry && text) return { text, concept: entry.term, kind, sources: entry.url ? [{ code: 'Glossary', title: entry.term, url: entry.url }] : [] }
+      if (entry && text) return { text, concept: entry.term, kind, sources: entry.url ? [{ code: 'Glossary', title: entry.term, url: entry.url }] : [], dashboards: glossaryDashboards(entry.term, lang) }
     }
   }
   return null

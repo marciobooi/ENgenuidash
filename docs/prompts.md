@@ -83,6 +83,6 @@ Not a view of their own (they keep their ordinary dashboard):
 	- what is a sankey diagram
 
 Notes (kept in step with src/genui/prompts.test.ts, which runs every line above):
-	- "Imports: Natural gas, Germany, July 2025" names a month, so it opens the monthly gas dashboard (its imports line); yearly trade by partner is Entrade.
-	- "Crude oil imports: price and volume ..." is the monthly crude oil dashboard (Enmonthly), not Entrade.
-	- "now components" is a follow-up: it works on the price dashboard already on screen.
+	* "Imports: Natural gas, Germany, July 2025" names a month, so it opens the monthly gas dashboard (its imports line); yearly trade by partner is Entrade.
+	* "Crude oil imports: price and volume ..." is the monthly crude oil dashboard (Enmonthly), not Entrade.
+	* "now components" is a follow-up: it works on the price dashboard already on screen.

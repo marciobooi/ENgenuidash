@@ -176,6 +176,8 @@ export function directDefinition(question: string): GlossaryEntry | null {
   if (!DEFINITION_QUESTION.test(q)) return null
   // Only when the question is essentially "what is <concept>", not a data question.
   if (q.split(' ').length > 9 || /\b(19|20)\d\d\b/.test(q)) return null
+  // A question about targets or goals is about policy, not the concept's definition.
+  if (/\b(targets?|goals?|ziele?|zielvorgaben?|objectifs?|cibles?)\b/.test(q)) return null
   return findEntries(question, 1)[0] ?? null
 }
 

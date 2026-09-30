@@ -7,8 +7,9 @@ import { routeMessage } from '../genui/route'
 import type { Plan, Suggestion } from '../genui/types'
 import { STRINGS, type Lang, type Strings } from '../i18n'
 import { documentAnswer, smallTalkReply } from '../llm/answers'
+import { conceptAnswer } from '../llm/concepts'
 import { EXPLAIN_GENERATION, GENERATION, SYSTEM_PROMPT } from '../llm/config'
-import { searchQuery } from '../llm/crossLingual'
+import { questionLanguage, searchQuery } from '../llm/crossLingual'
 import type { createScopeChecker } from '../llm/energyScope'
 import { definitionText, directDefinition } from '../llm/glossary'
 import { datasetDescription, knowledgeDocFreq } from '../llm/knowledge'
@@ -103,6 +104,17 @@ export function useChatFlow({
     // keywords, typing slips corrected); the chat and the model get what was typed.
     const text = prepareQuestion(typed, { unknownWords, correct })
     const verdict = scope.classify(text, previous)
+    // "What is X?", "why does X matter?", "how is X calculated?", "where do the data come from?" for a
+    // concept we have written up from Eurostat's documents → that text, in the language asked (before
+    // routing: "where does the wind data come from?" is not a request for a dashboard).
+    const concept = verdict !== 'small-talk' ? conceptAnswer([typed, text], questionLanguage(typed, lang)) : null
+    if (concept) {
+      llm.reply(typed, concept.text, undefined, concept.sources.length ? concept.sources : undefined)
+      announce(concept.text)
+      if (hasDashboard) openChat()
+      return
+    }
+
     const route = routeMessage(text, {
       current: current?.plan ?? null,
       dict,

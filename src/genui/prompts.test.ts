@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import { conceptAnswer } from '../llm/concepts'
+import { questionLanguage } from '../llm/crossLingual'
 import { createScopeChecker } from '../llm/energyScope'
+import { setGlossaryFile } from '../llm/glossary'
 import { buildKnowledgeIndex } from '../llm/knowledge'
 import { buildVocabulary } from '../llm/vocabulary'
 import { isMonthlyDataset } from './monthly'
@@ -15,6 +18,7 @@ const read = (f: string) => JSON.parse(readFileSync(`public/data/eurostat/energy
 const dict = read('dictionary.json')
 const codelists = read('codelists.json')
 const { docFreq } = buildKnowledgeIndex(read('knowledge.json').passages)
+setGlossaryFile(read('glossary.json'))
 const scope = createScopeChecker(dict, codelists)
 const vocabulary = buildVocabulary(dict, codelists, scope.places)
 
@@ -108,6 +112,30 @@ const EXPECTED: [string, string][] = [
   ['nrg_ind_eff', 'Primary and final energy consumption and the 2030 efficiency targets'],
   ['ten00126', 'Final energy consumption in transport by type of fuel'],
   ['nrg_ind_pehcf', 'Gross production of electricity and derived heat from combustible fuels by type of plant and operator'],
+  // definitions and how-it-works questions: answered from src/llm/concepts.json in the chat
+  ['Concept what', 'what is biogas?'],
+  ['Concept what', 'what is wind energy?'],
+  ['Concept what', 'what is LNG?'],
+  ['Concept what', 'what is energy poverty?'],
+  ['Concept what', 'what is the difference between capacity and generation?'],
+  ['Concept what', 'what is the difference between primary and final energy?'],
+  ['Concept what', 'what is the EU target for renewables in 2030?'],
+  ['Concept why', 'why are renewables important?'],
+  ['Concept why', 'why is energy security important?'],
+  ['Concept why', 'why is energy efficiency important?'],
+  ['Concept how', 'how is natural gas calculated?'],
+  ['Concept how', 'how is the share of renewables calculated?'],
+  ['Concept how', 'how is energy dependency calculated?'],
+  ['Concept how', 'how is gross available energy calculated?'],
+  ['Concept how', 'how are energy prices calculated?'],
+  ['Concept data', 'how do we get data on wind power?'],
+  ['Concept data', 'where does Eurostat get energy data?'],
+  ['Concept data', 'how often is energy data updated?'],
+  ['Concept what', 'Was ist Biogas?'],
+  ['Concept why', 'Warum sind erneuerbare Energien wichtig?'],
+  ['Concept data', 'Woher kommen die Winddaten?'],
+  ['Concept what', "Qu'est-ce que l'énergie éolienne ?"],
+  ['Concept how', "Comment sont calculés les prix de l'énergie ?"],
   // words that look like a view's words but ask for something else
   ['nrg_bal_c', 'oil consumption in Spain'],
   ['(off-topic)', 'what is a sankey diagram'],
@@ -116,7 +144,9 @@ const EXPECTED: [string, string][] = [
 test('every question of docs/prompts.md reaches the view it is listed for', () => {
   const wrong: string[] = []
   for (const [expected, question] of EXPECTED) {
-    const got = view(route(question))
+    // (a definition is answered in the chat before the router is asked)
+    const concept = conceptAnswer([question], questionLanguage(question, 'en'))
+    const got = concept ? `Concept ${concept.kind}` : view(route(question))
     if (got !== expected) wrong.push(`${question}\n    expected ${expected}, got ${got}`)
   }
   assert.deepEqual(wrong, [])

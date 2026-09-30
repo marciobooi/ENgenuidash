@@ -81,6 +81,31 @@ Geral:
 	- Final energy consumption in transport by type of fuel
 	- Gross production of electricity and derived heat from combustible fuels by type of plant and operator
 
+Definitions (answered in the chat from our written-up concepts, no dashboard; what / why / how / where the data come from):
+	- what is biogas?
+	- what is wind energy?
+	- what is LNG?
+	- what is energy poverty?
+	- what is the difference between capacity and generation?
+	- what is the difference between primary and final energy?
+	- what is the EU target for renewables in 2030?
+	- why are renewables important?
+	- why is energy security important?
+	- why is energy efficiency important?
+	- how is natural gas calculated?
+	- how is the share of renewables calculated?
+	- how is energy dependency calculated?
+	- how is gross available energy calculated?
+	- how are energy prices calculated?
+	- how do we get data on wind power?
+	- where does Eurostat get energy data?
+	- how often is energy data updated?
+	- Was ist Biogas?
+	- Warum sind erneuerbare Energien wichtig?
+	- Woher kommen die Winddaten?
+	- Qu'est-ce que l'énergie éolienne ?
+	- Comment sont calculés les prix de l'énergie ?
+
 Not a view of their own (they keep their ordinary dashboard):
 	- oil consumption in Spain
 	- what is a sankey diagram
@@ -89,3 +114,4 @@ Notes (kept in step with src/genui/prompts.test.ts, which runs every line above)
 	* Gas and oil imports/exports with a month named ("... July 2025") open the monthly trade by partner in Entrade (Yearly/Monthly switch in its toolbar); "monthly gas imports of Germany" and "gas balance ..." are the monthly gas balance.
 	* "Crude oil imports: price and volume ..." and "crude oil prices" are the monthly crude oil dashboard (Enmonthly).
 	* "now components" is a follow-up: it works on the price dashboard already on screen.
+	* Definitions: "what is / why is ... important / how is ... calculated / where does the data come from" for the concepts in src/llm/concepts.json are answered in the chat, in the language asked, with their Eurostat sources. Terms of the official glossary (crude oil, heat pump, toe ...) keep their glossary definition; a question that adds a country or a year ("what is the price of gas in Germany") is still a dashboard.

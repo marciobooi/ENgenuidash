@@ -1,0 +1,955 @@
+{
+ "note": "Short explanations of energy concepts the Eurostat glossary does not cover, and of why they matter, how they are calculated and where their data come from. Written from Eurostat's Statistics Explained articles and dataset metadata (each entry links its sources); the German and French texts are our translations. Kinds: what, why, how, data.",
+ "concepts": [
+  {
+   "id": "natural-gas",
+   "name": {
+    "en": "Natural gas",
+    "de": "Erdgas",
+    "fr": "Gaz naturel"
+   },
+   "aliases": [
+    "natural gas",
+    "gas",
+    "erdgas",
+    "gaz naturel",
+    "gaz"
+   ],
+   "what": {
+    "en": "Natural gas is a fossil fuel made mostly of methane, burned for heating, electricity generation and industry, and used as a raw material. Eurostat reports it in energy units (terajoules, on the gross calorific value), covering both gas that arrives by pipeline and liquefied natural gas (LNG) that arrives by ship.",
+    "de": "Erdgas ist ein fossiler Energieträger, der überwiegend aus Methan besteht. Es wird zum Heizen, zur Stromerzeugung und in der Industrie verbrannt und auch als Rohstoff genutzt. Eurostat weist es in Energieeinheiten aus (Terajoule, bezogen auf den Brennwert) und erfasst sowohl Pipelinegas als auch per Schiff angeliefertes Flüssigerdgas (LNG).",
+    "fr": "Le gaz naturel est un combustible fossile composé surtout de méthane, brûlé pour le chauffage, la production d'électricité et l'industrie, et utilisé aussi comme matière première. Eurostat le publie en unités d'énergie (térajoules, sur le pouvoir calorifique supérieur) et couvre à la fois le gaz acheminé par gazoduc et le gaz naturel liquéfié (GNL) livré par bateau."
+   },
+   "why": {
+    "en": "Natural gas matters because it heats many homes, fuels power plants and industry, and much of the EU's supply is imported. That is why Eurostat follows its imports by partner country, its storage and its prices closely.",
+    "de": "Erdgas ist wichtig, weil es viele Haushalte beheizt, Kraftwerke und Industrie versorgt und ein großer Teil der EU-Versorgung importiert wird. Deshalb verfolgt Eurostat Importe nach Partnerland, Speicher und Preise genau.",
+    "fr": "Le gaz naturel compte parce qu'il chauffe de nombreux logements, alimente centrales et industries, et qu'une grande part de l'approvisionnement de l'UE est importée. Eurostat suit donc de près les importations par pays partenaire, les stocks et les prix."
+   },
+   "how": {
+    "en": "Eurostat does not measure gas itself; countries report it in the energy balance. Gross available gas is what the country produces plus what it imports, minus what it exports and what goes into or out of storage (stock changes), and it is then followed through transformation (mainly power plants) to final consumption. Amounts are converted to energy units with the gas's calorific value.",
+    "de": "Eurostat misst Erdgas nicht selbst; die Länder melden es in der Energiebilanz. Das verfügbare Gas ergibt sich aus der Eigenproduktion plus Importen, abzüglich Exporten und Lagerveränderungen. Anschließend wird es über die Umwandlung (vor allem Kraftwerke) bis zum Endverbrauch verfolgt. Mengen werden mit dem Brennwert in Energieeinheiten umgerechnet.",
+    "fr": "Eurostat ne mesure pas le gaz lui-même : les pays le déclarent dans le bilan énergétique. Le gaz disponible est la production nationale plus les importations, moins les exportations et les variations de stocks ; il est ensuite suivi à travers la transformation (surtout les centrales) jusqu'à la consommation finale. Les volumes sont convertis en unités d'énergie avec le pouvoir calorifique."
+   },
+   "data": {
+    "en": "Natural gas figures come from the countries' annual and monthly questionnaires to Eurostat (energy balances, monthly gas supply and consumption, imports and exports by partner country). Gas prices come from a separate bi-annual price survey.",
+    "de": "Die Erdgasdaten stammen aus den jährlichen und monatlichen Fragebögen der Länder an Eurostat (Energiebilanzen, monatliche Gasversorgung und -verbrauch, Importe und Exporte nach Partnerland). Die Gaspreise stammen aus einer eigenen halbjährlichen Preiserhebung.",
+    "fr": "Les chiffres du gaz naturel viennent des questionnaires annuels et mensuels que les pays adressent à Eurostat (bilans énergétiques, offre et consommation mensuelles de gaz, importations et exportations par pays partenaire). Les prix du gaz proviennent d'une enquête semestrielle distincte."
+   },
+   "sources": [
+    {
+     "title": "Natural gas supply statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Natural_gas_supply_statistics"
+    },
+    {
+     "title": "Energy statistics - quantities (nrg_quant)",
+     "url": "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_quant_esms.htm"
+    }
+   ]
+  },
+  {
+   "id": "lng",
+   "name": {
+    "en": "Liquefied natural gas (LNG)",
+    "de": "Flüssigerdgas (LNG)",
+    "fr": "Gaz naturel liquéfié (GNL)"
+   },
+   "aliases": [
+    "lng",
+    "liquefied natural gas",
+    "liquified natural gas",
+    "fluessigerdgas",
+    "flussigerdgas",
+    "gaz naturel liquefie",
+    "gnl"
+   ],
+   "what": {
+    "en": "LNG is natural gas cooled to a liquid so it can travel by ship instead of pipeline. It is turned back into gas at import terminals (regasification). In Eurostat's import-dependency statistics, re-exported LNG is attributed to the country with the terminal.",
+    "de": "LNG ist Erdgas, das zu einer Flüssigkeit abgekühlt wird, damit es per Schiff statt per Pipeline transportiert werden kann. In Importterminals wird es wieder in Gas umgewandelt (Regasifizierung). In der Eurostat-Statistik zur Importabhängigkeit wird wieder ausgeführtes LNG dem Land mit dem Terminal zugerechnet.",
+    "fr": "Le GNL est du gaz naturel refroidi à l'état liquide pour voyager par bateau plutôt que par gazoduc. Il est regazéifié dans des terminaux d'importation. Dans les statistiques d'Eurostat sur la dépendance aux importations, le GNL réexporté est attribué au pays du terminal."
+   },
+   "sources": [
+    {
+     "title": "Natural gas supply statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Natural_gas_supply_statistics"
+    }
+   ]
+  },
+  {
+   "id": "wind",
+   "name": {
+    "en": "Wind energy",
+    "de": "Windenergie",
+    "fr": "Énergie éolienne"
+   },
+   "aliases": [
+    "wind",
+    "wind energy",
+    "wind power",
+    "windenergie",
+    "windkraft",
+    "windstrom",
+    "energie eolienne",
+    "eolien",
+    "eolienne",
+    "eoliennes"
+   ],
+   "what": {
+    "en": "Wind energy is electricity produced by turbines that turn the movement of air into power, on land or at sea. It is a non-combustible renewable source, together with hydro and solar, and one of the fastest-growing sources of electricity in the EU.",
+    "de": "Windenergie ist Strom, den Turbinen aus der Bewegung der Luft an Land oder auf See erzeugen. Sie gehört wie Wasserkraft und Solarenergie zu den nicht brennbaren erneuerbaren Quellen und zählt zu den am schnellsten wachsenden Stromquellen der EU.",
+    "fr": "L'énergie éolienne est l'électricité produite par des turbines qui transforment le mouvement de l'air en courant, sur terre ou en mer. C'est une source renouvelable non combustible, comme l'hydraulique et le solaire, et l'une des sources d'électricité qui croît le plus vite dans l'UE."
+   },
+   "why": {
+    "en": "Wind power makes electricity without burning fuel, so it cuts fuel imports and greenhouse gas emissions. Its output changes with the weather, which is why grids also need storage, flexible plants and connections between countries.",
+    "de": "Windkraft erzeugt Strom ohne Brennstoffverbrennung und senkt damit Brennstoffimporte und Treibhausgasemissionen. Die Leistung schwankt mit dem Wetter, deshalb braucht das Netz auch Speicher, flexible Kraftwerke und Verbindungen zwischen den Ländern.",
+    "fr": "L'éolien produit de l'électricité sans brûler de combustible : il réduit les importations de combustibles et les émissions de gaz à effet de serre. Sa production varie avec la météo, d'où le besoin de stockage, de centrales flexibles et d'interconnexions."
+   },
+   "how": {
+    "en": "Wind is counted in two ways: the electricity generated (in gigawatt-hours, reported by plant operators and grid companies) and the installed capacity (in megawatts), which is what the turbines could deliver at most. Because wind has no fuel, Eurostat counts its energy content as the electricity produced.",
+    "de": "Wind wird auf zwei Arten erfasst: als erzeugter Strom (in Gigawattstunden, gemeldet von Anlagen- und Netzbetreibern) und als installierte Leistung (in Megawatt), also das Maximum, das die Anlagen liefern könnten. Da Wind keinen Brennstoff hat, zählt Eurostat als Energiegehalt den erzeugten Strom.",
+    "fr": "Le vent est compté de deux façons : l'électricité produite (en gigawattheures, déclarée par les exploitants et les gestionnaires de réseau) et la capacité installée (en mégawatts), c'est-à-dire le maximum que les éoliennes peuvent fournir. Sans combustible, Eurostat compte comme contenu énergétique l'électricité produite."
+   },
+   "data": {
+    "en": "Wind data reach Eurostat from the countries' annual and monthly electricity questionnaires (national statistical institutes, ministries, energy agencies and grid operators). Capacity comes from the annual dataset on electricity production capacities (nrg_inf_epc); generation is in the energy balance and in the monthly electricity data.",
+    "de": "Die Winddaten erreichen Eurostat über die jährlichen und monatlichen Stromfragebögen der Länder (statistische Ämter, Ministerien, Energieagenturen und Netzbetreiber). Die Leistung stammt aus dem Jahresdatensatz zu den Stromerzeugungskapazitäten (nrg_inf_epc); die Erzeugung steht in der Energiebilanz und in den monatlichen Stromdaten.",
+    "fr": "Les données éoliennes parviennent à Eurostat par les questionnaires annuels et mensuels sur l'électricité des pays (instituts statistiques, ministères, agences de l'énergie et gestionnaires de réseau). La capacité provient du jeu de données annuel sur les capacités de production d'électricité (nrg_inf_epc) ; la production figure dans le bilan énergétique et dans les données mensuelles d'électricité."
+   },
+   "sources": [
+    {
+     "title": "Electrical capacity for wind and solar photovoltaic power - statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Electrical_capacity_for_wind_and_solar_photovoltaic_power_-_statistics"
+    },
+    {
+     "title": "Electricity production capacities (nrg_inf_epc)",
+     "url": "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_inf_epc_esms.htm"
+    }
+   ]
+  },
+  {
+   "id": "solar",
+   "name": {
+    "en": "Solar energy",
+    "de": "Solarenergie",
+    "fr": "Énergie solaire"
+   },
+   "aliases": [
+    "solar",
+    "solar energy",
+    "solar power",
+    "photovoltaic",
+    "photovoltaics",
+    "solar pv",
+    "pv",
+    "solarenergie",
+    "solarstrom",
+    "photovoltaik",
+    "energie solaire",
+    "solaire",
+    "photovoltaique"
+   ],
+   "what": {
+    "en": "Solar energy comes from sunlight. Photovoltaic (PV) panels turn it directly into electricity, and solar thermal collectors use it to heat water or buildings. Both are non-combustible renewable sources.",
+    "de": "Solarenergie stammt aus dem Sonnenlicht. Photovoltaikmodule wandeln es direkt in Strom um, Solarthermie-Kollektoren nutzen es zum Heizen von Wasser oder Gebäuden. Beides sind nicht brennbare erneuerbare Quellen.",
+    "fr": "L'énergie solaire provient de la lumière du soleil. Les panneaux photovoltaïques la transforment directement en électricité, et les capteurs solaires thermiques l'utilisent pour chauffer l'eau ou les bâtiments. Ce sont deux sources renouvelables non combustibles."
+   },
+   "why": {
+    "en": "Solar power produces electricity and heat without fuel or direct emissions, and panels can be installed on roofs, which lets households and businesses generate their own energy. Its output follows daylight and season, which grids and storage must balance.",
+    "de": "Solarenergie liefert Strom und Wärme ohne Brennstoff und ohne direkte Emissionen, und Module lassen sich auf Dächern installieren, sodass Haushalte und Unternehmen selbst Energie erzeugen können. Die Leistung folgt Tageslicht und Jahreszeit, was Netze und Speicher ausgleichen müssen.",
+    "fr": "Le solaire produit électricité et chaleur sans combustible ni émissions directes, et les panneaux peuvent être posés sur les toits, ce qui permet aux ménages et aux entreprises de produire leur propre énergie. Sa production suit la lumière du jour et la saison, que réseaux et stockage doivent équilibrer."
+   },
+   "data": {
+    "en": "Eurostat gets solar data from the countries' annual and monthly questionnaires. Photovoltaic capacity is reported in the electricity production capacities dataset (nrg_inf_epc) and generation in the energy balance; the electricity from PV panels is counted in gigawatt-hours.",
+    "de": "Eurostat bezieht die Solardaten aus den jährlichen und monatlichen Fragebögen der Länder. Die Photovoltaik-Leistung steht im Datensatz zu den Stromerzeugungskapazitäten (nrg_inf_epc), die Erzeugung in der Energiebilanz; der Strom aus Photovoltaik wird in Gigawattstunden gezählt.",
+    "fr": "Eurostat obtient les données solaires par les questionnaires annuels et mensuels des pays. La capacité photovoltaïque figure dans le jeu de données sur les capacités de production d'électricité (nrg_inf_epc) et la production dans le bilan énergétique ; l'électricité des panneaux est comptée en gigawattheures."
+   },
+   "sources": [
+    {
+     "title": "Electrical capacity for wind and solar photovoltaic power - statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Electrical_capacity_for_wind_and_solar_photovoltaic_power_-_statistics"
+    },
+    {
+     "title": "Electricity production capacities (nrg_inf_epc)",
+     "url": "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_inf_epc_esms.htm"
+    }
+   ],
+   "how": {
+    "en": "Solar is counted in two ways: the electricity generated by photovoltaic panels (in gigawatt-hours) and the installed capacity (in megawatts, the most the panels can deliver). Solar thermal collectors are counted by the heat they deliver. Because sunlight is not a fuel, Eurostat counts the energy content as the electricity or heat produced.",
+    "de": "Solar wird auf zwei Arten erfasst: als Strom aus Photovoltaikmodulen (in Gigawattstunden) und als installierte Leistung (in Megawatt, das Maximum, das die Module liefern können). Solarthermie-Kollektoren werden nach der gelieferten Wärme gezählt. Da Sonnenlicht kein Brennstoff ist, zählt Eurostat als Energiegehalt den erzeugten Strom oder die erzeugte Wärme.",
+    "fr": "Le solaire est compté de deux façons : l'électricité produite par les panneaux photovoltaïques (en gigawattheures) et la capacité installée (en mégawatts, le maximum que les panneaux peuvent fournir). Les capteurs solaires thermiques sont comptés par la chaleur fournie. La lumière du soleil n'étant pas un combustible, Eurostat compte comme contenu énergétique l'électricité ou la chaleur produite."
+   }
+  },
+  {
+   "id": "hydropower",
+   "name": {
+    "en": "Hydropower",
+    "de": "Wasserkraft",
+    "fr": "Énergie hydraulique"
+   },
+   "aliases": [
+    "hydropower",
+    "hydro power",
+    "hydro",
+    "hydroelectric",
+    "hydroelectricity",
+    "hydro electricity",
+    "wasserkraft",
+    "wasserkraftwerk",
+    "hydroelektrisch",
+    "hydraulique",
+    "hydroelectricite",
+    "energie hydraulique",
+    "hydroelectrique"
+   ],
+   "what": {
+    "en": "Hydropower is electricity made from the movement of water, mostly through dams and river plants. Eurostat splits it into pure hydro (from natural water flow, renewable), mixed hydro and pumped hydro, which uses electricity to pump water uphill and is only partly renewable.",
+    "de": "Wasserkraft ist Strom aus der Bewegung von Wasser, meist über Staudämme und Flusskraftwerke. Eurostat unterscheidet reine Wasserkraft (aus natürlichem Wasserzufluss, erneuerbar), gemischte Wasserkraft und Pumpspeicher, der Strom nutzt, um Wasser bergauf zu pumpen, und nur teilweise erneuerbar ist.",
+    "fr": "L'hydroélectricité est de l'électricité produite par le mouvement de l'eau, surtout par des barrages et des centrales au fil de l'eau. Eurostat distingue l'hydraulique pur (débit naturel, renouvelable), l'hydraulique mixte et le pompage-turbinage, qui utilise de l'électricité pour remonter l'eau et n'est que partiellement renouvelable."
+   },
+   "sources": [
+    {
+     "title": "Monthly electricity generation from non-combustible renewables",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Monthly_electricity_generation_from_non-combustible_renewables_-_statistics"
+    }
+   ]
+  },
+  {
+   "id": "geothermal",
+   "name": {
+    "en": "Geothermal energy",
+    "de": "Geothermie",
+    "fr": "Géothermie"
+   },
+   "aliases": [
+    "geothermal",
+    "geothermal energy",
+    "geothermie",
+    "erdwarme",
+    "geothermique",
+    "geothermie"
+   ],
+   "what": {
+    "en": "Geothermal energy is heat from inside the Earth. It is used directly for heating, in district heating networks, and to produce electricity. In Eurostat's statistics it is a non-combustible renewable source.",
+    "de": "Geothermie ist Wärme aus dem Erdinneren. Sie wird direkt zum Heizen, in Fernwärmenetzen und zur Stromerzeugung genutzt. In der Eurostat-Statistik ist sie eine nicht brennbare erneuerbare Quelle.",
+    "fr": "La géothermie est la chaleur du sous-sol. Elle sert directement au chauffage, dans les réseaux de chaleur, et à produire de l'électricité. Dans les statistiques d'Eurostat, c'est une source renouvelable non combustible."
+   },
+   "sources": [
+    {
+     "title": "Renewable energy statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Renewable_energy_statistics"
+    }
+   ]
+  },
+  {
+   "id": "nuclear",
+   "name": {
+    "en": "Nuclear energy",
+    "de": "Kernenergie",
+    "fr": "Énergie nucléaire"
+   },
+   "aliases": [
+    "nuclear",
+    "nuclear energy",
+    "nuclear power",
+    "atomic energy",
+    "kernenergie",
+    "atomkraft",
+    "atomenergie",
+    "kernkraft",
+    "energie nucleaire",
+    "nucleaire"
+   ],
+   "what": {
+    "en": "Nuclear energy is heat released by splitting uranium or plutonium atoms in a reactor, used to make steam and electricity. It is not a renewable source, but it produces electricity without direct greenhouse gas emissions. Eurostat counts the reactor's heat as primary energy and reports the electricity separately.",
+    "de": "Kernenergie ist Wärme, die bei der Spaltung von Uran- oder Plutoniumatomen in einem Reaktor frei wird und Dampf und Strom erzeugt. Sie ist nicht erneuerbar, erzeugt aber Strom ohne direkte Treibhausgasemissionen. Eurostat zählt die Reaktorwärme als Primärenergie und weist den Strom getrennt aus.",
+    "fr": "L'énergie nucléaire est la chaleur libérée par la fission d'atomes d'uranium ou de plutonium dans un réacteur, utilisée pour produire vapeur et électricité. Elle n'est pas renouvelable, mais produit de l'électricité sans émissions directes de gaz à effet de serre. Eurostat compte la chaleur du réacteur comme énergie primaire et publie l'électricité à part."
+   },
+   "sources": [
+    {
+     "title": "Nuclear energy statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Nuclear_energy_statistics"
+    }
+   ]
+  },
+  {
+   "id": "biogas",
+   "name": {
+    "en": "Biogas",
+    "de": "Biogas",
+    "fr": "Biogaz"
+   },
+   "aliases": [
+    "biogas",
+    "biogases",
+    "biogaz",
+    "biomethane",
+    "biomethan",
+    "biomethane"
+   ],
+   "what": {
+    "en": "Biogas is a gas, mostly methane and carbon dioxide, made when organic matter such as manure, crop residues, sewage sludge or landfill waste breaks down without air. It can be burned to produce heat and electricity, or cleaned into biomethane and fed into the gas grid. Eurostat counts it as a renewable combustible fuel.",
+    "de": "Biogas ist ein Gas aus überwiegend Methan und Kohlendioxid, das entsteht, wenn organisches Material wie Gülle, Ernterückstände, Klärschlamm oder Deponiemüll ohne Luft zersetzt wird. Es kann zur Wärme- und Stromerzeugung verbrannt oder zu Biomethan aufbereitet und ins Gasnetz eingespeist werden. Eurostat zählt es zu den erneuerbaren brennbaren Energieträgern.",
+    "fr": "Le biogaz est un gaz, surtout du méthane et du dioxyde de carbone, formé quand des matières organiques (fumier, résidus de cultures, boues d'épuration, déchets de décharge) se décomposent sans air. On peut le brûler pour produire chaleur et électricité, ou l'épurer en biométhane injecté dans le réseau de gaz. Eurostat le compte comme combustible renouvelable."
+   },
+   "sources": [
+    {
+     "title": "Renewable energy statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Renewable_energy_statistics"
+    }
+   ]
+  },
+  {
+   "id": "hydrogen",
+   "name": {
+    "en": "Hydrogen",
+    "de": "Wasserstoff",
+    "fr": "Hydrogène"
+   },
+   "aliases": [
+    "hydrogen",
+    "wasserstoff",
+    "hydrogene",
+    "h2"
+   ],
+   "what": {
+    "en": "Hydrogen is a gas that burns without releasing carbon dioxide, but it has to be produced first, for example from natural gas or by splitting water with electricity, so it is an energy carrier rather than a primary source. Eurostat's annual energy statistics include hydrogen as a product of its own.",
+    "de": "Wasserstoff ist ein Gas, das ohne Kohlendioxid verbrennt, aber zuerst hergestellt werden muss, etwa aus Erdgas oder durch Wasserspaltung mit Strom. Er ist daher ein Energieträger und keine Primärquelle. Die jährliche Energiestatistik von Eurostat führt Wasserstoff als eigenes Produkt.",
+    "fr": "L'hydrogène est un gaz qui brûle sans émettre de dioxyde de carbone, mais qu'il faut d'abord produire, par exemple à partir de gaz naturel ou en séparant l'eau avec de l'électricité : c'est un vecteur d'énergie plus qu'une source primaire. Les statistiques énergétiques annuelles d'Eurostat le comptent comme un produit à part."
+   },
+   "sources": [
+    {
+     "title": "Energy statistics - quantities (nrg_quant)",
+     "url": "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_quant_esms.htm"
+    }
+   ]
+  },
+  {
+   "id": "coal",
+   "name": {
+    "en": "Coal",
+    "de": "Kohle",
+    "fr": "Charbon"
+   },
+   "aliases": [
+    "coal",
+    "hard coal",
+    "brown coal",
+    "lignite",
+    "kohle",
+    "steinkohle",
+    "braunkohle",
+    "charbon",
+    "houille"
+   ],
+   "what": {
+    "en": "Coal is a solid fossil fuel formed from ancient plants. Eurostat separates hard coal, used in power stations and steelmaking, from lignite (brown coal), which has a lower energy content and is mostly burned near where it is mined. Coal releases the most carbon dioxide per unit of energy of the fossil fuels.",
+    "de": "Kohle ist ein fester fossiler Brennstoff, der aus urzeitlichen Pflanzen entstand. Eurostat unterscheidet Steinkohle, die in Kraftwerken und der Stahlerzeugung genutzt wird, von Braunkohle (Lignit) mit geringerem Energiegehalt, die meist nahe dem Abbauort verbrannt wird. Kohle setzt je Energieeinheit das meiste Kohlendioxid der fossilen Brennstoffe frei.",
+    "fr": "Le charbon est un combustible fossile solide issu de plantes anciennes. Eurostat distingue la houille, utilisée dans les centrales et la sidérurgie, du lignite (charbon brun), moins riche en énergie et surtout brûlé près de son lieu d'extraction. Le charbon émet le plus de dioxyde de carbone par unité d'énergie parmi les combustibles fossiles."
+   },
+   "sources": [
+    {
+     "title": "Coal production and consumption statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Coal_production_and_consumption_statistics"
+    }
+   ]
+  },
+  {
+   "id": "energy-mix",
+   "name": {
+    "en": "Energy mix",
+    "de": "Energiemix",
+    "fr": "Mix énergétique"
+   },
+   "aliases": [
+    "energy mix",
+    "fuel mix",
+    "energy source mix",
+    "electricity mix",
+    "energiemix",
+    "strommix",
+    "mix energetique",
+    "bouquet energetique",
+    "mix electrique"
+   ],
+   "what": {
+    "en": "The energy mix is the share each energy source, such as oil, gas, coal, nuclear and renewables, has in the energy a country uses (or in the electricity it produces). It shows how dependent a country is on each fuel and how fast it is changing.",
+    "de": "Der Energiemix ist der Anteil, den jede Energiequelle wie Öl, Gas, Kohle, Kernenergie und Erneuerbare an der Energie hat, die ein Land verbraucht (oder am Strom, den es erzeugt). Er zeigt, wie abhängig ein Land von einzelnen Brennstoffen ist und wie schnell er sich ändert.",
+    "fr": "Le mix énergétique est la part de chaque source d'énergie (pétrole, gaz, charbon, nucléaire, renouvelables) dans l'énergie qu'un pays utilise (ou dans l'électricité qu'il produit). Il montre la dépendance à chaque combustible et la vitesse de son évolution."
+   },
+   "sources": [
+    {
+     "title": "Energy statistics introduced",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_statistics_introduced"
+    }
+   ]
+  },
+  {
+   "id": "energy-security",
+   "name": {
+    "en": "Energy security",
+    "de": "Energieversorgungssicherheit",
+    "fr": "Sécurité énergétique"
+   },
+   "aliases": [
+    "energy security",
+    "security of supply",
+    "supply security",
+    "energy supply security",
+    "energiesicherheit",
+    "versorgungssicherheit",
+    "energieversorgungssicherheit",
+    "securite energetique",
+    "securite d approvisionnement",
+    "securite de l approvisionnement"
+   ],
+   "what": {
+    "en": "Energy security means having enough energy, at an affordable price, without a risk that supply is cut off. Eurostat's indicators for it include how much energy a country imports, how many suppliers it relies on, and how large its stocks are.",
+    "de": "Energieversorgungssicherheit heißt, genug Energie zu einem bezahlbaren Preis zu haben, ohne dass die Versorgung unterbrochen werden kann. Zu den Eurostat-Indikatoren gehören, wie viel Energie ein Land importiert, auf wie viele Lieferanten es sich stützt und wie groß seine Vorräte sind.",
+    "fr": "La sécurité énergétique consiste à disposer d'assez d'énergie, à un prix abordable, sans risque de coupure d'approvisionnement. Les indicateurs d'Eurostat portent notamment sur la part d'énergie importée, le nombre de fournisseurs dont dépend un pays et l'ampleur de ses stocks."
+   },
+   "why": {
+    "en": "Energy security matters because homes, transport and industry stop without energy, and when a large share is imported from a few suppliers, a conflict or a price shock abroad quickly reaches households. That is why the EU tracks import dependency, supplier concentration and emergency stocks.",
+    "de": "Energieversorgungssicherheit ist wichtig, weil Haushalte, Verkehr und Industrie ohne Energie stillstehen, und weil bei hohen Importen von wenigen Lieferanten ein Konflikt oder Preisschock im Ausland schnell bei den Haushalten ankommt. Deshalb beobachtet die EU Importabhängigkeit, Lieferantenkonzentration und Notvorräte.",
+    "fr": "La sécurité énergétique compte parce que ménages, transports et industrie s'arrêtent sans énergie, et que lorsqu'une grande part est importée de quelques fournisseurs, un conflit ou un choc de prix à l'étranger touche vite les ménages. C'est pourquoi l'UE suit la dépendance aux importations, la concentration des fournisseurs et les stocks d'urgence."
+   },
+   "sources": [
+    {
+     "title": "Energy production and imports",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_production_and_imports"
+    }
+   ]
+  },
+  {
+   "id": "energy-dependency",
+   "name": {
+    "en": "Energy import dependency",
+    "de": "Energieabhängigkeit",
+    "fr": "Dépendance énergétique"
+   },
+   "aliases": [
+    "energy dependency",
+    "energy dependence",
+    "import dependency",
+    "dependency rate",
+    "energieabhangigkeit",
+    "energie abhangigkeit",
+    "importabhangigkeit",
+    "dependance energetique",
+    "dependance aux importations"
+   ],
+   "why": {
+    "en": "A high energy dependency rate means a country depends on other countries for much of its energy, so its supply and prices are exposed to events abroad. A low or negative rate means it produces most of what it uses or is a net exporter. The EU's dependency is why imports, suppliers and stocks are watched so closely.",
+    "de": "Eine hohe Energieabhängigkeit bedeutet, dass ein Land einen großen Teil seiner Energie von anderen Ländern bezieht, sodass Versorgung und Preise von Ereignissen im Ausland abhängen. Eine niedrige oder negative Rate bedeutet, dass es das meiste selbst erzeugt oder Nettoexporteur ist. Wegen der Abhängigkeit der EU werden Importe, Lieferanten und Vorräte so genau beobachtet.",
+    "fr": "Un taux de dépendance énergétique élevé signifie qu'un pays dépend d'autres pays pour une grande part de son énergie : son approvisionnement et ses prix sont exposés aux événements extérieurs. Un taux faible ou négatif signifie qu'il produit l'essentiel de ce qu'il utilise ou qu'il est exportateur net. C'est pourquoi importations, fournisseurs et stocks sont suivis de près."
+   },
+   "sources": [
+    {
+     "title": "Energy imports dependency (nrg_ind_id)",
+     "url": "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_ind_id_esmsip2.htm"
+    }
+   ],
+   "how": {
+    "en": "The energy dependency rate is net imports (imports minus exports) divided by gross available energy, as a percentage. A negative rate means a country is a net exporter of energy, and a rate above 100% means energy products were added to stocks.",
+    "de": "Die Energieabhängigkeit ist der Nettoimport (Importe minus Exporte) geteilt durch die verfügbaren Bruttoenergie, in Prozent. Eine negative Rate bedeutet, dass ein Land Nettoexporteur von Energie ist; eine Rate über 100 % bedeutet, dass Energieprodukte auf Lager genommen wurden.",
+    "fr": "Le taux de dépendance énergétique est les importations nettes (importations moins exportations) divisées par l'énergie brute disponible, en pourcentage. Un taux négatif signifie que le pays est exportateur net d'énergie, et un taux supérieur à 100 % que des produits énergétiques ont été ajoutés aux stocks."
+   }
+  },
+  {
+   "id": "decarbonisation",
+   "name": {
+    "en": "Decarbonisation and the energy transition",
+    "de": "Dekarbonisierung und Energiewende",
+    "fr": "Décarbonation et transition énergétique"
+   },
+   "aliases": [
+    "decarbonisation",
+    "decarbonization",
+    "decarbonise",
+    "decarbonize",
+    "energy transition",
+    "clean energy transition",
+    "dekarbonisierung",
+    "energiewende",
+    "decarbonation",
+    "transition energetique",
+    "decarbonisation de l energie"
+   ],
+   "what": {
+    "en": "Decarbonisation means cutting the carbon dioxide released by the energy we use, mainly by replacing coal, oil and gas with renewables, using less energy and electrifying heating and transport. The energy transition is this shift in how energy is produced and used.",
+    "de": "Dekarbonisierung heißt, das bei der Energienutzung freigesetzte Kohlendioxid zu senken, vor allem indem Kohle, Öl und Gas durch Erneuerbare ersetzt, weniger Energie verbraucht und Heizen und Verkehr elektrifiziert werden. Die Energiewende ist dieser Wandel in Erzeugung und Nutzung von Energie.",
+    "fr": "La décarbonation consiste à réduire le dioxyde de carbone émis par l'énergie que nous utilisons, surtout en remplaçant charbon, pétrole et gaz par des renouvelables, en consommant moins d'énergie et en électrifiant chauffage et transports. La transition énergétique est ce changement dans la façon de produire et d'utiliser l'énergie."
+   },
+   "sources": [
+    {
+     "title": "Electricity and heat statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Electricity_and_heat_statistics"
+    }
+   ]
+  },
+  {
+   "id": "energy-poverty",
+   "name": {
+    "en": "Energy poverty",
+    "de": "Energiearmut",
+    "fr": "Précarité énergétique"
+   },
+   "aliases": [
+    "energy poverty",
+    "fuel poverty",
+    "energiearmut",
+    "brennstoffarmut",
+    "precarite energetique",
+    "pauvrete energetique"
+   ],
+   "what": {
+    "en": "Energy poverty is when a household cannot afford the energy it needs, for example to keep the home adequately warm. Eurostat measures it with survey indicators such as the share of people unable to keep their home adequately warm and the share behind on their utility bills.",
+    "de": "Energiearmut liegt vor, wenn ein Haushalt sich die benötigte Energie nicht leisten kann, etwa um die Wohnung angemessen warm zu halten. Eurostat misst sie mit Erhebungsindikatoren, etwa dem Anteil der Menschen, die ihre Wohnung nicht angemessen warm halten können, und dem Anteil mit Zahlungsrückständen bei Versorgerrechnungen.",
+    "fr": "La précarité énergétique désigne la situation d'un ménage qui ne peut pas payer l'énergie dont il a besoin, par exemple pour chauffer correctement son logement. Eurostat la mesure par des indicateurs d'enquête, comme la part des personnes qui ne peuvent pas chauffer suffisamment leur logement ou qui ont des arriérés de factures."
+   },
+   "data": {
+    "en": "The indicators come from the EU survey on income and living conditions (EU-SILC), not from the energy questionnaires. The dashboard shows the share of people unable to keep their home adequately warm (dataset ilc_mdes01).",
+    "de": "Die Indikatoren stammen aus der EU-Erhebung über Einkommen und Lebensbedingungen (EU-SILC), nicht aus den Energiefragebögen. Das Dashboard zeigt den Anteil der Menschen, die ihre Wohnung nicht angemessen warm halten können (Datensatz ilc_mdes01).",
+    "fr": "Les indicateurs viennent de l'enquête européenne sur le revenu et les conditions de vie (EU-SILC), et non des questionnaires énergétiques. Le tableau de bord montre la part des personnes qui ne peuvent pas chauffer suffisamment leur logement (jeu de données ilc_mdes01)."
+   },
+   "sources": [
+    {
+     "title": "Energy consumption in households",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_consumption_in_households"
+    }
+   ]
+  },
+  {
+   "id": "capacity",
+   "name": {
+    "en": "Installed capacity and generation",
+    "de": "Installierte Leistung und Erzeugung",
+    "fr": "Capacité installée et production"
+   },
+   "aliases": [
+    "capacity",
+    "installed capacity",
+    "electrical capacity",
+    "generation capacity",
+    "power capacity",
+    "electricity capacity",
+    "production capacity",
+    "capacity vs generation",
+    "installierte leistung",
+    "kapazitat",
+    "leistung",
+    "kraftwerkskapazitat",
+    "capacite installee",
+    "capacite",
+    "puissance installee"
+   ],
+   "what": {
+    "en": "Installed capacity is the most power a plant or a fleet of plants can deliver at one moment, measured in megawatts (MW). Generation is the electricity actually produced over a period, measured in gigawatt-hours (GWh). Generation is always lower than capacity times the hours in the period, because plants do not run at full power all the time, and wind and solar depend on the weather.",
+    "de": "Die installierte Leistung ist das Maximum, das ein Kraftwerk oder ein Kraftwerkspark in einem Moment liefern kann, gemessen in Megawatt (MW). Die Erzeugung ist der tatsächlich in einem Zeitraum produzierte Strom, gemessen in Gigawattstunden (GWh). Sie liegt immer unter Leistung mal Stunden des Zeitraums, weil Kraftwerke nicht ständig unter Volllast laufen und Wind und Sonne vom Wetter abhängen.",
+    "fr": "La capacité installée est la puissance maximale qu'une centrale ou un parc de centrales peut fournir à un instant, mesurée en mégawatts (MW). La production est l'électricité réellement produite sur une période, mesurée en gigawattheures (GWh). Elle est toujours inférieure à la capacité multipliée par les heures de la période, car les centrales ne tournent pas à pleine puissance en permanence et l'éolien et le solaire dépendent de la météo."
+   },
+   "sources": [
+    {
+     "title": "Electrical capacity for wind and solar photovoltaic power - statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Electrical_capacity_for_wind_and_solar_photovoltaic_power_-_statistics"
+    }
+   ]
+  },
+  {
+   "id": "renewables",
+   "name": {
+    "en": "Renewable energy",
+    "de": "Erneuerbare Energien",
+    "fr": "Énergies renouvelables"
+   },
+   "aliases": [
+    "renewables",
+    "renewable",
+    "renewable energy",
+    "renewable energies",
+    "renewable sources",
+    "green energy",
+    "erneuerbare",
+    "erneuerbare energien",
+    "erneuerbare energie",
+    "renouvelables",
+    "energies renouvelables",
+    "energie renouvelable"
+   ],
+   "why": {
+    "en": "Renewables matter for three reasons: they emit little or no greenhouse gas when they produce energy, they come from domestic sources (sun, wind, water, biomass) and so reduce dependence on imported fuels, and their cost has fallen. The EU has therefore set a binding target for renewables in 2030 in the Renewable Energy Directive.",
+    "de": "Erneuerbare sind aus drei Gründen wichtig: Sie verursachen bei der Energieerzeugung kaum oder keine Treibhausgase, sie stammen aus heimischen Quellen (Sonne, Wind, Wasser, Biomasse) und verringern so die Abhängigkeit von importierten Brennstoffen, und ihre Kosten sind gesunken. Die EU hat deshalb in der Erneuerbare-Energien-Richtlinie ein verbindliches Ziel für 2030 festgelegt.",
+    "fr": "Les renouvelables comptent pour trois raisons : elles émettent peu ou pas de gaz à effet de serre, elles proviennent de sources locales (soleil, vent, eau, biomasse) et réduisent donc la dépendance aux combustibles importés, et leur coût a baissé. L'UE a donc fixé pour 2030 un objectif contraignant dans la directive sur les énergies renouvelables."
+   },
+   "how": {
+    "en": "The share of renewables is renewable energy divided by total energy, and the result depends on which total is used. For the EU targets the official measure is the share in gross final energy consumption (calculated with the SHARES tool under the Renewable Energy Directive); Eurostat also publishes the share in gross inland consumption and in electricity, heating and cooling, and transport.",
+    "de": "Der Anteil der Erneuerbaren ist die erneuerbare Energie geteilt durch die gesamte Energie, und das Ergebnis hängt vom gewählten Gesamtwert ab. Für die EU-Ziele gilt der Anteil am Bruttoendenergieverbrauch (berechnet mit dem SHARES-Tool nach der Erneuerbare-Energien-Richtlinie); Eurostat veröffentlicht auch den Anteil am Bruttoinlandsverbrauch sowie in Strom, Wärme und Kälte und im Verkehr.",
+    "fr": "La part des renouvelables est l'énergie renouvelable divisée par l'énergie totale, et le résultat dépend du total retenu. Pour les objectifs de l'UE, la mesure officielle est la part dans la consommation finale brute d'énergie (calculée avec l'outil SHARES selon la directive sur les énergies renouvelables) ; Eurostat publie aussi la part dans la consommation intérieure brute, et dans l'électricité, le chauffage-refroidissement et les transports."
+   },
+   "sources": [
+    {
+     "title": "Renewable energy statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Renewable_energy_statistics"
+    },
+    {
+     "title": "Calculation methodologies for the share of renewables in energy consumption",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Calculation_methodologies_for_the_share_of_renewables_in_energy_consumption"
+    }
+   ]
+  },
+  {
+   "id": "renewable-directive",
+   "name": {
+    "en": "Renewable Energy Directive",
+    "de": "Erneuerbare-Energien-Richtlinie",
+    "fr": "Directive sur les énergies renouvelables"
+   },
+   "aliases": [
+    "renewable energy directive",
+    "renewables directive",
+    "red ii",
+    "red iii",
+    "red i",
+    "red 2",
+    "red 3",
+    "erneuerbare energien richtlinie",
+    "erneuerbare-energien-richtlinie",
+    "red-richtlinie",
+    "directive sur les energies renouvelables",
+    "directive energies renouvelables",
+    "renewable target",
+    "renewables target",
+    "renewable energy target",
+    "renewable energy targets",
+    "target for renewables",
+    "targets for renewables",
+    "eu renewable target",
+    "2030 renewable target",
+    "erneuerbare ziel",
+    "erneuerbare ziele",
+    "erneuerbaren ziel",
+    "ziel fur erneuerbare",
+    "objectif renouvelables",
+    "objectif pour les renouvelables",
+    "objectifs renouvelables"
+   ],
+   "what": {
+    "en": "The Renewable Energy Directive (RED) is the EU law on promoting energy from renewable sources. The first directive (2009/28/EC) set a 20% target for 2020; Directive (EU) 2018/2001 (RED II) followed, and its amendment Directive (EU) 2023/2413 (RED III) sets a binding EU target of at least 42.5% renewables in 2030, with an aim of 45%. The directives also fix how the share is calculated.",
+    "de": "Die Erneuerbare-Energien-Richtlinie (RED) ist das EU-Recht zur Förderung von Energie aus erneuerbaren Quellen. Die erste Richtlinie (2009/28/EG) setzte für 2020 ein Ziel von 20 %; es folgte die Richtlinie (EU) 2018/2001 (RED II), und ihre Änderung, die Richtlinie (EU) 2023/2413 (RED III), legt für 2030 ein verbindliches EU-Ziel von mindestens 42,5 % Erneuerbaren fest, mit dem Ziel von 45 %. Die Richtlinien legen auch fest, wie der Anteil berechnet wird.",
+    "fr": "La directive sur les énergies renouvelables (RED) est la législation de l'UE sur la promotion de l'énergie issue de sources renouvelables. La première directive (2009/28/CE) fixait un objectif de 20 % pour 2020 ; la directive (UE) 2018/2001 (RED II) a suivi, et sa modification, la directive (UE) 2023/2413 (RED III), fixe pour 2030 un objectif contraignant d'au moins 42,5 % de renouvelables, avec une ambition de 45 %. Les directives précisent aussi comment la part est calculée."
+   },
+   "sources": [
+    {
+     "title": "Renewable energy statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Renewable_energy_statistics"
+    }
+   ]
+  },
+  {
+   "id": "energy-efficiency",
+   "name": {
+    "en": "Energy efficiency",
+    "de": "Energieeffizienz",
+    "fr": "Efficacité énergétique"
+   },
+   "aliases": [
+    "energy efficiency",
+    "energy saving",
+    "energy savings",
+    "energieeffizienz",
+    "energiesparen",
+    "energieeinsparung",
+    "efficacite energetique",
+    "economies d energie"
+   ],
+   "why": {
+    "en": "Using energy more efficiently means the same comfort, transport and production with less energy. That lowers bills, imports and emissions, so the EU treats it as the first step of its energy policy and has set binding EU-wide targets for primary and final energy consumption in 2030.",
+    "de": "Effizientere Energienutzung heißt gleichen Komfort, Verkehr und gleiche Produktion mit weniger Energie. Das senkt Rechnungen, Importe und Emissionen, weshalb die EU sie als ersten Schritt ihrer Energiepolitik behandelt und verbindliche EU-Ziele für den Primär- und Endenergieverbrauch 2030 gesetzt hat.",
+    "fr": "Utiliser l'énergie plus efficacement permet d'obtenir le même confort, les mêmes transports et la même production avec moins d'énergie. Cela réduit factures, importations et émissions ; l'UE en fait donc le premier pilier de sa politique énergétique et a fixé pour 2030 des objectifs contraignants à l'échelle de l'UE pour la consommation d'énergie primaire et finale."
+   },
+   "sources": [
+    {
+     "title": "Energy efficiency statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_efficiency_statistics"
+    }
+   ]
+  },
+  {
+   "id": "energy-prices",
+   "name": {
+    "en": "Energy prices",
+    "de": "Energiepreise",
+    "fr": "Prix de l'énergie"
+   },
+   "aliases": [
+    "energy prices",
+    "energy price",
+    "electricity price",
+    "electricity prices",
+    "gas price",
+    "gas prices",
+    "energiepreise",
+    "strompreis",
+    "strompreise",
+    "gaspreis",
+    "gaspreise",
+    "prix de l energie",
+    "prix de l electricite",
+    "prix du gaz"
+   ],
+   "how": {
+    "en": "Eurostat collects energy prices twice a year, for the first and second half of the year, in two groups: households and non-household consumers (businesses). Prices are reported by consumption band, because bigger users pay less per unit, and are shown with or without taxes: without taxes, without recoverable taxes such as VAT for businesses, and with all taxes and levies. The national price is a weighted average of the bands, using each band's share of consumption.",
+    "de": "Eurostat erhebt Energiepreise zweimal im Jahr, für das erste und das zweite Halbjahr, in zwei Gruppen: Haushalte und Nichthaushalte (Unternehmen). Die Preise werden nach Verbrauchsband gemeldet, weil größere Verbraucher weniger je Einheit zahlen, und mit oder ohne Steuern gezeigt: ohne Steuern, ohne erstattungsfähige Steuern wie die Mehrwertsteuer für Unternehmen und mit allen Steuern und Abgaben. Der nationale Preis ist ein gewichteter Durchschnitt der Bänder nach ihrem Verbrauchsanteil.",
+    "fr": "Eurostat collecte les prix de l'énergie deux fois par an, pour le premier et le second semestre, pour deux groupes : ménages et consommateurs non ménagers (entreprises). Les prix sont déclarés par tranche de consommation, car les gros consommateurs paient moins par unité, et présentés avec ou sans taxes : hors taxes, hors taxes récupérables comme la TVA pour les entreprises, et toutes taxes et prélèvements compris. Le prix national est une moyenne pondérée des tranches selon leur part de consommation."
+   },
+   "sources": [
+    {
+     "title": "Electricity price statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Electricity_price_statistics"
+    },
+    {
+     "title": "Natural gas price statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Natural_gas_price_statistics"
+    }
+   ],
+   "data": {
+    "en": "Energy prices are reported to Eurostat by the countries (national authorities) twice a year, under one common methodology, in national currency per unit of energy (per gigajoule for gas, per kilowatt-hour for electricity) and by consumption band. Eurostat publishes them in national currency, in euro and in purchasing power standards.",
+    "de": "Die Energiepreise werden Eurostat von den Ländern (nationale Behörden) zweimal im Jahr nach einer einheitlichen Methodik gemeldet, in Landeswährung je Energieeinheit (je Gigajoule bei Gas, je Kilowattstunde bei Strom) und nach Verbrauchsband. Eurostat veröffentlicht sie in Landeswährung, in Euro und in Kaufkraftstandards.",
+    "fr": "Les prix de l'énergie sont déclarés à Eurostat par les pays (autorités nationales) deux fois par an, selon une méthodologie commune, en monnaie nationale par unité d'énergie (par gigajoule pour le gaz, par kilowattheure pour l'électricité) et par tranche de consommation. Eurostat les publie en monnaie nationale, en euro et en standards de pouvoir d'achat."
+   }
+  },
+  {
+   "id": "electricity-generation",
+   "name": {
+    "en": "Electricity generation",
+    "de": "Stromerzeugung",
+    "fr": "Production d'électricité"
+   },
+   "aliases": [
+    "electricity generation",
+    "electricity production",
+    "power generation",
+    "power production",
+    "stromerzeugung",
+    "stromproduktion",
+    "production d electricite",
+    "production electrique"
+   ],
+   "how": {
+    "en": "Electricity generation is reported by the countries, plant by plant or in national totals, in gigawatt-hours, by the fuel or source used. Gross generation is what is measured at the generator terminals; net generation is gross generation minus the electricity the plant uses itself. Eurostat also splits it by producer type (main activity producers and autoproducers) and, for combined heat and power plants, reports the heat separately.",
+    "de": "Die Stromerzeugung wird von den Ländern gemeldet, je Anlage oder als nationale Summe, in Gigawattstunden und nach eingesetztem Brennstoff oder eingesetzter Quelle. Die Bruttoerzeugung wird an den Generatorklemmen gemessen; die Nettoerzeugung ist die Bruttoerzeugung abzüglich des Eigenverbrauchs der Anlage. Eurostat unterscheidet außerdem Erzeugertypen (Hauptaktivitätserzeuger und Eigenerzeuger) und weist bei Kraft-Wärme-Kopplung die Wärme getrennt aus.",
+    "fr": "La production d'électricité est déclarée par les pays, centrale par centrale ou en totaux nationaux, en gigawattheures, selon le combustible ou la source utilisée. La production brute est mesurée aux bornes des générateurs ; la production nette est la production brute moins l'électricité utilisée par la centrale elle-même. Eurostat distingue aussi le type de producteur (producteurs principaux et autoproducteurs) et, pour la cogénération, publie la chaleur à part."
+   },
+   "sources": [
+    {
+     "title": "Electricity production, consumption and market overview",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Electricity_production%2C_consumption_and_market_overview"
+    }
+   ]
+  },
+  {
+   "id": "energy-storage",
+   "name": {
+    "en": "Energy storage",
+    "de": "Energiespeicherung",
+    "fr": "Stockage de l'énergie"
+   },
+   "aliases": [
+    "energy storage",
+    "electricity storage",
+    "power storage",
+    "gas storage",
+    "pumped hydro storage",
+    "pumped storage",
+    "pumped hydro",
+    "battery storage",
+    "energiespeicher",
+    "energiespeicherung",
+    "stromspeicher",
+    "gasspeicher",
+    "pumpspeicher",
+    "stockage de l energie",
+    "stockage d electricite",
+    "stockage de gaz",
+    "pompage turbinage"
+   ],
+   "what": {
+    "en": "Energy storage keeps energy for later use. Fuels such as gas and oil are stored in tanks and underground sites, which is why Eurostat reports gas and oil stocks. Electricity can be stored in pumped hydro plants, which pump water uphill when power is cheap and let it run down to generate electricity when it is needed, or in batteries.",
+    "de": "Energiespeicherung hebt Energie für die spätere Nutzung auf. Brennstoffe wie Gas und Öl lagern in Tanks und unterirdischen Speichern, weshalb Eurostat Gas- und Ölvorräte ausweist. Strom kann in Pumpspeicherkraftwerken gespeichert werden, die Wasser bergauf pumpen, wenn Strom billig ist, und es bei Bedarf wieder zur Stromerzeugung talwärts laufen lassen, oder in Batterien.",
+    "fr": "Le stockage de l'énergie conserve l'énergie pour un usage ultérieur. Les combustibles comme le gaz et le pétrole sont stockés en réservoirs et en sites souterrains, d'où les statistiques de stocks de gaz et de pétrole d'Eurostat. L'électricité peut être stockée dans des stations de pompage-turbinage, qui remontent l'eau quand le courant est bon marché et la laissent redescendre pour produire de l'électricité au besoin, ou dans des batteries."
+   },
+   "sources": [
+    {
+     "title": "Electricity production, consumption and market overview",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Electricity_production%2C_consumption_and_market_overview"
+    }
+   ]
+  },
+  {
+   "id": "emergency-oil-stocks",
+   "name": {
+    "en": "Emergency oil stocks",
+    "de": "Erdöl-Notvorräte",
+    "fr": "Stocks de sécurité pétroliers"
+   },
+   "aliases": [
+    "emergency oil stocks",
+    "emergency stocks",
+    "oil stocks",
+    "strategic oil reserves",
+    "strategic reserves",
+    "oil reserves",
+    "erdol notvorrate",
+    "erdolvorrate",
+    "notvorrate",
+    "olreserven",
+    "stocks de securite",
+    "stocks strategiques",
+    "reserves strategiques",
+    "stocks petroliers"
+   ],
+   "what": {
+    "en": "Emergency oil stocks are reserves of crude oil and petroleum products that EU countries must hold to keep the economy running if supply is disrupted. Council Directive 2009/119/EC obliges Member States to maintain minimum stocks, and Eurostat reports them in days of supply equivalent.",
+    "de": "Erdöl-Notvorräte sind Reserven an Rohöl und Mineralölprodukten, die EU-Länder halten müssen, damit die Wirtschaft bei einer Versorgungsstörung weiterläuft. Die Richtlinie 2009/119/EG des Rates verpflichtet die Mitgliedstaaten, Mindestvorräte zu halten, und Eurostat weist sie in Tagen der Versorgung aus.",
+    "fr": "Les stocks de sécurité pétroliers sont des réserves de pétrole brut et de produits pétroliers que les pays de l'UE doivent détenir pour faire fonctionner l'économie en cas de rupture d'approvisionnement. La directive 2009/119/CE du Conseil oblige les États membres à maintenir des stocks minimaux, et Eurostat les publie en jours d'approvisionnement équivalents."
+   },
+   "sources": [
+    {
+     "title": "Emergency oil stocks statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Emergency_oil_stocks_statistics"
+    }
+   ]
+  },
+  {
+   "id": "eurostat-data",
+   "name": {
+    "en": "Where Eurostat's energy data come from",
+    "de": "Woher die Energiedaten von Eurostat stammen",
+    "fr": "D'où viennent les données énergétiques d'Eurostat"
+   },
+   "aliases": [
+    "eurostat",
+    "eurostat energy data",
+    "energy data",
+    "energy statistics",
+    "energy statistic",
+    "energiedaten",
+    "energiestatistik",
+    "energiestatistiken",
+    "donnees energetiques",
+    "statistiques energetiques",
+    "donnees de l energie"
+   ],
+   "data": {
+    "en": "The countries collect the data and send them to Eurostat: national statistical institutes, ministries, energy agencies and professional associations fill in standard questionnaires, set by Regulation (EC) No 1099/2008 on energy statistics, and transmit them electronically. There are annual questionnaires (for example for households, industry, services and transport) and monthly ones for the main commodities: oil, natural gas, solid fuels and electricity. Eurostat checks them, compiles the energy balances and publishes them. Some datasets come from elsewhere, for example prices from a separate survey and degree days from the Joint Research Centre.",
+    "de": "Die Länder erheben die Daten und übermitteln sie an Eurostat: Statistische Ämter, Ministerien, Energieagenturen und Fachverbände füllen Standardfragebögen aus, die die Verordnung (EG) Nr. 1099/2008 zur Energiestatistik vorgibt, und übermitteln sie elektronisch. Es gibt jährliche Fragebögen (zum Beispiel für Haushalte, Industrie, Dienstleistungen und Verkehr) und monatliche für die wichtigsten Energieträger: Öl, Erdgas, feste Brennstoffe und Strom. Eurostat prüft sie, erstellt die Energiebilanzen und veröffentlicht sie. Einige Datensätze stammen von anderswo, etwa Preise aus einer eigenen Erhebung und Gradtage von der Gemeinsamen Forschungsstelle.",
+    "fr": "Les pays collectent les données et les transmettent à Eurostat : instituts nationaux de statistique, ministères, agences de l'énergie et associations professionnelles remplissent des questionnaires standard, fixés par le règlement (CE) n° 1099/2008 sur les statistiques de l'énergie, et les envoient par voie électronique. Il existe des questionnaires annuels (par exemple pour les ménages, l'industrie, les services et les transports) et mensuels pour les principaux produits : pétrole, gaz naturel, combustibles solides et électricité. Eurostat les contrôle, établit les bilans énergétiques et les publie. Certains jeux de données viennent d'ailleurs, par exemple les prix d'une enquête distincte et les degrés-jours du Centre commun de recherche."
+   },
+   "how": {
+    "en": "Eurostat compiles the countries' questionnaires into energy balances, tables that follow each energy product from production and imports through transformation to final consumption, all in common units. The data are checked for consistency between countries and years before they are published.",
+    "de": "Eurostat fasst die Fragebögen der Länder zu Energiebilanzen zusammen, Tabellen, die jeden Energieträger von Produktion und Import über die Umwandlung bis zum Endverbrauch in einheitlichen Einheiten verfolgen. Die Daten werden vor der Veröffentlichung auf Konsistenz zwischen Ländern und Jahren geprüft.",
+    "fr": "Eurostat rassemble les questionnaires des pays en bilans énergétiques, des tableaux qui suivent chaque produit énergétique de la production et des importations jusqu'à la consommation finale en passant par la transformation, dans des unités communes. Les données sont vérifiées pour leur cohérence entre pays et entre années avant publication."
+   },
+   "sources": [
+    {
+     "title": "Energy statistics - quantities (nrg_quant)",
+     "url": "https://ec.europa.eu/eurostat/cache/metadata/en/nrg_quant_esms.htm"
+    },
+    {
+     "title": "Energy statistics introduced",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_statistics_introduced"
+    }
+   ]
+  },
+  {
+   "id": "final-energy-consumption",
+   "name": {
+    "en": "Final energy consumption",
+    "de": "Endenergieverbrauch",
+    "fr": "Consommation finale d'énergie"
+   },
+   "aliases": [
+    "final energy consumption",
+    "final energy",
+    "final consumption",
+    "endenergieverbrauch",
+    "endenergie",
+    "consommation finale d energie",
+    "consommation finale",
+    "energie finale"
+   ],
+   "how": {
+    "en": "Final energy consumption is added up from what the end users consume in the energy balance: households, industry, services, agriculture and transport. It is the energy that reaches the final consumer, so it leaves out the energy sector's own use and the losses of transformation (for example in power plants) and distribution.",
+    "de": "Der Endenergieverbrauch wird in der Energiebilanz aus dem Verbrauch der Endverbraucher addiert: Haushalte, Industrie, Dienstleistungen, Landwirtschaft und Verkehr. Es ist die Energie, die den Endverbraucher erreicht; der Eigenverbrauch des Energiesektors sowie die Verluste bei Umwandlung (etwa in Kraftwerken) und Verteilung sind nicht enthalten.",
+    "fr": "La consommation finale d'énergie est additionnée dans le bilan énergétique à partir de ce que consomment les utilisateurs finals : ménages, industrie, services, agriculture et transports. C'est l'énergie qui parvient au consommateur final ; elle exclut l'usage propre du secteur de l'énergie et les pertes de transformation (par exemple dans les centrales) et de distribution."
+   },
+   "sources": [
+    {
+     "title": "Energy balance - new methodology",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_balance_-_new_methodology"
+    },
+    {
+     "title": "Energy efficiency statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_efficiency_statistics"
+    }
+   ]
+  },
+  {
+   "id": "primary-vs-final",
+   "name": {
+    "en": "Primary and final energy",
+    "de": "Primär- und Endenergie",
+    "fr": "Énergie primaire et finale"
+   },
+   "aliases": [
+    "difference between primary and final energy",
+    "primary and final energy",
+    "primary vs final energy",
+    "primary versus final energy",
+    "primary energy and final energy",
+    "unterschied zwischen primar und endenergie",
+    "primar und endenergie",
+    "primarenergie und endenergie",
+    "difference entre energie primaire et finale",
+    "energie primaire et finale",
+    "energie primaire et energie finale"
+   ],
+   "what": {
+    "en": "Primary energy consumption is the total energy demand of a country: it includes the energy sector's own use and the losses when energy is transformed (oil or gas into electricity, for example) and distributed, plus what end users consume. Final energy consumption is only what reaches the end users (households, industry, transport, services). Primary energy is therefore always larger than final energy, and the difference is mostly conversion and distribution losses.",
+    "de": "Der Primärenergieverbrauch ist der gesamte Energiebedarf eines Landes: Er umfasst den Eigenverbrauch des Energiesektors und die Verluste bei der Umwandlung (etwa von Öl oder Gas in Strom) und Verteilung sowie den Verbrauch der Endverbraucher. Der Endenergieverbrauch ist nur das, was die Endverbraucher erreicht (Haushalte, Industrie, Verkehr, Dienstleistungen). Primärenergie ist daher immer größer als Endenergie; der Unterschied besteht überwiegend aus Umwandlungs- und Verteilungsverlusten.",
+    "fr": "La consommation d'énergie primaire est la demande totale d'énergie d'un pays : elle inclut l'usage propre du secteur de l'énergie et les pertes lors de la transformation (du pétrole ou du gaz en électricité, par exemple) et de la distribution, plus ce que consomment les utilisateurs finals. La consommation finale n'est que ce qui parvient aux utilisateurs finals (ménages, industrie, transports, services). L'énergie primaire est donc toujours supérieure à l'énergie finale ; l'écart tient surtout aux pertes de conversion et de distribution."
+   },
+   "sources": [
+    {
+     "title": "Energy efficiency statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_efficiency_statistics"
+    }
+   ]
+  },
+  {
+   "id": "peat-oil-shale",
+   "name": {
+    "en": "Peat and oil shale",
+    "de": "Torf und Ölschiefer",
+    "fr": "Tourbe et schiste bitumineux"
+   },
+   "aliases": [
+    "peat",
+    "oil shale",
+    "oil shales",
+    "torf",
+    "olschiefer",
+    "tourbe",
+    "schiste bitumineux"
+   ],
+   "what": {
+    "en": "Peat is partly decayed plant matter from wetlands, dug up and burned for heat and electricity or used as a soil improver. Oil shale is a rock containing solid organic matter that can be burned directly or heated to produce oil. Eurostat groups both, with other minor solid fuels, under other solid fossil fuels.",
+    "de": "Torf ist teilweise zersetztes Pflanzenmaterial aus Mooren, das abgebaut und zur Wärme- und Stromerzeugung verbrannt oder als Bodenverbesserer genutzt wird. Ölschiefer ist ein Gestein mit festem organischem Material, das direkt verbrannt oder zur Ölgewinnung erhitzt werden kann. Eurostat fasst beide mit anderen kleineren festen Brennstoffen unter sonstige feste fossile Brennstoffe zusammen.",
+    "fr": "La tourbe est de la matière végétale partiellement décomposée issue de zones humides, extraite et brûlée pour la chaleur et l'électricité ou utilisée comme amendement. Le schiste bitumineux est une roche contenant de la matière organique solide, qui peut être brûlée directement ou chauffée pour produire du pétrole. Eurostat regroupe les deux, avec d'autres combustibles solides mineurs, sous les autres combustibles fossiles solides."
+   },
+   "sources": [
+    {
+     "title": "Coal production and consumption statistics",
+     "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Coal_production_and_consumption_statistics"
+    }
+   ]
+  }
+ ]
+}

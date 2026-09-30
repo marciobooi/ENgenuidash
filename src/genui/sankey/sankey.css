@@ -68,3 +68,19 @@
 .sankey--full .sankey__svg { max-height: 78vh; }
 .sankey__toggle.is-on { background: var(--ecl-color-primary, #004494); color: #fff; }
 .sankey__toggle.is-on:hover { background: var(--ecl-color-primary-dark, #003170); }
+/* icon-only buttons with a tooltip */
+.sankey__actions { display: flex; align-items: center; gap: 0.35rem; margin: 0.25rem 0 0.5rem; flex-wrap: nowrap; }
+.sankey__icon { position: relative; width: 2.25rem; height: 2.25rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--ecl-color-primary, #004494); border-radius: 4px; background: #fff; color: var(--ecl-color-primary, #004494); cursor: pointer; }
+.sankey__icon:hover { background: var(--ecl-color-primary-5, #eaf1fb); }
+.sankey__icon.is-on { background: var(--ecl-color-primary, #004494); color: #fff; }
+.sankey__icon:disabled { opacity: 0.4; cursor: default; }
+.sankey__icon:focus-visible { outline: 3px solid var(--ecl-color-warning, #f4b400); outline-offset: 2px; }
+.sankey__icon::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--ecl-color-dark-100, #1a1a1a); color: #fff; padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.75rem; font-weight: 400; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 30; }
+.sankey__icon:hover::after, .sankey__icon:focus-visible::after { opacity: 1; }
+.sankey__zoom .sankey__icon { width: 2rem; height: 2rem; }
+.sankey__zoom .sankey__icon::after { bottom: auto; top: calc(100% + 6px); left: auto; right: 0; transform: none; }
+.sankey__menuwrap { position: relative; }
+.sankey__menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 40; margin: 0; padding: 0.25rem 0; list-style: none; min-width: 12rem; background: #fff; border: 1px solid var(--ecl-color-dark-20, #ccc); border-radius: 6px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); }
+.sankey__menu button { display: block; width: 100%; padding: 0.45rem 0.85rem; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; }
+.sankey__menu button:hover, .sankey__menu button:focus-visible { background: var(--ecl-color-primary-5, #eaf1fb); outline: none; }
+@media (prefers-reduced-motion: reduce) { .sankey__icon::after { transition: none; } }

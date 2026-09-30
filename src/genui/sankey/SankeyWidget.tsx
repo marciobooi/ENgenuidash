@@ -36,6 +36,7 @@ export interface SankeyLabels {
   unhighlight: string
   breakDown: string
   flowDetails: string
+  download: string
   compareLegend: string
   changeVs: string
   exportPng: string
@@ -113,6 +114,30 @@ function cropOf(d: Disaggregation): number {
   return width / 0.98
 }
 
+const ICONS: Record<string, string> = {
+  details: 'M12 2 2 7l10 5 10-5-10-5zm0 12.5L4.5 10.7 2 12l10 5 10-5-2.5-1.3L12 14.5zm0 5L4.5 15.7 2 17l10 5 10-5-2.5-1.3L12 19.5z',
+  expand: 'M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z',
+  collapse: 'M8 2h2v6H4V6h4V2zm6 0h2v4h4v2h-6V2zM4 16h6v6H8v-4H4v-2zm10 0h6v2h-4v4h-2v-6z',
+  download: 'M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z',
+  fullscreen: 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z',
+  exitFullscreen: 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z',
+  table: 'M3 3h18v18H3V3zm2 2v4h6V5H5zm8 0v4h6V5h-6zM5 11v3h6v-3H5zm8 0v3h6v-3h-6zM5 16v3h6v-3H5zm8 0v3h6v-3h-6z',
+  zoomIn: 'M11 6h2v5h5v2h-5v5h-2v-5H6v-2h5V6z',
+  zoomOut: 'M6 11h12v2H6z',
+  reset: 'M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z',
+}
+
+/** An icon-only button with its name as a tooltip (and as its accessible name). */
+function IconButton({ icon, label, pressed, disabled, onClick, className = '' }: { icon: string; label: string; pressed?: boolean; disabled?: boolean; onClick: () => void; className?: string }) {
+  return (
+    <button type="button" className={`sankey__icon${pressed ? ' is-on' : ''} ${className}`} aria-label={label} data-tip={label} aria-pressed={pressed} disabled={disabled} onClick={onClick}>
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+        <path d={ICONS[icon]} fill="currentColor" />
+      </svg>
+    </button>
+  )
+}
+
 let ruler: CanvasRenderingContext2D | null = null
 function measure(text: string, fontSize: number): number {
   if (!ruler && typeof document !== 'undefined') ruler = document.createElement('canvas').getContext('2d')
@@ -144,6 +169,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const sectionRef = useRef<HTMLElement>(null)
   const [isFull, setIsFull] = useState(false)
   const [showTable, setShowTable] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const pinch = useRef<number | null>(null)
   useEffect(() => {
@@ -279,6 +305,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
 
   const fuelName = (code: string) => (code === 'losses' ? name('losses') : name(code))
   const idPrefix = useId()
+  const allExpanded = nodesOf(disaggregation) === nodesOf(allOpen())
   const fileBase = `energy-flow-${widget.geo}-${year}${widget.fuel === 'TOTAL' ? '' : `-${widget.fuel}`}`
 
   const onNodeActivate = (n: DrawnNode) => setSelection((prev) => (prev?.kind === 'node' && prev.code === n.code ? null : { kind: 'node', code: n.code, flowCode: NODE_FLOW[n.code] ?? n.code }))
@@ -334,57 +361,56 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
   const toggle = selection ? NODE_TOGGLE[selection.code] : undefined
 
   return (
-    <section ref={sectionRef} className={`sankey${isFull ? ' sankey--full' : ''}`} aria-label={widget.title} onKeyDown={(e) => e.key === 'Escape' && setSelection(null)}>
+    <section ref={sectionRef} className={`sankey${isFull ? ' sankey--full' : ''}`} aria-label={widget.title} onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          setSelection(null)
+          setMenuOpen(false)
+        }
+      }}>
       <div className="sankey__head">
         <h3 className="sankey__title">{widget.title}</h3>
         {widget.subtitle && <p className="sankey__subtitle">{widget.subtitle}</p>}
         <p className="sankey__hint">{labels.hint}</p>
       </div>
-      <div className="sankey__actions">
-        <button
-          type="button"
-          className={`sankey__btn sankey__toggle${widget.byFuel ? ' is-on' : ''}`}
-          aria-pressed={widget.byFuel}
-          onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, ...(widget.byFuel ? { byFuel: undefined } : { byFuel: true as const }) } }, labels.flowDetails)}
-        >
-          {labels.flowDetails}
-        </button>
-        <button type="button" className="sankey__btn" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(allOpen()) } }, labels.expandAll)}>
-          {labels.expandAll}
-        </button>
-        <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: undefined } }, labels.collapseAll)}>
-          {labels.collapseAll}
-        </button>
+      <div className="sankey__actions" role="toolbar" aria-label={widget.title}>
+        <IconButton icon="details" label={labels.flowDetails} pressed={widget.byFuel} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, ...(widget.byFuel ? { byFuel: undefined } : { byFuel: true as const }) } }, labels.flowDetails)} />
+        <IconButton
+          icon={allExpanded ? 'collapse' : 'expand'}
+          label={allExpanded ? labels.collapseAll : labels.expandAll}
+          pressed={allExpanded}
+          onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, nodes: allExpanded ? undefined : nodesOf(allOpen()) } }, allExpanded ? labels.collapseAll : labels.expandAll)}
+        />
         <span className="sankey__spacer" />
-        <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => svgRef.current && svgToPng(svgRef.current, widget.title).then((b) => download(b, `${fileBase}.png`))}>
-          {labels.exportPng}
-        </button>
-        <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => svgRef.current && download(new Blob([svgMarkup(svgRef.current, widget.title)], { type: 'image/svg+xml' }), `${fileBase}.svg`)}>
-          {labels.exportSvg}
-        </button>
-        <button type="button" className="sankey__btn sankey__btn--quiet" onClick={() => download(new Blob(['\ufeff', flowsCsv(layout.flows, name, fuelName, widget.unit, factor), '\n\n', nodesCsv(layout.nodes, name, widget.unit, factor)], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`)}>
-          {labels.exportCsv}
-        </button>
-        <button
-          type="button"
-          className="sankey__btn sankey__btn--quiet"
-          aria-pressed={isFull}
-          onClick={() => (document.fullscreenElement ? document.exitFullscreen() : sectionRef.current?.requestFullscreen())}
-        >
-          {isFull ? labels.exitFullscreen : labels.fullscreen}
-        </button>
+        <IconButton icon="table" label={showTable ? labels.tableHide : labels.tableShow} pressed={showTable} onClick={() => setShowTable((v) => !v)} />
+        <div className="sankey__menuwrap">
+          <IconButton icon="download" label={labels.download} pressed={menuOpen} onClick={() => setMenuOpen((v) => !v)} />
+          {menuOpen && (
+            <ul className="sankey__menu" role="menu">
+              <li role="none">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); if (svgRef.current) void svgToPng(svgRef.current, widget.title).then((b) => download(b, `${fileBase}.png`)) }}>
+                  {labels.exportPng}
+                </button>
+              </li>
+              <li role="none">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); if (svgRef.current) download(new Blob([svgMarkup(svgRef.current, widget.title)], { type: 'image/svg+xml' }), `${fileBase}.svg`) }}>
+                  {labels.exportSvg}
+                </button>
+              </li>
+              <li role="none">
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); download(new Blob(['\ufeff', flowsCsv(layout.flows, name, fuelName, widget.unit, factor), '\n\n', nodesCsv(layout.nodes, name, widget.unit, factor)], { type: 'text/csv;charset=utf-8' }), `${fileBase}.csv`) }}>
+                  {labels.exportCsv}
+                </button>
+              </li>
+            </ul>
+          )}
+        </div>
+        <IconButton icon={isFull ? 'exitFullscreen' : 'fullscreen'} label={isFull ? labels.exitFullscreen : labels.fullscreen} pressed={isFull} onClick={() => (document.fullscreenElement ? void document.exitFullscreen() : void sectionRef.current?.requestFullscreen())} />
       </div>
       <div className="sankey__box" ref={box} onMouseLeave={() => setTip(null)}>
         <div className="sankey__zoom" role="group" aria-label={labels.zoom}>
-          <button type="button" onClick={() => zoomAt(1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)} aria-label={labels.zoomIn}>
-            +
-          </button>
-          <button type="button" onClick={() => zoomAt(1 / 1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)} aria-label={labels.zoomOut} disabled={view.k <= 1}>
-            −
-          </button>
-          <button type="button" onClick={resetView} disabled={view.k <= 1 && view.x === 0 && view.y === 0} className="sankey__reset">
-            {labels.reset}
-          </button>
+          <IconButton icon="zoomIn" label={labels.zoomIn} onClick={() => zoomAt(1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)} />
+          <IconButton icon="zoomOut" label={labels.zoomOut} disabled={view.k <= 1} onClick={() => zoomAt(1 / 1.5, bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)} />
+          <IconButton icon="reset" label={labels.reset} disabled={view.k <= 1 && view.x === 0 && view.y === 0} onClick={resetView} />
         </div>
         <svg
           ref={svgRef}
@@ -556,11 +582,6 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan }: { wi
         </div>
       )}
 
-      <div className="sankey__tablebar">
-        <button type="button" className="sankey__btn sankey__btn--quiet" aria-expanded={showTable} onClick={() => setShowTable((v) => !v)}>
-          {showTable ? labels.tableHide : labels.tableShow}
-        </button>
-      </div>
       {showTable && (
         <div className="sankey__table-wrap">
           <table className="sankey__table">

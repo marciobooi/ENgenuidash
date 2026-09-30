@@ -161,10 +161,32 @@ export function useDashboards({
     setActive(0)
   }
 
+  /**
+   * A saved conversation is reopened: its dashboards are built again from their plans, all at
+   * once. A dashboard that cannot be built (no data, Eurostat unreachable) is left out; the
+   * result says where each saved one went (its new index, or -1) so the chat cards follow.
+   */
+  async function restore(saved: { plan: Plan; question: string }[], activeIndex: number): Promise<number[]> {
+    if (!dict) return saved.map(() => -1)
+    setBuilding(true)
+    try {
+      const built = await Promise.all(saved.map((s) => buildDashboard(s.plan, dict, lang, dashStrings(t)).then((spec) => ({ ...spec, question: s.question }), () => null)))
+      const kept = built.filter((b) => !!b) as DashboardSpec[]
+      let next = 0
+      const map = built.map((b) => (b ? next++ : -1))
+      builtIn.current = kept.map(() => lang)
+      setDashboards(kept)
+      setActive(Math.max(0, Math.min(map[activeIndex] ?? kept.length - 1, kept.length - 1)))
+      return map
+    } finally {
+      setBuilding(false)
+    }
+  }
+
   /** The year of the energy flow diagram moved on its timeline: the dashboard follows in the browser, without a rebuild. */
   const setLiveYear = (year: string) => setDashboards((d) => d.map((old, i) => (i === active ? { ...sankeyAtYear(old, year, t.sankey), question: old.question } : old)))
 
-  return { dashboards, active, setActive, current, hasDashboard, building, filters, runPlan, onFilter, back, clear, setLiveYear }
+  return { dashboards, active, setActive, current, hasDashboard, building, filters, runPlan, onFilter, back, clear, restore, setLiveYear }
 }
 
 export type Dashboards = ReturnType<typeof useDashboards>

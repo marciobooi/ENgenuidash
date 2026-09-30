@@ -31,6 +31,7 @@ export function ChatModal({
   children: ReactNode
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const pressedOnBackdrop = useRef(false)
   const onOpenedRef = useRef(onOpened)
   useEffect(() => {
     onOpenedRef.current = onOpened
@@ -62,7 +63,20 @@ export function ChatModal({
           {(busy || unread) && <span className="chat-fab__dot" aria-hidden="true" />}
         </button>
       </Tooltip>
-      <dialog ref={dialogRef} className="chat-modal" aria-labelledby="chat-modal-title" onClose={onClose}>
+      <dialog
+        ref={dialogRef}
+        className="chat-modal"
+        aria-labelledby="chat-modal-title"
+        onClose={onClose}
+        // A click on the backdrop (the dialog element itself, outside its content) closes it.
+        // (only when the press started there too: selecting text and letting go outside must not close it)
+        onMouseDown={(e) => {
+          pressedOnBackdrop.current = e.target === dialogRef.current
+        }}
+        onClick={(e) => {
+          if (pressedOnBackdrop.current && e.target === dialogRef.current) dialogRef.current?.close()
+        }}
+      >
         <div className="chat-modal__head">
           <h2 id="chat-modal-title" className="chat-modal__title">
             <MessagesSquare size={18} aria-hidden="true" />

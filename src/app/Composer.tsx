@@ -1,4 +1,4 @@
-import { ArrowUp, Plus, Square } from 'lucide-react'
+import { ArrowUp, History, Plus, Square } from 'lucide-react'
 import type { RefObject } from 'react'
 import { Tooltip } from '../components/tooltip'
 import type { Strings } from '../i18n'
@@ -11,6 +11,7 @@ export function Composer({
   onSend,
   onStop,
   onNewChat,
+  onHistory,
   canSend,
   canClear,
   generating,
@@ -23,6 +24,7 @@ export function Composer({
   onSend: () => void
   onStop: () => void
   onNewChat: () => void
+  onHistory: () => void
   canSend: boolean
   canClear: boolean
   generating: boolean
@@ -66,6 +68,11 @@ export function Composer({
           {/* aria-disabled keeps the button focusable so its tooltip stays reachable. */}
           <button type="button" className="icon-btn" onClick={onNewChat} aria-disabled={!canClear}>
             <Plus size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </Tooltip>
+        <Tooltip content={t.history.open}>
+          <button type="button" className="icon-btn" onClick={onHistory} aria-haspopup="dialog" aria-label={t.history.open}>
+            <History size={18} strokeWidth={2} aria-hidden="true" />
           </button>
         </Tooltip>
         {generating ? (

@@ -28,9 +28,11 @@ import { Header } from './Header'
 import { ChatModal } from './app/ChatModal'
 import { ChatThread } from './app/ChatThread'
 import { Composer } from './app/Composer'
+import { HistoryDialog } from './app/HistoryDialog'
 import { clearShareLink, decodePlan, readShareLink, shareUrl } from './app/shareLink'
 import { useAssistant } from './app/useAssistant'
 import { useChatFlow } from './app/useChatFlow'
+import { useChatHistory } from './app/useChatHistory'
 import { useDashboards } from './app/useDashboards'
 import { useEnergyData } from './app/useEnergyData'
 import { WelcomePage, type Idea } from './app/WelcomePage'
@@ -85,6 +87,7 @@ export default function App() {
   const t = STRINGS[lang]
   const [announcement, setAnnouncement] = useState('')
   const [chatOpen, setChatOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [unread, setUnread] = useState(false)
   const chatOpenRef = useRef(chatOpen)
   const fabRef = useRef<HTMLButtonElement>(null)
@@ -128,6 +131,24 @@ export default function App() {
   const chat = useChatFlow({ t, lang, data, assistant, dash, announce: setAnnouncement, openChat, ideas })
 
   const busy = llm.generating || dash.building
+  const resetScreen = () => {
+    llm.clear()
+    dash.clear()
+    clearShareLink()
+    setChatOpen(false)
+    setInput('')
+  }
+  const history = useChatHistory({
+    assistant,
+    dash,
+    t,
+    announce: setAnnouncement,
+    onReset: resetScreen,
+    onOpened: () => {
+      setHistoryOpen(false)
+      setChatOpen(false)
+    },
+  })
   const inConversation = llm.messages.length > 0
   const { current } = dash
 
@@ -190,11 +211,8 @@ export default function App() {
 
   const newChat = () => {
     if (busy || !inConversation) return
-    llm.clear()
-    dash.clear()
-    clearShareLink()
-    setChatOpen(false)
-    setInput('')
+    resetScreen()
+    history.startNew()
     notify.info(t.chatCleared)
     requestAnimationFrame(() => inputRef.current?.focus())
   }
@@ -207,6 +225,7 @@ export default function App() {
       onSend={() => send(input)}
       onStop={llm.stop}
       onNewChat={newChat}
+      onHistory={() => setHistoryOpen(true)}
       canSend={!!input.trim() && !busy && (!!data.dict || ready)}
       canClear={!busy && inConversation}
       generating={llm.generating}
@@ -375,6 +394,22 @@ export default function App() {
           <div className="chat-modal__dock">{composer}</div>
         </ChatModal>
       )}
+
+      <HistoryDialog
+        t={t}
+        lang={lang}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        sessions={history.sessions}
+        currentId={history.currentId}
+        enabled={history.enabled}
+        available={history.available}
+        busy={busy}
+        onOpenSession={(id) => void history.open(id)}
+        onRemove={history.remove}
+        onClearAll={history.clearAll}
+        onToggle={history.setEnabled}
+      />
     </div>
   )
 }

@@ -371,5 +371,15 @@ export function useLocalLLM(onEvent?: (e: LLMEvent) => void, { autoLoad = true }
     send({ type: 'reset' })
   }, [send])
 
-  return { status, error, progress, runtime, stats, messages, generating, phase, tps, load, ask, complete, choose, reply, append, updateLast, stop, clear }
+  /** Puts a saved conversation on screen (the model reads it as its earlier turns). */
+  const restore = useCallback(
+    (saved: UIMessage[]) => {
+      setError(null)
+      setMessages(saved)
+      send({ type: 'reset' })
+    },
+    [send],
+  )
+
+  return { status, error, progress, runtime, stats, messages, generating, phase, tps, load, ask, complete, choose, reply, append, updateLast, stop, clear, restore }
 }

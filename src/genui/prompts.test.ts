@@ -136,6 +136,11 @@ const EXPECTED: [string, string][] = [
   ['Concept data', 'Woher kommen die Winddaten?'],
   ['Concept what', "Qu'est-ce que l'énergie éolienne ?"],
   ['Concept how', "Comment sont calculés les prix de l'énergie ?"],
+  ['Endash profile', 'Energy profile of households in Germany (or "industry energy profile of France")'],
+  ['Endash profile', 'Portugal profile'],
+  ['Endash profile', 'show me the energy scorecard of Spain in 2022'],
+  ['Endash profile', 'fetch the energy overview of ue'],
+  ['Endash profile', 'grab the key indicators for France'],
   // words that look like a view's words but ask for something else
   ['nrg_bal_c', 'oil consumption in Spain'],
   ['(off-topic)', 'what is a sankey diagram'],

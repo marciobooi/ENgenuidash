@@ -1,4 +1,5 @@
 import { normalize } from '../llm/energyScope'
+import { withCanonicalWords } from './synonyms'
 
 /**
  * A question as people type it, made readable for the rules (route.ts). Many users are not native
@@ -28,13 +29,26 @@ const LEAD_INS = [
   `(?:make|build|create|mount|generate|open|prepare|do)(?: me| us)? ${OBJECT}(?: (?:of|for|about|on|with|showing|on the))?`,
   `(?:let me see|let s see|lets see|i m interested in|im interested in|info on|information on|data on|data about|numbers on|stats on|statistics on)`,
   `${OBJECT} (?:of|for|about|on|with)`,
+  `(?:do you (?:have|know)(?: any| some)?(?: about| on)?)`,
+  `(?:is there (?:any |some )?(?:data|info|information|stats|statistics|numbers|figures)? ?(?:on|about|for|of)?)`,
+  `(?:i wonder|quick question|one question|question)(?: about)? ?`,
+  `(?:i (?:need|want|d like|would like|am looking for|m looking for|look for)(?: to)?(?: (?:understand|learn about|check|compare|explore))?(?: an?| the)?)`,
+  `(?:take a look at|have a look at|look at|check out|explore|analy[sz]e)`,
+  `(?:an? )?(?:overview|summary|snapshot|picture|look) (?:of|on|at|for)`,
   // German
   `(?:bitte |hallo )+`,
+  `(?:ich (?:brauche|suche|interessiere mich fur))`,
+  `(?:hast du|haben sie|gibt es)(?: (?:daten|infos?|informationen|zahlen))?(?: (?:zu|zum|zur|uber))?`,
+  `(?:was ist mit|wie sieht es (?:mit|in|bei))`,
+  `(?:zeig|zeige) mir mal`,
   `(?:kannst du|konnen sie|konntest du|konnten sie)(?: mir)?(?: bitte)?(?: (?:zeigen|geben|sagen|erstellen))?`,
   `(?:zeig|zeige|zeigen sie|gib|geben sie|sag|sagen sie)(?: mir| uns)?(?: bitte)?`,
   `(?:erstelle|erstellen sie|mach|mache|baue|bau)(?: mir)?(?: bitte)? (?:ein |eine |einen )?(?:dashboard|diagramm|grafik|ubersicht|tabelle)(?: (?:zu|zum|zur|uber|fur|mit))?`,
   `(?:ich mochte|ich will|ich hatte gern|ich hatte gerne)(?: gern| gerne)?(?: (?:sehen|wissen))?`,
   // French
+  `(?:avez vous|as tu|y a t il)(?: des?)?(?: (?:donnees|infos?|informations|chiffres))?(?: (?:sur|de))?`,
+  `(?:parle moi de|parlez moi de|dis moi ce qu il en est de)`,
+  `(?:j ai besoin de|je cherche)`,
   `(?:s il te plait |s il vous plait |bonjour |salut )+`,
   `(?:peux tu|pouvez vous|pourrais tu|pourriez vous)(?: me)?(?: (?:montrer|donner|dire|faire|creer|afficher))?`,
   `(?:montre|montrez|donne|donnez|dis|dites|affiche|affichez)(?: moi| nous)?`,
@@ -160,7 +174,7 @@ export function prepareQuestion(text: string, { unknownWords, correct }: { unkno
   // "whats" is "what is" (a definition question stays one).
   q = q.replace(/\bwhats\b/g, 'what is')
   q = withoutLeadIns(q)
-  q = toEnglishKeywords(q)
+  q = withCanonicalWords(toEnglishKeywords(q))
   if (unknownWords && correct) {
     for (const w of new Set(unknownWords(q))) {
       const fixed = correct(w)

@@ -27,16 +27,18 @@ const fill = (template: string, values: Record<string, string>) => template.repl
 
 // ---------- questions ----------
 
-const OIL = / (oil|petroleum|crude|brent|erdol\w*|\w*olversorgung|mineralol\w*|petrole|petroli\w+|petrol) /
+const OIL = / (oil|petroleum|crude|brent|petrol|diesel|gasoline|fuel oil|heating oil|erdol\w*|\w*olversorgung|ol|ol(?:import|export|abhang|krise|vorrat|preis|lieferung|knappheit|embargo)\w*|mineralol\w*|petrole|petroli\w+|gasoil|carburants?) /
 // (not "prices" or "stocks" alone: those are the monthly dashboards)
-const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|cover|coverage|days of|reichweite|autonomie|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance) /
+// German compounds that name the topic themselves ("Ölabhängigkeit", "Ölkrise").
+const OIL_COMPOUND = / ol(?:abhang|krise|vorrat|knappheit|embargo|versorg)\w* /
+const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|cover|coverage|days of|reichweite|autonomie|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance|crise|crises|penurie|rupture|risk|risks|risky|vulnerable|vulnerability|running out|run out|shortage|shortages|scarcity|emergency|reserves?|approvisionnement|russe|russes|russie|russland|russischen?|russisches|cut off|disruption|disruptions) /
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
 /** The oil dashboard a question asks for ("oil security in Germany", "how dependent is Italy on Russian oil"), or null. */
 export function oilPlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   if (!dict.datasets[DATASET]) return null
   const p = parse(text.replace(/[-–,?]/g, ' '))
-  if (!OIL.test(p.text) || !OIL_TOPIC.test(p.text) || DEFINITION.test(p.text)) return null
+  if (!OIL.test(p.text) || !(OIL_TOPIC.test(p.text) || OIL_COMPOUND.test(p.text)) || DEFINITION.test(p.text)) return null
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => OIL_GEOS.includes(c)) ?? EU
   const year = detectTime(p).years.at(-1)

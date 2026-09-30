@@ -37,6 +37,14 @@ const INDUSTRY_WORDS = / (industry|industrial|non households?|non domestic|indus
 const focusOf = (text: string): 'households' | 'industry' | undefined => (INDUSTRY_WORDS.test(text) ? 'industry' : HOUSEHOLD_WORDS.test(text) || mentionsHouseholds({ text, words: text.trim().split(/\s+/) }) ? 'households' : undefined)
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
+const ENERGY_ONLY = new Set(['energy', 'energie', 'energetique', 'profile', 'profiles', 'profil', 'overview', 'scorecard', 'factsheet', 'snapshot', 'summary'])
+const FILLER = new Set('the a an of in for on about s von in der die das den fur zu zur zum de du des la le les en au aux pour sur dans overview'.split(' '))
+/** Nothing but "energy" (or "profile") and places: "energy in Spain", "Greece s energy", "Portugal profile". */
+function barePlaceEnergy(words: string[], codelists: EnergyCodelists): boolean {
+  const rest = words.filter((w) => !FILLER.has(w) && !detectGeos(parse(w), codelists).codes.length)
+  return rest.length > 0 && rest.every((w) => ENERGY_ONLY.has(w))
+}
+
 type ProfilePlan = NonNullable<Plan['profile']>
 /** The profile settings of a plan with some of them changed (null clears a setting). */
 const profileOf = (from: ProfilePlan | undefined, over: { perCapita?: boolean; focus?: ProfilePlan['focus'] | null; compare?: string | null }): ProfilePlan => {
@@ -52,9 +60,12 @@ const VERSUS = / (vs|versus|against|compared? (with|to)|comparison with|compare|
 export function profilePlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   if (!dict.datasets[DATASET]) return null
   const p = parse(text.replace(/[-–,]/g, ' '))
-  if (!PROFILE.test(p.text) || DEFINITION.test(p.text)) return null
+  if (DEFINITION.test(p.text)) return null
   const places = detectGeos(p, codelists)
   const inList = places.codes.filter((c) => PROFILE_GEOS.includes(c))
+  // "energy in Spain", "Greece's energy", "the energy of Sweden": a country and just "energy" is its profile.
+  const bare = inList.length > 0 && barePlaceEnergy(p.words, codelists)
+  if (!PROFILE.test(p.text) && !bare) return null
   const geo = inList[0] ?? EU
   const compare = inList[1] ?? (inList[0] && places.eu ? EU : undefined)
   const year = detectTime(p).years.at(-1)

@@ -47,15 +47,29 @@ export function glossaryDashboards(term: string, lang: Lang): string[] {
 const clean = (s: string) => ` ${normalize(s).replace(/[’']/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()} `
 
 const WHAT = /^(what is|what are|what s|whats|what does \S+( \S+)? mean|define|definition of|meaning of|explain|tell me about|was ist|was sind|was bedeutet|erklar\w*|qu est ce|c est quoi|explique\w*|definis\w*|que signifie|que veut dire)\b/
+/** Polite and roundabout ways of asking what something is, reduced to "what is X": "can you explain what biogas is", "I'd like to understand energy poverty", "hydropower meaning". */
+function plainWhat(t: string): string {
+  return t
+    .replace(/^(please |hey |hi |hello )+/, '')
+    .replace(/^(can|could|would|will) you (please )?(explain|tell me|define|describe)( to me)?( what| about)? /, 'what is ')
+    .replace(/^(tell me|explain to me|explain) what /, 'what is ')
+    .replace(/^i (would |d )?(like|want|need) to (understand|know|learn) (what |about )?/, 'what is ')
+    .replace(/^(do you know|i wonder|quick question) (what )?/, 'what is ')
+    .replace(/^(.+?) (meaning|definition|explained|means)$/, 'what is $1')
+    .replace(/^what does (.+?) stand for$/, 'what is $1')
+    .replace(/^(.+?) what (is|are) (it|that|this)$/, 'what is $1')
+    .replace(/^what (.+?) (is|are)$/, 'what is $1')
+    .replace(/^what is (.+?) (is|are)$/, 'what is $1')
+}
 const WHY = /^(why|warum|wieso|weshalb|pourquoi)\b|\b(importance|benefits?) of\b|\b(wichtigkeit|bedeutung|nutzen) (von|der|des)\b|\bimportance (de|des|du)\b/
 const HOW =
   /^(how|wie|comment)\b.*\b(calculat\w*|comput\w*|measur\w*|deriv\w*|determin\w*|compil\w*|work\w* out|count\w*|defin\w*|estimat\w*|berechn\w*|gemessen|ermittelt|calcul\w*|mesur\w*)/
 const DATA =
-  /\b(where (do|does|did|can|is|are|would)\b.*\b(data|come|comes|get|got|find|collected|stem|originate)|(source|sources) (of|for)\b.*\b(data|statistics|figures|numbers)|data sources?|how (do|does|can|did) (we|you|i|they|eurostat|countries|one)\b.*\b(get|obtain|collect|gather|find|know|learn|receive)|who (reports?|collects?|provides?|sends?)|how (often|frequently)\b.*\bupdat\w*|woher|wo kommen|datenquelle\w*|quelle\w* (der|fur|von)\b.*\bdaten|wie (kommen|gelangen|erhalten|erhebt|erheben|bekommen)\b.*\bdaten|wie oft|d ou (viennent|vient|proviennent)|ou (trouve|obtient|recolte)\w*|source\w* des donnees|comment (obtient|obtenir|collecte|collecter|recolte|recupere|recuperer)|combien de fois|a quelle frequence)\b/
+  /\b(where (do|does|did|can|is|are|would)\b.*\b(data|statistics|figures|numbers) (come|comes|get|got|from|stem)|where (do|does|did|can) (you|we|i|eurostat) (get|find|obtain|take)\b.*\b(data|statistics|figures|numbers)|(source|sources) (of|for)\b.*\b(data|statistics|figures|numbers)|data sources?|how (do|does|can|did) (we|you|i|they|eurostat|countries|one)\b.*\b(get|obtain|collect|gather|find|know|learn|receive)|who (reports?|collects?|provides?|sends?)\b.*\b(data|statistics|figures|numbers)|how (often|frequently)\b.*\bupdat\w*|how (current|recent|up to date|fresh|old)\b.*\b(data|statistics|figures|numbers)|when (is|are|was|were|does|do)\b.*\b(data|statistics|figures|numbers)\b.*\b(updated?|released?|published?|available)|latest year|woher\b.*\b(\w*daten|\w*zahlen|statistik\w*)|datenquelle\w*|quelle\w* (der|fur|von)\b.*\bdaten|wie (kommen|gelangen|erhalten|erhebt|erheben|bekommen)\b.*\bdaten|wie (oft|aktuell)\b.*\b(daten|zahlen)|wann\b.*\bdaten\b.*\b(aktualisiert|veroffentlicht)|d ou (viennent|vient|proviennent)\b.*\b(donnees|chiffres|statistiques)|source\w* des donnees|comment (obtient|obtenir|collecte|collecter|recolte|recupere|recuperer)\b.*\b(donnees|chiffres)|combien de fois\b.*\b(donnees|chiffres)|a quelle frequence\b.*\b(donnees|chiffres)|quand\b.*\bdonnees\b.*\b(mises a jour|publiees))\b/
 
 /** What a question asks about a concept, or null when it is none of the four. */
 export function questionKind(q: string): ConceptKind | null {
-  const t = clean(q).trim()
+  const t = plainWhat(clean(q).trim())
   if (DATA.test(t)) return 'data'
   if (HOW.test(t)) return 'how'
   if (WHY.test(t)) return 'why'
@@ -86,6 +100,7 @@ function findConcept(text: string): Concept | null {
 function leftovers(text: string, concept: Concept): string[] {
   const own = new Set(clean([...concept.aliases, concept.name.en, concept.name.de, concept.name.fr].join(' ')).split(' ').filter(Boolean))
   return clean(text)
+    .trim()
     .replace(WHAT, ' ')
     .split(' ')
     .filter(Boolean)
@@ -117,10 +132,11 @@ export function conceptAnswer(questions: string[], lang: Lang): ConceptAnswer | 
     const kind = questionKind(q)
     if (!kind) continue
     const concept = findConcept(q)
+    const asked = plainWhat(clean(q).trim())
     if (concept) {
       const texts = concept[kind]
       // "What is …?" only when the question is that concept and nothing else ("what is wind energy?").
-      if (texts && (kind !== 'what' || (leftovers(q, concept).length === 0 && q.split(/\s+/).length <= 9))) {
+      if (texts && (kind !== 'what' || (leftovers(asked, concept).length === 0 && asked.split(/\s+/).length <= 9))) {
         return { text: texts[lang] ?? texts.en, concept: concept.name[lang] ?? concept.name.en, kind, sources: sourcesOf(concept), dashboards: dashboardsOf(concept, lang) }
       }
     }

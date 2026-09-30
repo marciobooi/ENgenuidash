@@ -106,6 +106,17 @@ Definitions (answered in the chat from our written-up concepts, no dashboard; wh
 	- Qu'est-ce que l'énergie éolienne ?
 	- Comment sont calculés les prix de l'énergie ?
 
+
+Country profile:
+	- Energy profile: Germany
+	- Energy profile of Germany per capita
+	- Energy profile of households in Germany (or "industry energy profile of France")
+	- Energy profile of Germany vs France
+	- Portugal profile 
+	- show me the energy scorecard of Spain in 2022
+	- fetch the energy overview of ue
+	- grab the key indicators for France
+
 Not a view of their own (they keep their ordinary dashboard):
 	- oil consumption in Spain
 	- what is a sankey diagram
@@ -115,3 +126,4 @@ Notes (kept in step with src/genui/prompts.test.ts, which runs every line above)
 	* "Crude oil imports: price and volume ..." and "crude oil prices" are the monthly crude oil dashboard (Enmonthly).
 	* "now components" is a follow-up: it works on the price dashboard already on screen.
 	* Definitions: "what is / why is ... important / how is ... calculated / where does the data come from" for the concepts in src/llm/concepts.json are answered in the chat, in the language asked, with their Eurostat sources. Terms of the official glossary (crude oil, heat pump, toe ...) keep their glossary definition; a question that adds a country or a year ("what is the price of gas in Germany") is still a dashboard.
+	* Other ways of asking (synonyms such as "energy passport", "who supplies Germany with gas", "how much does electricity cost", polite openers, German and French) are listed in src/genui/phrasings.test.ts; add a line there whenever a question is not understood.

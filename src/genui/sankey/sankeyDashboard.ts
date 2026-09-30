@@ -28,7 +28,7 @@ const fill = (template: string, values: Record<string, string>) => template.repl
 
 // ---------- questions ----------
 
-const SANKEY = / (sankeys?|energy sankey|energy flow (diagrams?|charts?)|energy flows?|flow diagrams?|ensankey|energiefluss\w*|flussdiagramm\w*|energieflussdiagramm\w*|diagrammes? de flux|flux d energie|flux energetiques?) /
+const SANKEY = / (sankeys?|energy sankey|energy flow (diagrams?|charts?)|energy flows?|flow diagrams?|ensankey|energiefluss\w*|flussdiagramm\w*|energieflussdiagramm\w*|diagrammes? de flux|flux d energie|flux energetiques?|from production to (consumption|use|end use)|from source to (use|consumption|end use)|supply (and|to) (use|demand|consumption)|where (does|do) .*(energy|electricity|gas|oil|fuel|heat).* (come from and go|come from and goes|come from and end up|go)|energy (comes? from and goes?|sources and uses|supply and use)|woher kommt .* und wohin|d ou vient .* et ou va) /
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 const FUEL_WORDS: [string, RegExp][] = [
   ['SFF_P1000', / (coal|solid fuels?|solid fossil|kohle|charbon|combustibles solides) /],

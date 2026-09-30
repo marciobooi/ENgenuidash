@@ -14,6 +14,14 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 // Word stems matched at the start of a word, so "electric" also matches "electricity".
 // Stems of 4 letters or fewer only match the whole word (or its plural): "gas"/"gases",
 // but not "gastronomy". Multi-word entries match as phrases.
+// German compounds with a short energy word ("Gaslieferanten", "Ölimporte"): the short stems alone
+// only match whole words, so the compounds are listed.
+const COMPOUND_STEMS = [
+  'gasliefer', 'gasimport', 'gasexport', 'gaspreis', 'gasverbrauch', 'gasversorg', 'gasspeicher', 'gaskrise', 'gasabhang', 'gasproduktion', 'gasnetz', 'gaskraftwerk',
+  'olimport', 'olexport', 'olpreis', 'olabhang', 'olkrise', 'olvorrat', 'olversorg', 'olliefer', 'olknapp', 'olembargo', 'olverbrauch', 'olproduktion', 'olfeld', 'olsorte',
+  'windkraft', 'windrad', 'windpark', 'windstrom', 'windenergie', 'winddaten',
+]
+
 const STEMS = [
   // energy / power
   'energ', 'énerg', 'power', 'strom', 'electric', 'elektri', 'électri', 'watt', 'kwh', 'mwh', 'gwh', 'twh',
@@ -64,7 +72,7 @@ export const normalize = (s: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 
-const NORMALIZED_STEMS = STEMS.map(normalize)
+const NORMALIZED_STEMS = [...STEMS, ...COMPOUND_STEMS].map(normalize)
 
 export interface EnergyLexicon {
   /** Multi-word energy terms from the dictionary, normalised. */

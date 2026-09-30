@@ -21,6 +21,7 @@ import { buildBalanceDashboard, type BalanceStrings } from './balance'
 import { buildTradeDashboard, type TradeStrings } from './trade'
 import { buildMonthlyDashboard, isMonthlyDataset, type MonthlyStrings } from './monthly'
 import { buildPricesDashboard, type PricesStrings } from './prices'
+import { buildOilDashboard, type OilStrings } from './oil'
 import { buildProfileDashboard, type ProfileStrings } from './profile'
 import { buildSankeyDashboard, type SankeyStrings } from './sankey/sankeyDashboard'
 
@@ -56,6 +57,7 @@ export interface DashStrings {
   prices: PricesStrings
   monthly: MonthlyStrings
   profile: ProfileStrings
+  oil: OilStrings
   sankey: SankeyStrings
   sugUnit: string
   noteCached: string
@@ -147,6 +149,8 @@ export async function buildDashboard(
   if (plan.trade) return buildTradeDashboard(plan, dict, lang, s, signal)
   // Energy price structure (enprices): decomposed into its components, by country and over time.
   if (plan.prices) return buildPricesDashboard(plan, dict, lang, s, signal)
+  // Oil security (oil.ts): origins, dependency, prices, stocks and products of oil.
+  if (plan.oil) return buildOilDashboard(plan, dict, lang, s, signal)
   // Energy flow diagram (sankey/): the balance as flows, in the shape of Eurostat's Energy Sankey.
   if (plan.sankey) return buildSankeyDashboard(plan, dict, lang, s, signal)
   // Energy profile of a country (profile.ts): ENDASH's indicators side by side, in totals or per capita.

@@ -27,7 +27,7 @@ export function dashStrings(t: Strings): DashStrings {
     sugExplain: t.dSugExplain,
     balance: t.balance,
     trade: t.trade,
-    prices: t.prices, monthly: t.monthly, profile: t.profile, sankey: t.sankey,
+    prices: t.prices, monthly: t.monthly, profile: t.profile, sankey: t.sankey, oil: t.oil,
     sugUnit: t.dSugUnit,
     noteCached: t.dNoteCached,
     evolution: t.dEvolution,

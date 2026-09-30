@@ -7,6 +7,7 @@ import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
 import { balancePlan, refineBalance } from './balance'
 import { pricesPlan, refinePrices, toComponentsPlan } from './prices'
+import { oilPlan, refineOil } from './oil'
 import { profilePlan, refineProfile } from './profile'
 import { refineSankey, sankeyPlan } from './sankey/sankeyDashboard'
 import { refineTrade, tradePlan } from './trade'
@@ -84,6 +85,11 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
     if (priced) return { kind: 'refine', plan: priced }
     const prices = pricesPlan(text, dict, codelists)
     if (prices) return { kind: 'plan', plan: prices }
+    // Oil security: a new dashboard, or another country for the one on screen.
+    const oiled = current?.oil ? refineOil(current, text, dict, codelists) : null
+    if (oiled) return { kind: 'refine', plan: oiled }
+    const oil = oilPlan(text, dict, codelists)
+    if (oil) return { kind: 'plan', plan: oil }
     // Energy flow diagram (ENSANKEY): a new diagram, or another country, year, unit or product for the one on screen.
     const flowed = current?.sankey ? refineSankey(current, text, dict, codelists) : null
     if (flowed) return { kind: 'refine', plan: flowed }

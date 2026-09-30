@@ -59,6 +59,8 @@ export interface Plan {
   /** The energy profile of one country (ENDASH's indicators side by side), in totals or per capita (see profile.ts). */
   /** The energy flow diagram (sankey/): the fuel family shown, and whether flows are split by fuel. */
   sankey?: { fuel?: string; byFuel?: true; /** The households view (products into the uses of households) instead of the whole balance. */ scope?: 'households'; /** What to compare with: "y1", "y5", "y10" (years earlier) or a country code. */ compare?: string; /** The nodes opened up, by name (sankey/state.ts); the first picture when absent. */ nodes?: string }
+  /** The oil security dashboard (see oil.ts). */
+  oil?: { view?: 'all' }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 

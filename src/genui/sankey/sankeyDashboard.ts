@@ -43,6 +43,28 @@ const FUEL_WORDS: [string, RegExp][] = [
 // The households view ("energy flow diagram households") and the way back.
 // ("house hold", "housholds", "homes" and the other ways people write it)
 const HOUSEHOLDS = / (hous(e)? ?holds?|homes?|dwellings?|domestic|residential|haushalte?|privathaushalte|haushalt|menages?|menage|hogares|famiglie|huishoudens|lares) /
+/** Edits needed to turn one word into another (typing slips: "hosehold", "housholds"). */
+function distance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0]
+    row[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const keep = row[j]
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1))
+      prev = keep
+    }
+  }
+  return row[b.length]
+}
+
+/** "households" however it is written: words for it, "house hold" / "house-hold" (two words), typos, other languages. */
+export function mentionsHouseholds(p: { text: string; words: string[] }): boolean {
+  if (HOUSEHOLDS.test(p.text)) return true
+  const words = p.words.map((w) => w.replace(/'?s$/, '').replace(/[^a-z]/g, ''))
+  const candidates = [...words, ...words.slice(1).map((w, i) => words[i] + w)]
+  return candidates.some((w) => w.length >= 7 && w.length <= 11 && (distance(w, 'household') <= 2 || distance(w, 'households') <= 2))
+}
 const ALL_SECTORS = / (all sectors|whole balance|entire balance|alle sektoren|tous les secteurs) /
 const BY_FUEL = / (by (fuel|product|source)s?|coloured|colored|nach (brennstoff|energietrager)\w*|par (combustible|produit)s?) /
 
@@ -62,7 +84,7 @@ export function sankeyPlan(text: string, dict: EnergyDictionary, codelists: Ener
     time: year ? { kind: 'range', since: String(year), until: String(year) } : { kind: 'last', n: 1 },
     focusPeriod: year ? String(year) : undefined,
     intent: 'snapshot',
-    sankey: { ...(HOUSEHOLDS.test(p.text) ? { scope: 'households' as const } : {}), ...(fuel ? { fuel } : {}), ...(fuel || BY_FUEL.test(p.text) ? { byFuel: true as const } : {}) },
+    sankey: { ...(mentionsHouseholds(p) ? { scope: 'households' as const } : {}), ...(fuel ? { fuel } : {}), ...(fuel || BY_FUEL.test(p.text) ? { byFuel: true as const } : {}) },
   }
 }
 
@@ -77,7 +99,7 @@ export function refineSankey(current: Plan, text: string, dict: EnergyDictionary
   const unit = requestedUnit(p, ds)
   const fuel = FUEL_WORDS.find(([, re]) => re.test(p.text))?.[0]
   const byFuel = BY_FUEL.test(p.text)
-  const scopeAsked = ALL_SECTORS.test(p.text) ? null : HOUSEHOLDS.test(p.text) ? ('households' as const) : undefined
+  const scopeAsked = ALL_SECTORS.test(p.text) ? null : mentionsHouseholds(p) ? ('households' as const) : undefined
   const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|households?|house|hold|holds|homes?|domestic|residential|haushalte?|haushalt|menages?|all|sectors?|sektoren|secteurs|tous|alle|by|fuel|fuels|product|products|colou?red|as|only|just|nur|seulement|\d{4}|ktoe|gwh|tj)$/.test(w))
   const known = rest.every((w) => FUEL_WORDS.some(([, re]) => re.test(` ${w} `)) || detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)
   if (!(geo || year || unit || fuel || byFuel || scopeAsked !== undefined) || (!known && !SANKEY.test(p.text))) return null

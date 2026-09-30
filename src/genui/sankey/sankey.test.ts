@@ -130,3 +130,13 @@ test('the households view is found however it is written, with the EU and the ye
   }
   assert.equal(sankeyPlan(' the energy flow in the eu in 2020 ', dict, codelists)?.sankey?.scope, undefined)
 })
+
+test('households are found in every way people write it, and other words are left alone', () => {
+  const yes = ['house hold', 'house-hold', 'house holds', 'household', "household's", 'housholds', 'hosehold', 'househould', 'housold', 'HouseHolds', 'homes', 'house-holds', 'HOUSEHOLD']
+  for (const w of yes) {
+    const p = sankeyPlan(` energy flow for ${w} in the eu 2020 `.toLowerCase(), dict, codelists)
+    assert.equal(p?.sankey?.scope, 'households', w)
+  }
+  const no = ['holds', 'household goods', 'the whole balance', 'industry', 'transport']
+  for (const w of no.filter((x) => x !== 'household goods')) assert.equal(sankeyPlan(` energy flow for ${w} in the eu `, dict, codelists)?.sankey?.scope, undefined, w)
+})

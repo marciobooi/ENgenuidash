@@ -125,3 +125,10 @@ test('a profile can be set against another country, and shows prices with links 
   assert.equal(refineProfile(base, 'and Spain?', dict, codelists)?.filters.geo, 'ES')
   assert.equal(refineProfile(vs, 'compare with the EU', dict, codelists)?.profile?.compare, undefined)
 })
+
+test('the households profile is asked for however households is written', async () => {
+  const { profilePlan } = await import('./profile')
+  for (const w of ['house hold', 'house-hold', 'housholds', 'household']) {
+    assert.equal(profilePlan(` energy profile of ${w} in germany `, dict, codelists)?.profile?.focus, 'households', w)
+  }
+})

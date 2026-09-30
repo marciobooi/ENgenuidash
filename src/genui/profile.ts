@@ -2,6 +2,7 @@ import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type Eu
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
 import { pricesPlanFor } from './prices'
+import { mentionsHouseholds } from './sankey/sankeyDashboard'
 import { detectGeos, detectTime, parse } from './planner/parse'
 import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -33,7 +34,7 @@ const PER_CAPITA_WORDS = / (per (capita|person|head|inhabitant|citizen)|pro kopf
 // Who consumes: households, or industry (the non-household consumers).
 const HOUSEHOLD_WORDS = / (households?|domestic|residential|haushalte?|privathaushalte|menages?) /
 const INDUSTRY_WORDS = / (industry|industrial|non households?|non domestic|industrie|industrielle?s?) /
-const focusOf = (text: string): 'households' | 'industry' | undefined => (INDUSTRY_WORDS.test(text) ? 'industry' : HOUSEHOLD_WORDS.test(text) ? 'households' : undefined)
+const focusOf = (text: string): 'households' | 'industry' | undefined => (INDUSTRY_WORDS.test(text) ? 'industry' : HOUSEHOLD_WORDS.test(text) || mentionsHouseholds({ text, words: text.trim().split(/\s+/) }) ? 'households' : undefined)
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
 type ProfilePlan = NonNullable<Plan['profile']>

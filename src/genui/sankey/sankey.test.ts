@@ -120,3 +120,13 @@ test('the households view: asked for by wording, built from the household data, 
   const moved = sankeyAtYear(d, other, STRINGS.en.sankey)
   assert.match(moved.title, new RegExp(other))
 })
+
+test('the households view is found however it is written, with the EU and the year as typed', () => {
+  for (const q of [' the energy flow for house hold in ue in 2020 ', ' energy flow for households in the eu 2020 ', ' energy flows of homes in the eu 2020 ', ' energy flow diagram housholds eu 2020 ']) {
+    const p = sankeyPlan(q, dict, codelists)
+    assert.equal(p?.sankey?.scope, 'households', q)
+    assert.equal(p?.filters.geo, 'EU27_2020', q)
+    assert.equal(p?.focusPeriod, '2020', q)
+  }
+  assert.equal(sankeyPlan(' the energy flow in the eu in 2020 ', dict, codelists)?.sankey?.scope, undefined)
+})

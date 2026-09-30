@@ -41,7 +41,8 @@ const FUEL_WORDS: [string, RegExp][] = [
   ['E7000', / (electricity|strom|electricite) /],
 ]
 // The households view ("energy flow diagram households") and the way back.
-const HOUSEHOLDS = / (households?|domestic|residential|haushalte?|privathaushalte|menages?) /
+// ("house hold", "housholds", "homes" and the other ways people write it)
+const HOUSEHOLDS = / (hous(e)? ?holds?|homes?|dwellings?|domestic|residential|haushalte?|privathaushalte|haushalt|menages?|menage|hogares|famiglie|huishoudens|lares) /
 const ALL_SECTORS = / (all sectors|whole balance|entire balance|alle sektoren|tous les secteurs) /
 const BY_FUEL = / (by (fuel|product|source)s?|coloured|colored|nach (brennstoff|energietrager)\w*|par (combustible|produit)s?) /
 
@@ -77,7 +78,7 @@ export function refineSankey(current: Plan, text: string, dict: EnergyDictionary
   const fuel = FUEL_WORDS.find(([, re]) => re.test(p.text))?.[0]
   const byFuel = BY_FUEL.test(p.text)
   const scopeAsked = ALL_SECTORS.test(p.text) ? null : HOUSEHOLDS.test(p.text) ? ('households' as const) : undefined
-  const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|households?|domestic|residential|haushalte?|menages?|all|sectors?|sektoren|secteurs|tous|alle|by|fuel|fuels|product|products|colou?red|as|only|just|nur|seulement|\d{4}|ktoe|gwh|tj)$/.test(w))
+  const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|households?|house|hold|holds|homes?|domestic|residential|haushalte?|haushalt|menages?|all|sectors?|sektoren|secteurs|tous|alle|by|fuel|fuels|product|products|colou?red|as|only|just|nur|seulement|\d{4}|ktoe|gwh|tj)$/.test(w))
   const known = rest.every((w) => FUEL_WORDS.some(([, re]) => re.test(` ${w} `)) || detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)
   if (!(geo || year || unit || fuel || byFuel || scopeAsked !== undefined) || (!known && !SANKEY.test(p.text))) return null
   const sankey = { ...current.sankey, ...(fuel ? { fuel } : {}), ...(fuel || byFuel ? { byFuel: true as const } : {}), ...(scopeAsked !== undefined ? { scope: scopeAsked ?? undefined } : {}) }

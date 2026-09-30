@@ -115,10 +115,10 @@
   "RA300": "Wind",
   "RA410": "Solar thermal",
   "RA420": "Solar photovoltaic",
-  "R5110-5150_W6000RI": "Primary solid biofuels",
+  "R5110-5150_W6000RI": "Wood, pellets and other solid biofuels",
   "R5200": "Liquid biofuels",
   "W6210": "Renewable municipal waste",
-  "R5300": "Biogases",
+  "R5300": "Biogas",
   "RA200": "Geothermal",
   "RA600": "Ambient heat (heat pumps)",
   "RA500_5160": "Other renewable energies",
@@ -184,7 +184,12 @@
   "FC_OTH_HH_E_CK": "Cooking",
   "FC_OTH_HH_E_LE": "Lighting and electrical appliances",
   "FC_OTH_HH_E_OE": "Other end uses",
-  "HH_TOTAL": "Households"
+  "HH_TOTAL": "Households",
+  "O4630": "Liquefied petroleum gases (LPG)",
+  "O4669": "Kerosene",
+  "O4671": "Heating oil and diesel",
+  "O4000_OTH": "Other oil products",
+  "RA000_OTH": "Other renewables"
  },
  "de": {
   "N1": "Verfügbar aus allen Bezugsquellen",
@@ -300,9 +305,9 @@
   "RA000": "Erneuerbare Energien",
   "RA100": "Wasserkraftenergie",
   "RA300": "Windenergie",
-  "RA410": "Thermische Sonnenenergie",
+  "RA410": "Solarthermie",
   "RA420": "Fotovoltaische Energie",
-  "R5110-5150_W6000RI": "Primäre feste Biobrennstoffe",
+  "R5110-5150_W6000RI": "Holz, Pellets und andere feste Biobrennstoffe",
   "R5200": "Flüssige Biobrennstoffe",
   "W6210": "Siedlungsabfälle (erneuerbar) ",
   "R5300": "Biogas",
@@ -371,7 +376,12 @@
   "FC_OTH_HH_E_CK": "Kochen",
   "FC_OTH_HH_E_LE": "Beleuchtung und Elektrogeräte",
   "FC_OTH_HH_E_OE": "Sonstige Verwendungen",
-  "HH_TOTAL": "Haushalte"
+  "HH_TOTAL": "Haushalte",
+  "O4630": "Flüssiggas (LPG)",
+  "O4669": "Petroleum",
+  "O4671": "Heizöl und Diesel",
+  "O4000_OTH": "Sonstige Ölprodukte",
+  "RA000_OTH": "Sonstige erneuerbare Energien"
  },
  "fr": {
   "N1": "Disponible de toutes les sources",
@@ -489,7 +499,7 @@
   "RA300": "Éolien",
   "RA410": "Solaire thermique",
   "RA420": "Solaire photovoltaïque",
-  "R5110-5150_W6000RI": "Biocarburants solides primaires",
+  "R5110-5150_W6000RI": "Bois, granulés et autres biocombustibles solides",
   "R5200": "Biocarburants liquides",
   "W6210": "Déchets municipaux renouvelables",
   "R5300": "Biogaz",
@@ -558,6 +568,11 @@
   "FC_OTH_HH_E_CK": "Cuisson",
   "FC_OTH_HH_E_LE": "Éclairage et appareils électriques",
   "FC_OTH_HH_E_OE": "Autres usages",
-  "HH_TOTAL": "Ménages"
+  "HH_TOTAL": "Ménages",
+  "O4630": "Gaz de pétrole liquéfiés (GPL)",
+  "O4669": "Kérosène",
+  "O4671": "Fioul domestique et diesel",
+  "O4000_OTH": "Autres produits pétroliers",
+  "RA000_OTH": "Autres énergies renouvelables"
  }
 }

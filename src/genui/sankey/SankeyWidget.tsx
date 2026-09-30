@@ -176,6 +176,8 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
   const [isFull, setIsFull] = useState(false)
   const [showTable, setShowTable] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  // Households view: the products opened into their parts (oil, renewables).
+  const [openProducts, setOpenProducts] = useState<string[]>([])
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const pinch = useRef<number | null>(null)
   useEffect(() => {
@@ -241,6 +243,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
       setView({ k: 1, x: 0, y: 0 })
       setSelection(null)
       setHighlight([])
+      setOpenProducts([])
     }
   }
 
@@ -256,7 +259,20 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, year, widget.years])
 
-  const colorFor = (fuel: string) => (highlight.length > 0 ? (highlight.includes(fuel) ? (FUEL_COLORS[fuel] ?? FUEL_BACKGROUND) : FUEL_BACKGROUND) : widget.byFuel ? (FUEL_COLORS[fuel] ?? FUEL_BACKGROUND) : FUEL_COLORS.TOTAL)
+  // A part of a product has the shade of its product (lighter and darker), so it reads as part of it.
+  const familyOf = (code: string) => widget.scope?.left.find((f) => f === code || widget.scope?.children?.[f]?.includes(code)) ?? code
+  const shadeOf = (code: string) => {
+    const family = familyOf(code)
+    const parts = widget.scope?.children?.[family]
+    const base = FUEL_COLORS[family] ?? FUEL_BACKGROUND
+    if (family === code || !parts) return base
+    const i = parts.indexOf(code)
+    const amount = 0.55 * ((i + 1) / (parts.length + 1)) - 0.2
+    const n = parseInt(base.slice(1), 16)
+    const mix = (c: number) => Math.round(amount >= 0 ? c + (255 - c) * amount : c * (1 + amount))
+    return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => mix(c).toString(16).padStart(2, '0')).join('')}`
+  }
+  const colorFor = (fuel: string) => (highlight.length > 0 ? (highlight.includes(familyOf(fuel)) ? shadeOf(fuel) : FUEL_BACKGROUND) : widget.byFuel ? shadeOf(fuel) : FUEL_COLORS.TOTAL)
   const flows = useMemo(() => {
     const raw = model.flows(year)
     if (!parts) return raw
@@ -268,14 +284,15 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
   const scope = widget.scope
   // The scale is that of the biggest year, so the picture keeps its size while the years play.
   const scopeMax = useMemo(() => (scope ? Math.max(...widget.years.map((_, i) => Object.values(scope.values).reduce((sum, row) => sum + (row[i] ?? 0), 0))) : 0), [scope, widget.years])
+  const leftCodes = scope ? scope.left.flatMap((f) => (openProducts.includes(f) && scope.children?.[f] ? scope.children[f] : [f])) : []
   const scopeValue = (left: string, right: string) => scope?.values[`${left}|${right}`]?.[widget.years.indexOf(year)] ?? 0
   const layout = useMemo(
     () =>
       scope
-        ? layoutSankey({ flows: new Map(), width: drawWidth, height: drawHeight, scaleMax: scopeMax * 0.6, disaggregation, transformationShift: 0, name, format: formatValue, unit: widget.unit, measure, households: { left: scope.left, right: scope.right, values: scopeValue, colorOf: colorFor } })
+        ? layoutSankey({ flows: new Map(), width: drawWidth, height: drawHeight, scaleMax: scopeMax * 0.6, disaggregation, transformationShift: 0, name, format: formatValue, unit: widget.unit, measure, households: { left: leftCodes, right: scope.right, values: scopeValue, colorOf: colorFor } })
         : layoutSankey({ flows, width: drawWidth, height: drawHeight, scaleMax: model.scaleMax, disaggregation, transformationShift: disaggregation.transformation ? 0.3 : 0, name, format: formatValue, unit: widget.unit, measure }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flows, drawWidth, drawHeight, model.scaleMax, widget.disaggregation, widget.unit, lang, scope, year, highlight],
+    [flows, drawWidth, drawHeight, model.scaleMax, widget.disaggregation, widget.unit, lang, scope, year, highlight, openProducts],
   )
 
   // What the picture is compared with, drawn behind it (earlier years: as they were; another country: its structure at this size).
@@ -377,6 +394,10 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
 
   const detail = selection ? (scope ? buildScopeDetail(selection, widget, scope, name, formatValue, year, labels) : buildDetail(selection, model, widget, name, fuelName, formatValue, year, labels, refNode, refLabel)) : null
   const toggle = selection && !scope ? NODE_TOGGLE[selection.code] : undefined
+  // Households view: a product with parts opens into them; one of its parts closes the product again.
+  const scopeCode = selection && scope ? (selection.code.startsWith('HHU|') || selection.code.startsWith('HHP|') ? selection.code.slice(4) : selection.code) : ''
+  const scopeParent = scope && scopeCode ? (scope.children?.[scopeCode] ? scopeCode : Object.keys(scope.children ?? {}).find((f) => scope.children![f].includes(scopeCode))) : undefined
+  const scopeOpen = !!scopeParent && openProducts.includes(scopeParent)
 
   return (
     <section ref={sectionRef} className={`sankey${isFull ? ' sankey--full' : ''}`} aria-label={widget.title} onKeyDown={(e) => {
@@ -393,6 +414,14 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
       <div className="sankey__actions" role="toolbar" aria-label={widget.title}>
         <IconButton icon="home" label={scope ? labels.scopeAll : labels.scopeHouseholds} pressed={!!scope} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, scope: scope ? undefined : ('households' as const) } }, scope ? labels.scopeAll : labels.scopeHouseholds)} />
         {!scope && <IconButton icon="details" label={labels.flowDetails} pressed={widget.byFuel} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, ...(widget.byFuel ? { byFuel: undefined } : { byFuel: true as const }) } }, labels.flowDetails)} />}
+        {scope && Object.keys(scope.children ?? {}).length > 0 && (
+          <IconButton
+            icon={Object.keys(scope.children ?? {}).every((f) => openProducts.includes(f)) ? 'collapse' : 'expand'}
+            label={Object.keys(scope.children ?? {}).every((f) => openProducts.includes(f)) ? labels.collapseAll : labels.expandAll}
+            pressed={Object.keys(scope.children ?? {}).every((f) => openProducts.includes(f))}
+            onClick={() => setOpenProducts(Object.keys(scope.children ?? {}).every((f) => openProducts.includes(f)) ? [] : Object.keys(scope.children ?? {}))}
+          />
+        )}
         {!scope && <IconButton
           icon={allExpanded ? 'collapse' : 'expand'}
           label={allExpanded ? labels.collapseAll : labels.expandAll}
@@ -641,9 +670,15 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
               <button
                 type="button"
                 className="sankey__btn"
-                onClick={() => (toggle ? onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(toggleDisaggregation(disaggregation, toggle)) } }, name(selection.code)) : setSelection(null))}
+                onClick={() => {
+                  if (toggle) onPlan({ ...plan, sankey: { ...plan.sankey, nodes: nodesOf(toggleDisaggregation(disaggregation, toggle)) } }, name(selection.code))
+                  else if (scopeParent) {
+                    setOpenProducts((o) => (o.includes(scopeParent) ? o.filter((x) => x !== scopeParent) : [...o, scopeParent]))
+                    setSelection(null)
+                  } else setSelection(null)
+                }}
               >
-                {toggle ? (disaggregation[toggle] ? labels.collapse : labels.open) : labels.close}
+                {toggle ? (disaggregation[toggle] ? labels.collapse : labels.open) : scopeParent ? (scopeOpen ? labels.collapse : labels.open) : labels.close}
               </button>
             </div>
           </div>
@@ -675,7 +710,8 @@ function buildScopeDetail(
   const isFlow = false
   const a = ''
   const b = ''
-  const isLeft = scope.left.includes(code) || isTotal
+  const leftAll = [...scope.left, ...Object.values(scope.children ?? {}).flat()]
+  const isLeft = leftAll.includes(code) || isTotal
   const title = name(code)
   const rightsOf = (y: string) => scope.right.map((r) => ({ r, v: scope.left.reduce((s, l) => s + at(l, r, y), 0) }))
   const total = (y: string) => scope.right.reduce((s, r) => s + scope.left.reduce((t, l) => t + at(l, r, y), 0), 0)

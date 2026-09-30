@@ -525,7 +525,7 @@ export function layoutSankey(input: LayoutInput): Layout {
     const yStart = 0.3
     const hub = node('HH_TOTAL', 0.36, yStart, true, false, 'B')
     const fontPx = Math.max(9, 0.014 * H)
-    const gapProducts = Math.max(0.03, (3.8 * fontPx) / H)
+    const gapProducts = Math.max(0.03, (4.4 * fontPx) / H)
     const heightProducts = prodFlows.reduce((sum, f) => sum + fsize(f), 0) / H + (prodFlows.length - 1) * gapProducts
     const hubMid = hub.positionNormalized.y + fsize(total) / H / 2
     let yp = Math.max(0.1, hubMid - heightProducts / 2)

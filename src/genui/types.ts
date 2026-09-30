@@ -155,7 +155,7 @@ export type WidgetSpec = (
       table: Record<string, (number | null)[]>
       /** A reference to draw behind the diagram: earlier years of the same table, or another country's. */
       /** The households view: the value of each product → use flow in ktoe by year (Eurostat's nrg_d_hhq), instead of the balance table. */
-      scope?: { kind: 'households'; left: string[]; right: string[]; values: Record<string, (number | null)[]>; total?: (number | null)[] }
+      scope?: { kind: 'households'; left: string[]; right: string[]; /** The parts a product can be opened into (its nodes), with the codes of their values. */ children?: Record<string, string[]>; values: Record<string, (number | null)[]>; total?: (number | null)[] }
       compare?: { kind: 'years' | 'geo'; label: string; back?: number; years?: string[]; table?: Record<string, (number | null)[]> }
       disaggregation?: Partial<Record<'production' | 'allSources' | 'transformation' | 'afterTransformation' | 'finalConsumption' | 'energyConsumption' | 'nonEnergyConsumption' | 'industry' | 'transport' | 'otherSectors' | 'energyBranch', boolean>>
       size?: WidgetSize

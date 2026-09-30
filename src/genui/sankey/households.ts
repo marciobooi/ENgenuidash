@@ -18,6 +18,11 @@ import { sankeyControls } from './sankeyDashboard'
 const DATASET = 'nrg_d_hhq'
 const TJ_PER_KTOE = 41.868
 export const USES = ['FC_OTH_HH_E_SH', 'FC_OTH_HH_E_WH', 'FC_OTH_HH_E_CK', 'FC_OTH_HH_E_SC', 'FC_OTH_HH_E_LE', 'FC_OTH_HH_E_OE']
+/** The parts of a product that Eurostat gives too (its nodes open into them); what the parts do not add up to is "other". */
+export const PRODUCT_PARTS: Record<string, string[]> = {
+  O4000: ['O4630', 'O4669', 'O4671'],
+  RA000: ['R5110-5150_W6000RI', 'RA600', 'RA410', 'R5300'],
+}
 /** The products of the data, as the families of the main diagram (its colours), in its order. */
 export const HOUSEHOLD_PRODUCTS: { family: string; siec: string }[] = [
   { family: 'SFF_P1000', siec: 'SFF_P1000_S2000' },
@@ -123,17 +128,27 @@ export async function buildHouseholdsDashboard(plan: Plan, dict: EnergyDictionar
   const geo = String(plan.filters.geo ?? 'EU27_2020')
   const unit = String(plan.filters.unit ?? 'KTOE') in UNIT_TABLE ? String(plan.filters.unit ?? 'KTOE') : 'KTOE'
   const factor = UNIT_TABLE[unit].factor
-  const result = await fetchEurostatData(DATASET, { filters: { geo, unit: 'TJ', nrg_bal: USES, siec: HOUSEHOLD_PRODUCTS.map((p) => p.siec) }, lang, signal })
+  const result = await fetchEurostatData(DATASET, { filters: { geo, unit: 'TJ', nrg_bal: USES, siec: [...HOUSEHOLD_PRODUCTS.map((p) => p.siec), ...Object.values(PRODUCT_PARTS).flat()] }, lang, signal })
   const finalConsumption = await fetchEurostatData('nrg_bal_c', { filters: { geo, unit: 'KTOE', nrg_bal: 'FC_E', siec: 'TOTAL' }, lang, signal }).catch(() => null)
   const years = [...new Set(result.observations.filter((o) => o.value != null && o.value > 0).map((o) => o.keys.time))].sort()
   if (!years.length) throw new NoDataError(DATASET)
   const values: Record<string, (number | null)[]> = {}
   for (const o of result.observations) {
     if (o.value == null) continue
-    const family = HOUSEHOLD_PRODUCTS.find((p) => p.siec === o.keys.siec)?.family
+    const family = HOUSEHOLD_PRODUCTS.find((p) => p.siec === o.keys.siec)?.family ?? (Object.values(PRODUCT_PARTS).flat().includes(o.keys.siec) ? o.keys.siec : undefined)
     const i = years.indexOf(o.keys.time)
     if (!family || i < 0) continue
     ;(values[`${family}|${o.keys.nrg_bal}`] ??= years.map(() => null))[i] = o.value / TJ_PER_KTOE
+  }
+  // What the parts do not add up to.
+  const children: Record<string, string[]> = {}
+  for (const [family, parts] of Object.entries(PRODUCT_PARTS)) {
+    children[family] = [...parts, `${family}_OTH`]
+    for (const use of USES) {
+      const whole = values[`${family}|${use}`]
+      if (!whole) continue
+      values[`${family}_OTH|${use}`] = years.map((_, i) => (whole[i] == null ? null : Math.max(0, whole[i]! - parts.reduce((s, c) => s + (values[`${c}|${use}`]?.[i] ?? 0), 0))))
+    }
   }
   const total = finalConsumption ? years.map((y) => finalConsumption.observations.find((o) => o.keys.time === y)?.value ?? null) : undefined
   const year = plan.focusPeriod && years.includes(plan.focusPeriod) ? plan.focusPeriod : years.at(-1)!
@@ -167,7 +182,7 @@ export async function buildHouseholdsDashboard(plan: Plan, dict: EnergyDictionar
         fuel: 'TOTAL',
         byFuel: true,
         table: {},
-        scope: { kind: 'households', left: HOUSEHOLD_PRODUCTS.map((p) => p.family), right: USES, values, total },
+        scope: { kind: 'households', left: HOUSEHOLD_PRODUCTS.map((p) => p.family), right: USES, children, values, total },
         size: 'full',
       },
       ...around,

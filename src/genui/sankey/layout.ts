@@ -138,6 +138,8 @@ export interface LayoutInput {
   format: (value: number) => string
   unit: string
   measure: (text: string, fontSize: number) => number
+  /** The households view: one pipe of the products leaving a node and fanning out into what they are used for. */
+  households?: { left: string[]; right: string[]; values: (left: string, right: string) => number; colorOf: (left: string) => string }
 }
 
 class SNode {
@@ -511,6 +513,40 @@ export function layoutSankey(input: LayoutInput): Layout {
   const F6_8 = flowOf('F6_8')
   void F3
 
+  if (input.households) {
+    // Households: the flow of every product leaves one node (like final consumption) and fans out into the
+    // uses, with the same curves and stacking as the sectors of final consumption in the main diagram.
+    const hh = input.households
+    const rights = hh.right.filter((r) => hh.left.some((l) => hh.values(l, r) > 0))
+    const useFlows = rights.map((r) => makeFlow(`HHU|${r}`, hh.left, hh.left.map((l) => hh.values(l, r)), hh.left.map(hh.colorOf)))
+    const total = makeFlow('HH_TOTAL', hh.left, hh.left.map((l) => rights.reduce((sum, r) => sum + hh.values(l, r), 0)), hh.left.map(hh.colorOf))
+    // Products (left) flow into the households node, which fans out into the uses (right) with the products as stripes.
+    const prodFlows = hh.left.map((l) => makeFlow(`HHP|${l}`, [l], [rights.reduce((sum, r) => sum + hh.values(l, r), 0)], [hh.colorOf(l)])).filter((f) => f.value > 0)
+    const yStart = 0.3
+    const hub = node('HH_TOTAL', 0.36, yStart, true, false, 'B')
+    const fontPx = Math.max(9, 0.014 * H)
+    const gapProducts = Math.max(0.03, (3.8 * fontPx) / H)
+    const heightProducts = prodFlows.reduce((sum, f) => sum + fsize(f), 0) / H + (prodFlows.length - 1) * gapProducts
+    const hubMid = hub.positionNormalized.y + fsize(total) / H / 2
+    let yp = Math.max(0.1, hubMid - heightProducts / 2)
+    for (const f of prodFlows) {
+      const src = node(f.code.slice(4), 0.13, yp, true, false, 'L')
+      draw(f, src, hub, 0.4, 0.2, 'T', 1.5)
+      yp += fsize(f) / H + gapProducts
+    }
+    const x = 0.72
+    const shown = useFlows.filter((f) => !f.isTiny)
+    // room for a two-line label between the uses
+    const gapUses = Math.max(D.paddingNodeGroupY, (3.3 * fontPx) / H)
+    const heightUses = shown.reduce((sum, f) => sum + fsize(f), 0) / H + (shown.length - 1) * gapUses
+    let y = Math.max(0.1, hubMid - heightUses / 2)
+    for (const f of useFlows) {
+      const target = node(f.code.slice(4), x, y, true, false, 'E_R')
+      draw(f, hub, target, 0.4, 0.2, 'S', 1.5)
+      if (f.isTiny) continue
+      y += fsize(f) / H + gapUses
+    }
+  } else {
   const N1 = node('N1', D.xN1, D.yMain, true, false, 'B')
   const N6 = node('N6', D.xN6 + input.transformationShift, D.yMain)
 
@@ -683,6 +719,8 @@ export function layoutSankey(input: LayoutInput): Layout {
     void E6_6
     if (dis.finalConsumption) drawFinalConsumption(N6_1)
     if (dis.energyBranch) drawFlowGroup(D.xE6_5_X, E6_5, childrenOf(['6_5_1', '6_5_2', '6_5_3', '6_5_4', '6_5_5', '6_5_6', '6_5_7', '6_5_8', '6_5_9', '6_5_10', '6_5_11', '6_5_12', '6_5_13', '6_5_14', '6_5_15', '6_5_16']))
+  }
+
   }
 
   // ---------- nodes (node.js) ----------

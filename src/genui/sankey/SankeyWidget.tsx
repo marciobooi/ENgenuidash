@@ -3,7 +3,6 @@ import type { WidgetSpec } from '../types'
 import labelsJson from './labels.json'
 import { fetchEurostatData } from '../../data/eurostat'
 import type { Plan } from '../types'
-import { layoutBipartite } from './bipartite'
 import { DEFAULT_DISAGGREGATION, layoutSankey, type Disaggregation, type DrawnFlow, type DrawnNode } from './layout'
 import { EU_MEMBERS, NODE_TOGGLE, allOpen, nodesOf, toggleDisaggregation } from './state'
 import { download, flowsCsv, nodesCsv, svgMarkup, svgToPng } from './export'
@@ -267,11 +266,13 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, year, parts, highlight, widget.byFuel])
   const scope = widget.scope
+  // The scale is that of the biggest year, so the picture keeps its size while the years play.
+  const scopeMax = useMemo(() => (scope ? Math.max(...widget.years.map((_, i) => Object.values(scope.values).reduce((sum, row) => sum + (row[i] ?? 0), 0))) : 0), [scope, widget.years])
   const scopeValue = (left: string, right: string) => scope?.values[`${left}|${right}`]?.[widget.years.indexOf(year)] ?? 0
   const layout = useMemo(
     () =>
       scope
-        ? layoutBipartite({ width: drawWidth, height: drawHeight, left: scope.left.map((code) => ({ code, color: colorFor(code) })), right: scope.right.map((code) => ({ code })), values: scopeValue, colorOf: colorFor, name, format: formatValue, unit: widget.unit, measure })
+        ? layoutSankey({ flows: new Map(), width: drawWidth, height: drawHeight, scaleMax: scopeMax * 0.6, disaggregation, transformationShift: 0, name, format: formatValue, unit: widget.unit, measure, households: { left: scope.left, right: scope.right, values: scopeValue, colorOf: colorFor } })
         : layoutSankey({ flows, width: drawWidth, height: drawHeight, scaleMax: model.scaleMax, disaggregation, transformationShift: disaggregation.transformation ? 0.3 : 0, name, format: formatValue, unit: widget.unit, measure }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [flows, drawWidth, drawHeight, model.scaleMax, widget.disaggregation, widget.unit, lang, scope, year, highlight],
@@ -313,7 +314,9 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
     const b = g.getBBox()
     const pad = 14
     setBounds((old) => {
-      const next = { x: Math.floor(b.x - pad), y: Math.floor(b.y - pad), w: Math.ceil(b.width + 2 * pad), h: Math.ceil(b.height + 2 * pad) }
+      // a taller top margin: the zoom buttons sit there
+      const top = 44
+      const next = { x: Math.floor(b.x - pad), y: Math.floor(b.y - top), w: Math.ceil(b.width + 2 * pad), h: Math.ceil(b.height + pad + top) }
       return old.x === next.x && old.y === next.y && old.w === next.w && old.h === next.h ? old : next
     })
   }, [layout])
@@ -581,6 +584,7 @@ export function SankeyWidget({ widget, plan, labels, renderChart, onPlan, onYear
                 <button type="button" className={`sankey__legend-item${highlight.includes(f) ? ' is-on' : ''}`} aria-pressed={highlight.includes(f)} onClick={() => setHighlight((h) => (h.includes(f) ? h.filter((x) => x !== f) : [...h, f]))}>
                   <span className="sankey__swatch" style={{ background: colorFor(f) }} aria-hidden="true" />
                   {fuelName(f)}
+                  {scope && <span className="sankey__legend-value">{formatValue(scope.right.reduce((sum, r) => sum + scopeValue(f, r), 0))}</span>}
                 </button>
                 {FUEL_TABLE[f] && (
                   <button type="button" className="sankey__breakdown" title={labels.breakDown} aria-label={`${labels.breakDown}: ${fuelName(f)}`} onClick={() => onPlan({ ...plan, sankey: { ...plan.sankey, fuel: f, byFuel: true } }, fuelName(f))}>
@@ -665,13 +669,17 @@ function buildScopeDetail(
   const cv = (v: number) => Math.round(v * conv * (conv < 1 ? 10 : 1)) / (conv < 1 ? 10 : 1)
   const years = widget.years
   const at = (left: string, right: string, y: string) => scope.values[`${left}|${right}`]?.[years.indexOf(y)] ?? 0
-  const isFlow = sel.code.includes('|')
-  const [a, b] = sel.code.split('|')
-  const isLeft = scope.left.includes(sel.code)
-  const title = isFlow ? `${name(a)} → ${name(b)}` : name(sel.code)
+  // A pipe to a use is that use; the node of all households is every product together.
+  const code = sel.code.startsWith('HHU|') || sel.code.startsWith('HHP|') ? sel.code.slice(4) : sel.code
+  const isTotal = code === 'HH_TOTAL'
+  const isFlow = false
+  const a = ''
+  const b = ''
+  const isLeft = scope.left.includes(code) || isTotal
+  const title = name(code)
   const rightsOf = (y: string) => scope.right.map((r) => ({ r, v: scope.left.reduce((s, l) => s + at(l, r, y), 0) }))
   const total = (y: string) => scope.right.reduce((s, r) => s + scope.left.reduce((t, l) => t + at(l, r, y), 0), 0)
-  const value = (y: string) => (isFlow ? at(a, b, y) : isLeft ? scope.right.reduce((s, r) => s + at(sel.code, r, y), 0) : scope.left.reduce((s, l) => s + at(l, sel.code, y), 0))
+  const value = (y: string) => (isTotal ? total(y) : isLeft ? scope.right.reduce((s, r) => s + at(code, r, y), 0) : scope.left.reduce((s, l) => s + at(l, code, y), 0))
   const now = value(year)
   const pct = new Intl.NumberFormat(widget.lang, { maximumFractionDigits: 1 })
   const extra: string[] = []
@@ -681,15 +689,18 @@ function buildScopeDetail(
     const d = (100 * (now - value(prev))) / value(prev)
     extra.push(fill(labels.versusPrev, { delta: `${d >= 0 ? '+' : ''}${pct.format(d)} %`, year: prev }))
   }
-  const parts = isFlow ? null : isLeft ? scope.right.map((r) => ({ code: r, get: (y: string) => at(sel.code, r, y) })) : scope.left.map((l) => ({ code: l, get: (y: string) => at(l, sel.code, y) }))
+  const parts = isTotal ? scope.left.map((l) => ({ code: l, get: (y: string) => scope.right.reduce((s, r) => s + at(l, r, y), 0) })) : isLeft ? scope.right.map((r) => ({ code: r, get: (y: string) => at(code, r, y) })) : scope.left.map((l) => ({ code: l, get: (y: string) => at(l, code, y) }))
   const widgets: WidgetSpec[] = []
   if (parts) {
     const series = parts.map((p) => ({ name: name(p.code), data: years.map((y) => cv(p.get(y))) })).filter((x) => x.data.some((v) => v > 0))
     if (series.length > 1) widgets.push({ type: 'area', title, subtitle: `${widget.geoName} · ${widget.unit}`, categories: years, series, stacked: true, unit: widget.unit, size: 'half', highlight: year } as WidgetSpec)
     const slices = parts.map((p) => ({ name: name(p.code), y: Math.max(0, cv(p.get(year))) })).filter((x) => x.y > 0)
     if (slices.length > 1) widgets.push({ type: 'pie', title: `${title} · ${year}`, subtitle: widget.geoName, slices, unit: widget.unit, size: 'half' })
-  } else widgets.push({ type: 'line', title, subtitle: `${widget.geoName} · ${widget.unit}`, categories: years, series: [{ name: title, data: years.map((y) => cv(value(y))) }], unit: widget.unit, size: 'half', highlight: year } as WidgetSpec)
+  }
   void rightsOf
+  void isFlow
+  void a
+  void b
   return { title, text: `${widget.geoName}, ${year}: ${format(now)} ${widget.unit}`, extra, widgets }
 }
 

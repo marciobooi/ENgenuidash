@@ -84,3 +84,4 @@
 .sankey__menu button { display: block; width: 100%; padding: 0.45rem 0.85rem; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; }
 .sankey__menu button:hover, .sankey__menu button:focus-visible { background: var(--ecl-color-primary-5, #eaf1fb); outline: none; }
 @media (prefers-reduced-motion: reduce) { .sankey__icon::after { transition: none; } }
+.sankey__legend-value { color: var(--ecl-color-dark-60, #595959); font-variant-numeric: tabular-nums; }

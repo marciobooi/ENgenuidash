@@ -2,6 +2,7 @@ import { codeLabel, fetchEurostatData, loadEnergyCodelists, type EnergyCodelists
 import type { Strings } from '../i18n'
 import { EU27, MONTH_NAMES } from './concepts'
 import { planQuestion } from './planner'
+import { compareChoice, withVersus } from './compareControl'
 import { detectGeos, detectTime, parse, requestedUnit, type Parsed } from './planner/parse'
 import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, Suggestion, TradeFlow, TradeFuel, WidgetSpec } from './types'
 import { NoDataError } from './execute'
@@ -237,6 +238,7 @@ export async function buildTradeDashboard(
   // What the shares are compared with ("compare with the EU"): the same trade of another place.
   const compareGeo = trade.compare && trade.compare !== geo ? trade.compare : undefined
   const compareResult = compareGeo ? await fetchEurostatData(dataset, { filters: { geo: compareGeo, siec, unit }, lang, signal }).catch(() => null) : null
+  const compareName = compareResult && compareGeo ? (compareGeo === 'EU27_2020' ? 'EU-27' : (compareResult.dimensions.geo?.codes.find((c) => c.code === compareGeo)?.label ?? compareGeo).replace(/\s*\(.*?\)\s*$/, '')) : undefined
   const compareValues = new Map<string, Map<string, number | null>>()
   for (const o of compareResult?.observations ?? []) {
     const byYear = compareValues.get(o.keys.partner) ?? new Map()
@@ -337,7 +339,7 @@ export async function buildTradeDashboard(
       // The main partners of both sides (the country's first), so each side's big suppliers show.
       const topCodes = [...new Set([...now.slice(0, 6).map((p) => p.code), ...cmpRanked.slice(0, 6).map((p) => p.code)])].slice(0, 10)
       const round1 = (v: number) => Math.round(v * 10) / 10
-      widgets.push({
+      widgets.splice(1, 0, {
         type: 'bar',
         title: fill(t.compareTitle, { flow: flowWord, geo: geoName, other: cmpName }),
         subtitle: `${year}, % ${t.shareOfTotal.toLowerCase()}`,
@@ -427,7 +429,7 @@ export async function buildTradeDashboard(
     if (streak >= 2) insights.push({ tone: 'record', parts: [fill(t.streak, { top: rows[0].name, n: String(streak) })] })
   }
 
-  const title = fill(t.title, { flow: flowTitle, product: productLower, geo: geoName, year })
+  const title = withVersus(fill(t.title, { flow: flowTitle, product: productLower, geo: geoName, year }), compareName, lang)
   const { spec } = sanitizeSpec({
     title,
     subtitle: `${t.fuels[trade.fuel]} · ${symbol}`,
@@ -436,7 +438,7 @@ export async function buildTradeDashboard(
     notes: [],
     widgets,
     layout: ['summary', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
-    presentation: { template: 'trade', kpiStyle: 'cards', controls: ['geo', 'year', 'period', 'flow', 'fuel', 'product', 'unit'], primaryControls: 4, accent: 'teal' },
+    presentation: { template: 'trade', kpiStyle: 'cards', controls: ['geo', 'year', 'compare', 'period', 'flow', 'fuel', 'product', 'unit'], primaryControls: 4, accent: 'teal' },
     unit: symbol,
     source: { code: dataset, title: result.label, url: `https://ec.europa.eu/eurostat/databrowser/view/${dataset}/default/table?lang=${lang}` },
     suggestions: tradeSuggestions(plan, s),
@@ -721,6 +723,9 @@ async function tradeControls(
     years: [...years].reverse().slice(0, 15).map((y) => ({ label: y, plan: { ...plan, focusPeriod: y }, active: y === year })),
     units: ds.units.map((u) => ({ label: UNIT_SYMBOL[u] ?? u, plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: plan.filters.unit === u })),
     choices: [
+      ...(([] as string[]).concat(plan.filters.geo ?? []).filter(isCountry).length < 2 && typeof plan.filters.geo === 'string'
+        ? [await compareChoice({ plan, dict, dataset: plan.dataset, lang, current: trade.compare, set: (c) => ({ ...plan, trade: { ...trade, compare: c } }), t })]
+        : []),
       ...(hasMonthly(trade.fuel) && ([] as string[]).concat(plan.filters.geo ?? []).filter(isCountry).length < 2
         ? [{ key: 'period', label: t.period, options: [{ label: t.yearly, plan: periodPlan(false), active: !trade.monthly }, { label: t.monthlyData, plan: periodPlan(true), active: !!trade.monthly }] }]
         : []),

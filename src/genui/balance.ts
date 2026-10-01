@@ -1,5 +1,6 @@
 import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
+import { compareChoice, withVersus } from './compareControl'
 import { compareRequest } from './comparing'
 import { detectGeos, detectTime, parse, requestedUnit, type Parsed } from './planner/parse'
 import type { DashboardControls, DashboardSpec, FuelGroup, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
@@ -188,7 +189,7 @@ export async function buildBalanceDashboard(
   }))
   const decimals = 0
   const fmt = new Intl.NumberFormat(lang, { maximumFractionDigits: decimals })
-  const title = fill(s.balance.title, { geo: geoName, year })
+  let title = fill(s.balance.title, { geo: geoName, year })
   const groupName = s.balance.groups[group]
 
   // Key figures and charts (whole-energy view: the TOTAL column, when the group has it).
@@ -208,6 +209,8 @@ export async function buildBalanceDashboard(
   const back = compare && /^y\d+$/.test(compare) ? Number(compare.slice(1)) : 0
   const otherGeo = compare && !back && compare !== geo ? compare : undefined
   const comparison: string[] = []
+  const compareWidgets: WidgetSpec[] = []
+  let versusName: string | undefined
   if (hasTotal && (otherGeo || back)) {
     const otherYear = String(Number(year) - back)
     const other = await fetchEurostatData(DATASET, {
@@ -222,13 +225,14 @@ export async function buildBalanceDashboard(
       const cellB = (line: string, fuel: string) => otherValues.get(`${line}|${fuel}`)?.value ?? null
       const otherName = back ? otherYear : otherGeo === 'EU27_2020' ? 'EU-27' : (other.dimensions.geo?.codes.find((c) => c.code === otherGeo)?.label ?? String(otherGeo)).replace(/\s*\(.*?\)\s*$/, '')
       const mainName = back ? year : geoName
+      versusName = otherName
       const supplyA = cell('NRGSUP', 'TOTAL')
       const supplyB = cellB('NRGSUP', 'TOTAL')
       const share = (v: number | null, of: number | null) => (v != null && of ? Math.round((1000 * v) / of) / 10 : null)
       const keyLines = ['PPRD', 'IMP', 'GIC', 'FC_E'].filter((c) => cell(c, 'TOTAL') != null && cellB(c, 'TOTAL') != null)
       if (keyLines.length >= 2) {
         // other countries: shares of supply; earlier years: the lines themselves (same unit)
-        widgets.push({
+        compareWidgets.push({
           type: 'bar',
           title: back ? fill(s.balance.compareLinesYears, { year, prev: otherYear }) : fill(s.balance.compareLines, { geo: geoName, other: otherName }),
           subtitle: back ? `${symbol} · ${geoName}` : `% ${s.balance.ofSupply}`,
@@ -248,7 +252,7 @@ export async function buildBalanceDashboard(
       const gicA = cell('GIC', 'TOTAL')
       const gicB = cellB('GIC', 'TOTAL')
       if (mix.length >= 2 && gicA && gicB) {
-        widgets.push({
+        compareWidgets.push({
           type: 'bar',
           title: fill(s.balance.compareFuels, { a: mainName, b: otherName }),
           subtitle: `% · ${s.balance.gicByFuel}`,
@@ -279,6 +283,9 @@ export async function buildBalanceDashboard(
       }
     }
   }
+  // The comparison comes before the sheet (a big table that would bury it).
+  if (compareWidgets.length) widgets.splice(widgets.findIndex((w) => w.type === 'balance'), 0, ...compareWidgets)
+  if (versusName) title = withVersus(title, versusName, lang)
   const supply = hasTotal ? cell('NRGSUP', 'TOTAL') : null
   const final = hasTotal ? cell('FC_E', 'TOTAL') : null
   const summary = [...(supply != null && final != null ? [fill(s.balance.summary, { year, geo: geoName, supply: fmt.format(supply), final: fmt.format(final), unit: symbol })] : []), ...comparison]
@@ -291,11 +298,11 @@ export async function buildBalanceDashboard(
     notes: [],
     widgets,
     layout: ['summary', 'toolbar', 'kpis', 'charts', 'suggestions'],
-    presentation: { template: 'balance', kpiStyle: 'cards', controls: ['geo', 'year', 'fuels', 'unit'], primaryControls: 4, accent: 'blue' },
+    presentation: { template: 'balance', kpiStyle: 'cards', controls: ['geo', 'year', 'compare', 'fuels', 'unit'], primaryControls: 4, accent: 'blue' },
     unit: symbol,
     source: { code: DATASET, title: result.label, url: `https://ec.europa.eu/eurostat/databrowser/view/${DATASET}/default/table?lang=${lang}` },
     suggestions: balanceSuggestions(plan, s),
-    controls: balanceControls(plan, ds.dataStart ?? undefined, ds.dataEnd ?? undefined, year, s.balance),
+    controls: await balanceControls(plan, dict, lang, ds.dataStart ?? undefined, ds.dataEnd ?? undefined, year, s.balance),
     context: balanceContext(title, groupName, symbol, columns, rows.filter((r) => r.level === 0 || r.parent === 'NRGSUP')),
     plan: { ...plan, focusPeriod: year },
     shown: { geo: [geo] },
@@ -303,7 +310,7 @@ export async function buildBalanceDashboard(
   return spec
 }
 
-function balanceControls(plan: Plan, dataStart: string | undefined, dataEnd: string | undefined, year: string, s: BalanceStrings): DashboardControls {
+async function balanceControls(plan: Plan, dict: EnergyDictionary, lang: string, dataStart: string | undefined, dataEnd: string | undefined, year: string, s: BalanceStrings): Promise<DashboardControls> {
   const end = Number(dataEnd) || Number(year)
   const start = Number(dataStart) || end - 14
   const at = (y: string): Plan => ({ ...plan, time: { kind: 'range', since: y, until: y }, focusPeriod: y })
@@ -313,6 +320,7 @@ function balanceControls(plan: Plan, dataStart: string | undefined, dataEnd: str
     years: years.map((y) => ({ label: y, plan: at(y), active: y === year })),
     units: Object.keys(UNIT_SYMBOL).map((u) => ({ label: UNIT_SYMBOL[u], plan: { ...plan, filters: { ...plan.filters, unit: u } }, active: plan.filters.unit === u })),
     choices: [
+      await compareChoice({ plan, dict, dataset: DATASET, lang, current: plan.balance?.compare, set: (c) => ({ ...plan, balance: { ...plan.balance!, compare: c } }), t: s, years: true }),
       {
         key: 'fuels',
         label: s.fuels,

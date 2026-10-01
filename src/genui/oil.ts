@@ -3,6 +3,7 @@ import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
 import { detectGeos, detectTime, parse } from './planner/parse'
 import type { DashboardSpec, Insight, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
+import { compareChoice, withVersus } from './compareControl'
 import { compareRequest } from './comparing'
 import { sanitizeSpec } from './validate'
 
@@ -242,9 +243,11 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
 
   // ----- compared with another country or the EU: dependency, Russia's share, stock cover -----
   const comparisonSummary: string[] = []
+  let versusName: string | undefined
   if (compareGeo && compareData) {
     const [productsC, stocksC, exportsC] = compareData
-    const nameC = compareGeo === EU ? 'EU-27' : (label(productsC ?? stocksC, 'geo', compareGeo) || compareGeo).replace(/\s*\(.*?\)\s*$/, '')
+    const nameC: string = compareGeo === EU ? 'EU-27' : (label(productsC ?? stocksC, 'geo', compareGeo) || compareGeo).replace(/\s*\(.*?\)\s*$/, '')
+    versusName = nameC
     const totalC = seriesOf(productsC, (k) => k.partner === 'TOTAL')
     const ruC = annual(seriesOf(productsC, (k) => k.partner === 'RU'))
     const totalCa = annual(totalC)
@@ -440,7 +443,7 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     depNow != null && ruYear && ru21 != null && priceNow != null && lastPriceMonth
       ? [fill(t.summary, { geo: geoName, year: depYear ?? '', dep: pct(depNow), ru: pct(ruAnnual.get(ruYear)!), ruYear, ru21: pct(ru21), price: nf(0).format(priceNow), month: lastPriceMonth })]
       : []
-  const title = fill(t.title, { geo: geoName })
+  const title = withVersus(fill(t.title, { geo: geoName }), versusName, lang)
   summary.push(...comparisonSummary)
   const suggestions: Suggestion[] = []
   if (!compareGeo && !isEu) suggestions.push({ label: t.sugCompare, plan: { ...plan, oil: { ...plan.oil, compare: EU } } })
@@ -456,9 +459,10 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     notes: [t.note, ...(coverNow != null ? [t.noteCover] : [])],
     widgets,
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'suggestions'],
-    presentation: { template: 'oil', kpiStyle: 'cards', controls: ['geo'], primaryControls: 1, accent: 'orange' },
+    presentation: { template: 'oil', kpiStyle: 'cards', controls: ['geo', 'compare'], primaryControls: 2, accent: 'orange' },
     source: source(DATASET, label(crude ?? products, 'siec', 'O4100_TOT')),
     suggestions,
+    controls: { choices: [await compareChoice({ plan, dict, dataset: DATASET, lang, current: compareGeo, set: (c) => ({ ...plan, oil: c ? { ...plan.oil, compare: c } : {} }), t })] },
     context: [title, ...summary, ...kpis.map((k) => `${k.label}: ${k.value} ${k.unit ?? ''}`)].join('\n'),
     plan,
     shown: { geo: [geo] },

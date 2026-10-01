@@ -269,7 +269,7 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     }
     const pair = (title: string, subtitle: string, a: Map<string, number>, b: Map<string, number>, from: string, unit: string) => {
       const cats = [...new Set([...a.keys(), ...b.keys()])].filter((c) => c >= from).sort()
-      if (cats.length >= 2 && a.size && b.size) widgets.push({ type: 'line', title, subtitle, categories: cats, series: [{ name: geoName, data: cats.map((c) => a.get(c) ?? null) }, { name: nameC, data: cats.map((c) => b.get(c) ?? null) }], unit, size: 'half', role: 'evolution' })
+      if (cats.length >= 2 && a.size && b.size) widgets.push({ type: 'line', title, subtitle, categories: cats, series: [{ name: geoName, data: cats.map((c) => a.get(c) ?? null) }, { name: nameC, data: cats.map((c) => b.get(c) ?? null) }], unit, size: 'half', role: 'evolution', cmp: true })
     }
     pair(fill(t.compareDependency, { geo: geoName, other: nameC }), '%', depSeries, depC, '2005', '%')
     pair(fill(t.compareRussia, { geo: geoName, other: nameC }), '%', ruAnnual, ruShareC, '2015', '%')
@@ -452,6 +452,7 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
   suggestions.push({ label: s.sugExplain, explain: true })
 
   const { spec } = sanitizeSpec({
+    ...(versusName ? { compareNames: [geoName, versusName] as [string, string] } : {}),
     title,
     subtitle: t.subtitle,
     summary,

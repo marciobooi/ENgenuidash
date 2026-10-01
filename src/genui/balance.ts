@@ -211,6 +211,7 @@ export async function buildBalanceDashboard(
   const comparison: string[] = []
   const compareWidgets: WidgetSpec[] = []
   let versusName: string | undefined
+  let mainLabel: string | undefined
   if (hasTotal && (otherGeo || back)) {
     const otherYear = String(Number(year) - back)
     const other = await fetchEurostatData(DATASET, {
@@ -226,6 +227,7 @@ export async function buildBalanceDashboard(
       const otherName = back ? otherYear : otherGeo === 'EU27_2020' ? 'EU-27' : (other.dimensions.geo?.codes.find((c) => c.code === otherGeo)?.label ?? String(otherGeo)).replace(/\s*\(.*?\)\s*$/, '')
       const mainName = back ? year : geoName
       versusName = otherName
+      mainLabel = mainName
       const supplyA = cell('NRGSUP', 'TOTAL')
       const supplyB = cellB('NRGSUP', 'TOTAL')
       const share = (v: number | null, of: number | null) => (v != null && of ? Math.round((1000 * v) / of) / 10 : null)
@@ -246,6 +248,7 @@ export async function buildBalanceDashboard(
           decimals: back ? 0 : 1,
           size: 'half',
           role: 'ranking',
+          cmp: true,
         })
       }
       const mix = columns.filter((c) => c.code !== 'TOTAL' && (cell('GIC', c.code) ?? 0) > 0 || (cellB('GIC', c.code) ?? 0) > 0).filter((c) => c.code !== 'TOTAL')
@@ -266,6 +269,7 @@ export async function buildBalanceDashboard(
           decimals: 1,
           size: 'half',
           role: 'composition',
+          cmp: true,
         })
       }
       const pct = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
@@ -291,6 +295,7 @@ export async function buildBalanceDashboard(
   const summary = [...(supply != null && final != null ? [fill(s.balance.summary, { year, geo: geoName, supply: fmt.format(supply), final: fmt.format(final), unit: symbol })] : []), ...comparison]
 
   const { spec } = sanitizeSpec({
+    ...(versusName && mainLabel ? { compareNames: [mainLabel, versusName] as [string, string] } : {}),
     title,
     subtitle: `${groupName} · ${label('unit', unit)}`,
     summary,

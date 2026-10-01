@@ -387,6 +387,10 @@ export type WidgetSpec = (
     }
 ) & {
   role?: WidgetRole
+  /** A chart of a comparison (it shows both places at once, so it has no alternate). */
+  cmp?: true
+  /** The same chart for the other place (or year) of a comparison: a toggle after the title swaps them (see execute.ts). */
+  alt?: { /** The other place or year. */ label: string; /** The place or year this chart shows. */ mainLabel: string; widget: WidgetSpec }
   /** A line under the chart, e.g. the countries left out for having no data in it. */
   note?: string
 }
@@ -445,6 +449,8 @@ export interface DashboardControls {
 
 export interface DashboardSpec {
   title: string
+  /** The two places (or years) of a comparison, for the toggle of the charts: [shown, other]. */
+  compareNames?: [string, string]
   subtitle: string
   /** Deterministic, translated summary built from the numbers themselves. */
   summary: string[]

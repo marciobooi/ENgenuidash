@@ -1,10 +1,11 @@
-import { BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
+import { ArrowRightLeft, BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { isCrowdedBar } from './crowded'
 import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, SeasonalChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
+import { Tooltip } from '../components/tooltip'
 import { DataTable, PartnersTable, type PartnersTableLabels } from '../components/table'
 import { BalanceSheet, type BalanceSheetLabels } from './BalanceSheet'
 import { AnswerCard } from './AnswerCard'
@@ -93,7 +94,7 @@ export function Dashboard({
 
   const suffixFor = (unit: string | undefined) => (unit ? (unit === '%' ? '%' : ` ${unit}`) : '')
 
-  const renderChart = (w: WidgetSpec) => {
+  const renderChart = (w: WidgetSpec, titleExtra?: ReactNode) => {
     const unit = 'unit' in w && w.unit ? w.unit : spec.unit
     const common = {
       title: 'title' in w ? w.title : '',
@@ -107,6 +108,7 @@ export function Dashboard({
         </>
       ),
       labels: chartLabels,
+      titleExtra,
       lang,
       decimals: w.type === 'bar' && w.decimals != null ? w.decimals : decimals,
       valueSuffix: suffixFor(unit),
@@ -265,7 +267,7 @@ export function Dashboard({
         <div className="dash__charts">
           {charts.map((w, i) => (
             <div key={`${w.type}-${i}`} className={`dash__cell dash__cell--${sizes[i]}`}>
-              {renderChart(w)}
+              {w.alt ? <PlaceSwitch widget={w} render={renderChart} label={chartLabels.showPlace ?? 'Show {place}'} /> : renderChart(w)}
             </div>
           ))}
         </div>
@@ -387,6 +389,28 @@ function SwitchableBar({ widget: w, common }: { widget: BarWidget; common: Omit<
 }
 
 /** Eurostat's description of the indicator, with a link to the full metadata. */
+/**
+ * A chart of a comparison, flipped between the two places (or years) with a toggle after its title:
+ * it names the place shown and a click shows the other (only comparisons have one: execute.ts).
+ */
+function PlaceSwitch({ widget, render, label }: { widget: WidgetSpec; render: (w: WidgetSpec, titleExtra?: ReactNode) => ReactNode; label: string }) {
+  const [other, setOther] = useState(false)
+  const alt = widget.alt
+  if (!alt) return render(widget)
+  const shown = other ? alt.widget : widget
+  const next = other ? alt.mainLabel : alt.label
+  const text = label.replace('{place}', next)
+  return render(
+    shown,
+    <Tooltip content={text}>
+      <button type="button" className="chart-card__place" aria-label={text} aria-pressed={other} onClick={() => setOther((o) => !o)}>
+        <ArrowRightLeft size={14} aria-hidden="true" />
+        {other ? alt.label : alt.mainLabel}
+      </button>
+    </Tooltip>,
+  )
+}
+
 function Explainer({ widget, labels }: { widget: Extract<WidgetSpec, { type: 'text' }>; labels: DashboardLabels }) {
   const id = useId()
   return (

@@ -264,6 +264,7 @@ export default function App() {
 
   const chartLabels = {
     showTable: t.showTable,
+    showPlace: t.showPlace,
     hideTable: t.hideTable,
     tableCategory: t.tableCategory,
     tableSwap: t.tableSwap,

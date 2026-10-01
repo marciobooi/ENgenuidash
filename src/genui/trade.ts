@@ -353,6 +353,7 @@ export async function buildTradeDashboard(
         decimals: 1,
         size: 'half',
         role: 'ranking',
+        cmp: true,
       })
       if (rows[0]) summary.push(fill(t.compareLead, { geo: geoName, top: rows[0].name, share: fmtPct(rows[0].share), otherShare: fmtPct(cmpShare.get(now[0].code) ?? 0), other: cmpName, flow: flowWord }))
       const cmpHhi = hhiOf(cmpRanked.map((p) => shareOf(p.value, cmpTotal)))
@@ -431,6 +432,7 @@ export async function buildTradeDashboard(
 
   const title = withVersus(fill(t.title, { flow: flowTitle, product: productLower, geo: geoName, year }), compareName, lang)
   const { spec } = sanitizeSpec({
+    ...(compareName ? { compareNames: [geoName, compareName] as [string, string] } : {}),
     title,
     subtitle: `${t.fuels[trade.fuel]} · ${symbol}`,
     summary,

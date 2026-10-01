@@ -25,11 +25,15 @@ export interface ChartFrameProps {
   lang?: string
   /** Translated labels for the header actions and states. */
   labels?: Partial<ChartActionLabels>
+  /** After the title: e.g. the toggle between the two places of a comparison. */
+  titleExtra?: ReactNode
   /** Content between the title and the plot (e.g. a headline figure with change chips). */
   headline?: ReactNode
 }
 
 export interface ChartActionLabels {
+  /** "Show {place}": the toggle between the two places of a comparison. */
+  showPlace?: string
   showTable: string
   hideTable: string
   /** Header of the first column of the data table. */
@@ -80,6 +84,7 @@ export function ChartFrame({
   lang = 'en',
   labels,
   headline,
+  titleExtra,
   options,
   plugins,
   kind,
@@ -123,8 +128,11 @@ export function ChartFrame({
     <figure className={`chart-card${className ? ` ${className}` : ''}`} aria-labelledby={`${id}-title`}>
       <div className="chart-card__top">
         <figcaption className="chart-card__head">
-          <span className="chart-card__title" id={`${id}-title`}>
-            {title}
+          <span className="chart-card__titlerow">
+            <span className="chart-card__title" id={`${id}-title`}>
+              {title}
+            </span>
+            {titleExtra}
           </span>
           {subtitle && <span className="chart-card__subtitle">{subtitle}</span>}
         </figcaption>

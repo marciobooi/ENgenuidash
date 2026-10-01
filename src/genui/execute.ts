@@ -135,7 +135,64 @@ function fill(template: string, values: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')
 }
 
+/**
+ * A comparison shows both places in its own charts, and each chart of the dashboard can also be
+ * flipped to the other place (the toggle after its title, Dashboard.tsx): the dashboard of the
+ * other place (or, on the balance sheet, of the earlier year) is built alongside and its charts are
+ * attached to the matching ones (same kind, same place in the order).
+ */
+export function alternatePlan(plan: Plan, spec?: DashboardSpec): Plan | null {
+  const compare = plan.trade?.compare ?? plan.oil?.compare ?? plan.balance?.compare
+  if (!compare) return null
+  if (/^y\d+$/.test(compare)) {
+    const year = Number(spec?.plan.focusPeriod ?? plan.focusPeriod)
+    return plan.balance && year ? { ...plan, focusPeriod: String(year - Number(compare.slice(1))), time: { kind: 'range', since: String(year - Number(compare.slice(1))), until: String(year - Number(compare.slice(1))) }, balance: { ...plan.balance, compare: undefined } } : null
+  }
+  const alone = { filters: { ...plan.filters, geo: compare } }
+  if (plan.trade) return { ...plan, ...alone, trade: { ...plan.trade, compare: undefined } }
+  if (plan.oil) return { ...plan, ...alone, oil: {} }
+  if (plan.balance) return { ...plan, ...alone, balance: { ...plan.balance, compare: undefined } }
+  return null
+}
+
+export function withAlternates(spec: DashboardSpec, other: DashboardSpec): DashboardSpec {
+  if (!spec.compareNames) return spec
+  const [mainName, otherName] = spec.compareNames
+  const seen = new Map<string, number>()
+  const others = new Map<string, WidgetSpec[]>()
+  for (const w of other.widgets) if (!w.cmp && w.type !== 'kpis') others.set(w.type, [...(others.get(w.type) ?? []), w])
+  const widgets = spec.widgets.map((w) => {
+    if (w.cmp || w.type === 'kpis') return w
+    const k = seen.get(w.type) ?? 0
+    seen.set(w.type, k + 1)
+    const twin = others.get(w.type)?.[k]
+    return twin && twin.role === w.role ? { ...w, alt: { label: otherName, mainLabel: mainName, widget: twin } } : w
+  })
+  return { ...spec, widgets }
+}
+
 export async function buildDashboard(
+  plan: Plan,
+  dict: EnergyDictionary,
+  lang: string,
+  s: DashStrings,
+  signal?: AbortSignal,
+  chooseVariant?: ChooseVariant,
+): Promise<DashboardSpec> {
+  const alt = alternatePlan(plan)
+  // (the other place can be built at the same time; the other year of a balance sheet needs the year the sheet turned out to be)
+  if (alt) {
+    const [spec, other] = await Promise.all([buildDashboardCore(plan, dict, lang, s, signal, chooseVariant), buildDashboardCore(alt, dict, lang, s, signal, chooseVariant).catch(() => null)])
+    return other ? withAlternates(spec, other) : spec
+  }
+  const spec = await buildDashboardCore(plan, dict, lang, s, signal, chooseVariant)
+  const later = plan.balance?.compare && /^y\d+$/.test(plan.balance.compare) ? alternatePlan(plan, spec) : null
+  if (!later) return spec
+  const other = await buildDashboardCore(later, dict, lang, s, signal, chooseVariant).catch(() => null)
+  return other ? withAlternates(spec, other) : spec
+}
+
+async function buildDashboardCore(
   plan: Plan,
   dict: EnergyDictionary,
   lang: string,

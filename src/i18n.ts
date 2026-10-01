@@ -852,6 +852,7 @@ const en = {
   notUnderstood: "I'm not sure what you mean. I can show Eurostat energy data (for example consumption, production, imports or prices by country and year), explain energy terms, or answer questions from Eurostat's energy documents. Try one of these:",
   didYouMean: 'I’m not sure which change you mean. Did you mean one of these?',
   checkingIntent: 'Checking what you mean…',
+  unreadOfferPlace: 'I could not read that as a request, but here is what I can show for {place}:',
   intentDidYouMean: 'I could not read that as a request. Did you mean one of these dashboards?',
   intents: {
     profile: 'Country energy profile',
@@ -1776,6 +1777,7 @@ export const STRINGS: Record<Lang, Strings> = {
     notUnderstood: 'Ich bin nicht sicher, was Sie meinen. Ich kann Eurostat-Energiedaten zeigen (zum Beispiel Verbrauch, Erzeugung, Importe oder Preise nach Land und Jahr), Energiebegriffe erklären oder Fragen anhand der Eurostat-Energiedokumente beantworten. Versuchen Sie zum Beispiel:',
     didYouMean: 'Ich bin nicht sicher, welche Änderung Sie meinen. Meinten Sie eine dieser?',
     checkingIntent: 'Ich prüfe, was Sie meinen …',
+    unreadOfferPlace: 'Das habe ich nicht als Anfrage verstanden, aber für {place} kann ich Ihnen Folgendes zeigen:',
     intentDidYouMean: 'Das habe ich nicht als Anfrage verstanden. Meinten Sie eines dieser Dashboards?',
     intents: {
       profile: 'Energieprofil eines Landes',
@@ -2695,6 +2697,7 @@ export const STRINGS: Record<Lang, Strings> = {
     notUnderstood: "Je ne suis pas sûr de comprendre. Je peux afficher les données énergétiques d'Eurostat (par exemple consommation, production, importations ou prix par pays et par année), expliquer des termes de l'énergie ou répondre à partir des documents d'Eurostat sur l'énergie. Essayez par exemple :",
     didYouMean: 'Je ne suis pas sûr de la modification souhaitée. Vouliez-vous dire l’une de celles-ci ?',
     checkingIntent: 'Je vérifie ce que vous voulez dire…',
+    unreadOfferPlace: 'Je n’ai pas compris cela comme une demande, mais voici ce que je peux montrer pour {place} :',
     intentDidYouMean: "Je n’ai pas compris cela comme une demande. Vouliez-vous l’un de ces tableaux de bord ?",
     intents: {
       profile: "Profil énergétique d’un pays",

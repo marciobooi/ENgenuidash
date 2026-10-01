@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import { recordMiss } from '../eval/missLog'
 import { dashboardActions, rankByOverlap, type DashboardAction } from '../genui/actions'
-import { INTENTS, MAX_BUTTONS, intentMessages, planForIntent, rankIntents } from '../genui/intent'
-import { detectGeos, parse } from '../genui/planner/parse'
+import { INTENTS, MAX_BUTTONS, MAX_OFFERED, intentMessages, planForIntent, rankIntents, suggestedKinds, type IntentId } from '../genui/intent'
 import { prepareQuestion } from '../genui/prepare'
 import { routeMessage } from '../genui/route'
 import type { Plan, Suggestion } from '../genui/types'
@@ -102,46 +101,57 @@ export function useChatFlow({
   const dashboardChoices = (queries: string[]) => (queries.length ? queries.map((q) => ({ label: q, query: q })) : undefined)
 
   /**
-   * The rules could not read the question: the model says which kinds of dashboard it may ask for
-   * (genui/intent.ts) and they are offered as buttons, each built by the rules from the places and
-   * period in the question. Never opens anything by itself (the model's word is not trusted that far:
-   * see src/eval/IntentEval.tsx). Without the model, or when it finds nothing, `fallback` is said.
+   * The rules could not read the question. Instead of ending there, something useful is offered as
+   * buttons (each built by the rules from the places and period in the question): what the model
+   * says the question may ask for (genui/intent.ts), when it is loaded, then what the words the
+   * rules did recognise suggest (a country → its profile, energy flows and renewables; "gas" →
+   * trade, prices, balance). Nothing opens by itself: the model's word is not trusted that far (see
+   * src/eval/IntentEval.tsx). With nothing to offer, `fallback` is said.
    */
   function respondUnread(typed: string, fallback: { content: string; kind?: 'refusal'; choices?: NonNullable<typeof llm.messages[number]['choices']> }, missKind: 'rephrase' | 'refused' | 'unclear') {
-    const say = (m: { content: string; kind?: 'refusal'; choices?: typeof fallback.choices }) => {
-      llm.append({ role: 'user', content: typed }, { role: 'assistant', ...m })
-      announce(m.content)
-    }
     const miss = () => recordMiss({ text: typed, lang, kind: missKind, followUp: hasDashboard })
-    if (!ready || !dict || !codelists || llm.generating || dash.building) {
+    const say = (m: { content: string; kind?: 'refusal'; choices?: typeof fallback.choices }, pending: boolean) => {
+      if (pending) llm.updateLast((x) => !!x.pending, { ...m, pending: false })
+      else llm.append({ role: 'user', content: typed }, { role: 'assistant', ...m })
+      announce(m.content)
+      if (hasDashboard) openChat()
+    }
+    if (!dict || !codelists) {
       miss()
-      say(fallback)
+      say(fallback, false)
+      return
+    }
+    const routeAny = (q: string) =>
+      routeMessage(q, { current: null, dict, codelists, classify: (x) => scope.classify(x, []), unknownWords: (x) => vocabulary.unknownWords(x, knowledgeDocFreq()), correct: (w) => vocabulary.correct(w, knowledgeDocFreq()), previous: [] })
+    const geoName = (code: string | undefined) => (code ? (codelists.codelists.GEO?.codes?.[code]?.[lang] ?? '').replace(/\s*\(.*?\)\s*$/, '') : '')
+    const hinted = suggestedKinds(typed, codelists)
+    // The buttons for these kinds (the model's first), as far as the rules can build them.
+    const offer = (modelKinds: IntentId[]) => {
+      const kinds = [...modelKinds, ...hinted.kinds.filter((k) => !modelKinds.includes(k))].slice(0, MAX_OFFERED)
+      const choices = kinds
+        .map((id) => ({ id, plan: planForIntent(id, typed, routeAny, codelists) }))
+        .filter((c): c is { id: IntentId; plan: Plan } => !!c.plan)
+        .map((c) => ({ label: [t.intents[c.id], geoName(typeof c.plan.filters.geo === 'string' ? c.plan.filters.geo : undefined)].filter(Boolean).join(' – '), query: typed, plan: c.plan }))
+      if (!choices.length) {
+        miss()
+        return false
+      }
+      recordMiss({ text: typed, lang, kind: 'intent', followUp: hasDashboard })
+      const place = geoName(hinted.place)
+      return { content: place ? fill(t.unreadOfferPlace, { place }) : t.intentDidYouMean, choices }
+    }
+
+    if (!ready || llm.generating || dash.building) {
+      const offered = offer([])
+      say(offered || fallback, false)
       return
     }
     llm.append({ role: 'user', content: typed }, { role: 'assistant', content: t.checkingIntent, pending: true })
     announce(t.checkingIntent)
     const timeout = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000))
     void Promise.race([llm.choose(intentMessages(typed), INTENTS.length + 1).catch(() => null), timeout]).then((probs) => {
-      const routeAny = (q: string) =>
-        routeMessage(q, { current: null, dict, codelists, classify: (x) => scope.classify(x, []), unknownWords: (x) => vocabulary.unknownWords(x, knowledgeDocFreq()), correct: (w) => vocabulary.correct(w, knowledgeDocFreq()), previous: [] })
-      const geoName = (plan: Plan) => {
-        const g = plan.filters.geo
-        return typeof g === 'string' ? (codelists.codelists.GEO?.codes?.[g]?.[lang] ?? '').replace(/\s*\(.*?\)\s*$/, '') : ''
-      }
-      const choices = (probs ? rankIntents(probs).slice(0, MAX_BUTTONS) : [])
-        .map((c) => ({ id: c.id, plan: planForIntent(c.id, typed, routeAny, codelists) }))
-        .filter((c): c is { id: typeof c.id; plan: Plan } => !!c.plan)
-        .map((c) => ({ label: [t.intents[c.id], geoName(c.plan)].filter(Boolean).join(' – '), query: typed, plan: c.plan }))
-      if (choices.length) {
-        recordMiss({ text: typed, lang, kind: 'intent', followUp: hasDashboard })
-        llm.updateLast((m) => !!m.pending, { content: t.intentDidYouMean, pending: false, choices })
-        announce(t.intentDidYouMean)
-      } else {
-        miss()
-        llm.updateLast((m) => !!m.pending, { ...fallback, pending: false })
-        announce(fallback.content)
-      }
-      if (hasDashboard) openChat()
+      const offered = offer(probs ? rankIntents(probs).slice(0, MAX_BUTTONS).map((c) => c.id) : [])
+      say(offered || fallback, true)
     })
   }
 
@@ -200,9 +210,9 @@ export function useChatFlow({
         // could not apply ("show the trend") rather than an off-topic question: say how to phrase it.
         if (route.tryActions && resolveWithActions(typed)) return
         const message = route.tryActions ? t.notApplied : t.offTopic
-        // A place named ("Croatia snapshot pls"): the model may still recognise a request for a dashboard.
-        const namesPlace = !!codelists && (() => { const g = detectGeos(parse(text), codelists); return g.codes.length > 0 || g.eu })()
-        if (namesPlace) respondUnread(typed, { content: message, kind: 'refusal' }, 'refused')
+        // A place or a topic recognised ("Croatia, the whole picture"): something useful is offered instead of a refusal.
+        const hasHints = !!codelists && suggestedKinds(typed, codelists).kinds.length > 0
+        if (hasHints) respondUnread(typed, { content: message, kind: 'refusal' }, 'refused')
         else {
           recordMiss({ text: typed, lang, kind: 'refused', followUp: hasDashboard })
           llm.reply(typed, message, 'refusal')

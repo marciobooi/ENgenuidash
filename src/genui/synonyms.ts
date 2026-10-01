@@ -11,6 +11,7 @@ const RULES: [RegExp, string][] = [
   [/\b(country|national) (cards?|profiles?|passports?|snapshots?)\b/g, 'country profile'],
   [/\b(the )?(state|situation|picture) of (the )?energy\b/g, 'energy profile'],
   [/\bhow (is|are) (?:the )?(.+?) doing (?:on |in |with |regarding )?(?:the )?energy(?:[- ]?wise)?\b/g, 'energy profile of $2'],
+  [/\bhow (?:is|are) (?:the )?(.+?) (?:on the whole|overall|in general|generally|altogether|all in all|as a whole)\b/g, 'energy profile of $1'],
   [/\bhow (?:the )?(.+?) (?:is|are) doing (?:on |in |with |regarding )?(?:the )?energy(?:[- ]?wise)?\b/g, 'energy profile of $1'],
   [/\b(everything|all|anything)(?: there is)?(?: to know)? (?:about|on) (?:the )?energy\b/g, 'energy profile'],
   [/\b(energiepass\w*|energiesteckbrief\w*|steckbrief|energieportrait\w*|energiesituation|energielage|energie in zahlen|energieuberblick\w*)\b/g, 'energy profile'],

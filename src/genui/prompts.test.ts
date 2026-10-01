@@ -141,6 +141,8 @@ const EXPECTED: [string, string][] = [
   ['Endash profile', 'show me the energy scorecard of Spain in 2022'],
   ['Endash profile', 'fetch the energy overview of ue'],
   ['Endash profile', 'grab the key indicators for France'],
+  ['Entrade', 'Hungary buys gas from whom'],
+  ['Endash profile', 'uh so like how is lithuania on the whole'],
   // words that look like a view's words but ask for something else
   ['nrg_bal_c', 'oil consumption in Spain'],
   ['(off-topic)', 'what is a sankey diagram'],

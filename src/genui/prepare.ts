@@ -22,7 +22,7 @@ import { withCanonicalWords } from './synonyms'
 const OBJECT = '(?:an? |the |my |one )?(?:(?:new|interactive|nice|simple|quick) )?(?:dashboard|dash|chart|graph|plot|visuali[sz]ation|overview|report|table|page|view)s?'
 const LEAD_INS = [
   // English
-  `(?:please |pls |hi |hello |hey )+`,
+  `(?:please |pls |hi |hello |hey |uh+ |um+ |er+ |erm |ok |okay |so |like |well |hmm+ |just |actually |basically )+`,
   `(?:can|could|would|will) you (?:please )?(?:show|give|tell|make|build|create|mount|display|plot|draw|generate|get|find)(?: me| us)?(?: about)?`,
   `(?:i (?:want|would like|d like|wanna|need) (?:to )?(?:see|know|look at|have|get)?)`,
   `(?:show|give|tell|get|find|display|visuali[sz]e)(?: me| us)?(?: about| on)?`,

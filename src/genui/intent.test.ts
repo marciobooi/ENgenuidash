@@ -7,7 +7,7 @@ import { summarizeIntent, type IntentResult } from '../eval/runIntent'
 import { createScopeChecker } from '../llm/energyScope'
 import { buildKnowledgeIndex } from '../llm/knowledge'
 import { buildVocabulary } from '../llm/vocabulary'
-import { INTENTS, MAX_BUTTONS, NONE_OPTION, intentMessages, intentOfPlan, planForIntent, rankIntents, readableParts } from './intent'
+import { INTENTS, MAX_BUTTONS, MAX_OFFERED, NONE_OPTION, intentMessages, intentOfPlan, planForIntent, rankIntents, readableParts, suggestedKinds } from './intent'
 import { routeMessage } from './route'
 
 const read = (f: string) => JSON.parse(readFileSync(`public/data/eurostat/energy/${f}`, 'utf8'))
@@ -36,7 +36,7 @@ test('the kinds offered are the likely ones, best first, at most three, never "n
 })
 
 test('only the parts of a question the rules can read are kept, in any language', () => {
-  assert.equal(readableParts('is my bill going to be high in Spain in 2023', codelists), 'spain 2023')
+  assert.equal(readableParts('is my bill going to be high in Spain in 2023', codelists), 'prices spain 2023')
   assert.match(readableParts('was zahlt ein Haushalt in Österreich für Strom?', codelists), /osterreich.*(haushalt|households)|households.*austria|osterreich/)
 })
 
@@ -71,4 +71,26 @@ test('the summary counts what the model got right, what it offered and what it w
   assert.equal(s.realQuestions, 3)
   assert.equal(s.falseOffers, 1)
   assert.deepEqual(s.thresholds.find((t) => t.p === 0.9), { p: 0.9, opened: 2, right: 2 })
+})
+
+test('an unread question still gets something useful from the words that were recognised', () => {
+  const kinds = (q: string) => suggestedKinds(q, codelists)
+  // a country: its profile, energy flows and renewables
+  assert.deepEqual(kinds('blorp Spain').kinds, ['profile', 'flow', 'renewables'])
+  assert.equal(kinds('blorp Spain').place, 'ES')
+  // a topic and a country: the topic's views first
+  assert.deepEqual(kinds('gas stuff for Hungary').kinds.slice(0, 3), ['trade', 'prices', 'balance'])
+  assert.ok(kinds('gas stuff for Hungary').kinds.includes('profile'))
+  assert.deepEqual(kinds('oil mess').kinds, ['oil', 'trade', 'balance'])
+  assert.equal(kinds('oil mess').place, undefined)
+  assert.ok(kinds('home things Poland').kinds.includes('households'))
+  // the EU counts as a place
+  assert.equal(kinds('blorp the EU').place, 'EU27_2020')
+  // nothing recognised, nothing offered (small talk goes to its own reply)
+  assert.deepEqual(kinds('blorp blorp').kinds, [])
+  assert.ok(kinds('gas oil coal electricity households prices renewables Spain').kinds.length <= MAX_OFFERED)
+  // and every kind offered can be built by the rules for that question
+  for (const q of ['blorp Spain', 'gas stuff for Hungary', 'oil mess', 'home things Poland', 'renewable wobble Austria']) {
+    for (const id of kinds(q).kinds) assert.ok(planForIntent(id, q, route, codelists), `${q}: ${id}`)
+  }
 })

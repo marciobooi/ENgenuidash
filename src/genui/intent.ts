@@ -89,13 +89,15 @@ export function rankIntents(probs: number[], minProb = MIN_PROB): Candidate[] {
 
 /** Kinds below this probability are not offered. */
 export const MIN_PROB = 0.15
-/** At most this many buttons. */
+/** At most this many buttons from the model's choice. */
 export const MAX_BUTTONS = 3
+/** At most this many buttons altogether (the model's choice first, then what the recognised words suggest). */
+export const MAX_OFFERED = 4
 /** Above this the dashboard would open without asking. Off (above 1) until an evaluation says it is safe. */
 export const AUTO_PROB = 1.01
 
 /** Words that say what a dashboard is about, kept from the question besides places and years. */
-const TOPIC_WORDS = /^(households?|homes?|industry|industrial|gas|oil|coal|electricity|power|petrol|diesel|crude|russia|russian|per|capita|exports?|imports?|2\d{3}|19\d{2})$/
+const TOPIC_WORDS = /^(households?|homes?|industry|industrial|gas|oil|coal|electricity|power|petrol|diesel|crude|russia|russian|per|capita|exports?|imports?|prices?|renewables?|2\d{3}|19\d{2})$/
 
 /**
  * The parts of a question the rules can read: its places, years and a few topic words (the rest,
@@ -106,6 +108,33 @@ export function readableParts(question: string, codelists: EnergyCodelists): str
   return words
     .filter((w) => TOPIC_WORDS.test(w) || detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)
     .join(' ')
+}
+
+/** What the words of an unread question hint at, kind by kind (the question is already prepared: synonyms, English keywords). */
+const KIND_HINTS: [RegExp, IntentId[]][] = [
+  [/\b(oil|petrol|crude|diesel|petroleum|brent)\b/, ['oil', 'trade', 'balance']],
+  [/\b(gas|lng)\b/, ['trade', 'prices', 'balance']],
+  [/\b(coal|lignite)\b/, ['trade', 'balance']],
+  [/\b(electricity|power)\b/, ['prices', 'trade', 'balance']],
+  [/\b(households?|homes?)\b/, ['households', 'prices']],
+  [/\b(prices?|bills?)\b/, ['prices']],
+  [/\b(renewables?|green|solar|wind)\b/, ['renewables', 'balance']],
+]
+
+/**
+ * What can be offered for a question the rules could not read, from what they did recognise (no
+ * model needed): the kinds its topic words suggest ("gas" → trade, prices, balance) and, when it
+ * names a country or the EU, the country's profile, energy flows and renewables. `place`: the
+ * code of that place, for the message. A question with neither (small talk) gets nothing.
+ */
+export function suggestedKinds(question: string, codelists: EnergyCodelists): { kinds: IntentId[]; place?: string } {
+  const text = prepareQuestion(question)
+  const geo = detectGeos(parse(text), codelists)
+  const place = geo.codes[0] ?? (geo.eu ? 'EU27_2020' : undefined)
+  const kinds: IntentId[] = []
+  for (const [re, ids] of KIND_HINTS) if (re.test(text)) for (const id of ids) if (!kinds.includes(id)) kinds.push(id)
+  if (place) for (const id of ['profile', 'flow', 'renewables'] as IntentId[]) if (!kinds.includes(id)) kinds.push(id)
+  return { kinds: kinds.slice(0, MAX_OFFERED), place }
 }
 
 /** The dashboard of a kind for a question: its places and period plus the kind's words, read by the rules. */

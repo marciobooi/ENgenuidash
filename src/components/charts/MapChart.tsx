@@ -40,12 +40,15 @@ export function MapChart({ data, seriesName, valueSuffix = '', decimals = 1, hei
 
   if (!geo) return <div className="chart-card chart-card--placeholder" style={{ minHeight: height }} aria-hidden="true" />
 
+  const top = Math.max(0, ...data.map((d) => d.value))
+  const tickDecimals = top >= 10 ? 0 : top >= 1 ? 1 : top >= 0.2 ? 2 : 3
   const options: Highcharts.Options = {
     chart: { map: geo as Highcharts.GeoJSON, height },
     // Frame: mainland Europe (Iceland to Cyprus); overseas territories are not in the file.
     mapView: { fitToGeometry: { type: 'MultiPoint', coordinates: [[-10.5, 34.5], [34, 70.5]] } },
     mapNavigation: { enabled: true, enableMouseWheelZoom: false, buttonOptions: { verticalAlign: 'bottom' } },
-    colorAxis: { stops: SEQUENTIAL_STOPS, labels: { format: `{value:,.0f}${valueSuffix}` } },
+    // The unit is the legend's title, so the ticks are bare numbers (with decimals when the values are small: 0.2 EUR/kWh).
+    colorAxis: { stops: SEQUENTIAL_STOPS, tickAmount: 5, labels: { format: `{value:,.${tickDecimals}f}` } },
     legend: { enabled: true, title: { text: valueSuffix.trim() } },
     tooltip: { headerFormat: '', pointFormat: `<b>{point.name}</b>: {point.value:,.${decimals}f}${valueSuffix}` },
     series: [

@@ -331,6 +331,42 @@
   stroke-linejoin: round;
 }
 
+.breakdown__line--2 {
+  stroke: #b07e0e;
+}
+
+.breakdown__line--3 {
+  stroke: #c0266a;
+}
+
+.breakdown__legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 12px;
+}
+
+.breakdown__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.breakdown__swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ecl-color-primary);
+}
+
+.breakdown__swatch--2 {
+  background: #b07e0e;
+}
+
+.breakdown__swatch--3 {
+  background: #c0266a;
+}
+
 .breakdown__trend-caption {
   display: flex;
   justify-content: space-between;

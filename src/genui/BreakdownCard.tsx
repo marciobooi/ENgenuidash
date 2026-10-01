@@ -52,25 +52,38 @@ export function BreakdownCard({ widget }: { widget: Breakdown }) {
   )
 }
 
-function MiniArea({ label, categories, data }: { label: string; categories: string[]; data: (number | null)[] }) {
+function MiniArea({ label, categories, data, more = [] }: { label: string; categories: string[]; data: (number | null)[]; more?: { label: string; data: (number | null)[] }[] }) {
   const w = 320
   const h = 90
-  const pts = data.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v != null)
-  const min = Math.min(0, ...pts.map((p) => p.v))
-  const max = Math.max(...pts.map((p) => p.v))
+  const all = [data, ...more.map((m) => m.data)]
+  const values = all.flat().filter((v): v is number => v != null)
+  const min = Math.min(0, ...values)
+  const max = Math.max(...values)
   const x = (i: number) => (data.length > 1 ? (i / (data.length - 1)) * (w - 8) + 4 : w / 2)
   const y = (v: number) => (max === min ? h / 2 : h - 4 - ((v - min) / (max - min)) * (h - 12))
-  const line = pts.map((p, k) => `${k ? 'L' : 'M'}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
+  const lineOf = (d: (number | null)[]) => d.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v != null).map((p, k) => `${k ? 'L' : 'M'}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
+  const pts = data.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v != null)
+  const line = lineOf(data)
   const area = `${line} L${x(pts[pts.length - 1].i).toFixed(1)},${h} L${x(pts[0].i).toFixed(1)},${h} Z`
   return (
     <figure className="breakdown__trend">
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <path d={area} className="breakdown__area" />
         <path d={line} className="breakdown__line" />
+        {more.map((m, k) => (
+          <path key={m.label} d={lineOf(m.data)} className={`breakdown__line breakdown__line--${k + 2}`} />
+        ))}
       </svg>
       <figcaption className="breakdown__trend-caption">
         <span>{categories[0]}</span>
-        <span>{label}</span>
+        <span className="breakdown__legend">
+          {[label, ...more.map((m) => m.label)].map((name, k) => (
+            <span key={name} className="breakdown__legend-item">
+              {more.length > 0 && <i className={`breakdown__swatch breakdown__swatch--${k + 1}`} aria-hidden="true" />}
+              {name}
+            </span>
+          ))}
+        </span>
         <span>{categories[categories.length - 1]}</span>
       </figcaption>
     </figure>

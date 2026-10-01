@@ -161,7 +161,8 @@ export function alternatePlan(plan: Plan, spec?: DashboardSpec): Plan | null {
   }
   // An ordinary dashboard of two places (a country and another, or the EU): the charts that show only the first.
   if (!compare && Array.isArray(geo) && geo.length === 2 && !plan.allCountries && !plan.trade && !plan.oil && !plan.balance && !plan.profile && !plan.sankey && !isMonthlyDataset(plan.dataset)) {
-    return { ...plan, filters: { ...plan.filters, geo: geo[1] } }
+    // (the same dashboard with the places swapped: every card has a twin that shows the other place first)
+    return { ...plan, filters: { ...plan.filters, geo: [geo[1], geo[0]] } }
   }
   return null
 }
@@ -177,7 +178,10 @@ async function placeName(dict: EnergyDictionary, dataset: string, code: string, 
   return (codelists ? codeLabel(codelists, dim?.codelist ?? null, code, lang) : code).replace(/\s*\(.*?\)\s*$/, '')
 }
 
-/** Whether a chart already shows a place (its name is in its series, categories or slices). */
+/** The places a chart plots: its series and categories (a gauge, a pie or a ranking card plots one place). */
+const plotted = (w: WidgetSpec) => [...('series' in w && Array.isArray(w.series) ? w.series.map((x) => x.name) : []), ...('categories' in w && Array.isArray(w.categories) ? w.categories : [])].join('|').toLowerCase()
+/** The charts that plot several series or categories (the others show one place). */
+const MULTI = ['line', 'area', 'bar', 'bubble', 'heatmap', 'dumbbell']
 const mentions = (text: string, name: string) => text.includes(name.toLowerCase()) || (name === 'EU-27' && /eu-27|european union/.test(text))
 
 export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?: [string, string]): DashboardSpec {
@@ -185,17 +189,25 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
   if (!pair) return spec
   const [mainName, otherName] = pair
   const seen = new Map<string, number>()
+  // (the twin may already be on the page: one gauge for each place, say)
+  const onPage = new Set(spec.widgets.map((x) => JSON.stringify({ ...x, alt: undefined })))
   const others = new Map<string, WidgetSpec[]>()
   for (const w of other.widgets) if (!w.cmp && w.type !== 'kpis') others.set(w.type, [...(others.get(w.type) ?? []), w])
   const widgets = spec.widgets.map((w) => {
     if (w.cmp || w.type === 'kpis') return w
     const k = seen.get(w.type) ?? 0
     seen.set(w.type, k + 1)
-    // A chart that already has both places (two or more in it) needs no toggle.
-    const text = JSON.stringify(w).toLowerCase()
+    // (the ranking card draws a line for each place)
+    if (w.type === 'breakdown' && w.trend?.more?.length) return w
+    // A plot that already has both places (two or more in it) needs no toggle; a gauge, a pie or a ranking card shows one place.
+    const text = MULTI.includes(w.type) ? plotted(w) : ''
     if (mentions(text, mainName) && mentions(text, otherName)) return w
     const twin = others.get(w.type)?.[k]
-    return twin && twin.role === w.role ? { ...w, alt: { label: otherName, mainLabel: mainName, widget: twin } } : w
+    if (!twin || twin.role !== w.role || onPage.has(JSON.stringify({ ...twin, alt: undefined }))) return w
+    // (a chart that shows the other place of the pair first is named after it)
+    const all = JSON.stringify(w).toLowerCase()
+    const swapped = mentions(all, otherName) && !mentions(all, mainName)
+    return { ...w, alt: swapped ? { label: mainName, mainLabel: otherName, widget: twin } : { label: otherName, mainLabel: mainName, widget: twin } }
   })
   return { ...spec, widgets }
 }
@@ -762,7 +774,7 @@ async function buildDashboardCore(
       title: fill(s.rankingIn, { period: periodLabels[latest] }),
       subtitle,
       items: breakdownItems(series, latest),
-      trend: { label: shown[0].name, categories: periodLabels, data: shown[0].data },
+      trend: { label: shown[0].name, categories: periodLabels, data: shown[0].data, ...(shown.length > 1 ? { more: shown.slice(1, 3).map((x) => ({ label: x.name, data: x.data })) } : {}) },
       size: 'half',
       role: 'ranking',
     })

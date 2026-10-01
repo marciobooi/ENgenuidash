@@ -344,7 +344,8 @@ export type WidgetSpec = (
       headline?: { label: string; value: string }
       items: { name: string; value: string; change?: { text: string; direction: 'up' | 'down' | 'flat' } }[]
       /** Small area chart under the list. */
-      trend?: { label: string; categories: string[]; data: (number | null)[] }
+      /** The sparkline under the list: the first series, and further lines for the other places of a comparison. */
+      trend?: { label: string; categories: string[]; data: (number | null)[]; more?: { label: string; data: (number | null)[] }[] }
       size?: WidgetSize
     }
   | {

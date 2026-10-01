@@ -136,6 +136,8 @@ const INDICATORS: Indicator[] = [
   { key: 'ep', dataset: 'nrg_ind_ep', filters: { unit: 'EUR_KGOE' }, unit: '€/kgoe', good: 'up', decimals: 2 },
   { key: 'dep', dataset: 'nrg_ind_id', filters: { siec: 'TOTAL', unit: 'PC' }, unit: '%', good: 'down', decimals: 1 },
   { key: 'fossil', dataset: 'nrg_ind_ffgae', filters: { unit: 'PC' }, unit: '%', good: 'down', decimals: 1 },
+  // Domestic net greenhouse gas emissions per person (the SDG indicator, total without land use): ENDASH's emissions figure.
+  { key: 'ghgPc', dataset: 'sdg_13_10', filters: { src_crf: 'TOTX4_MEMO', unit: 'T_HAB' }, unit: 't CO₂e', good: 'down', decimals: 1 },
   ...PRICES.households,
   { key: 'poverty', dataset: 'ilc_mdes01', filters: { hhcomp: 'TOTAL', rskpovth: 'TOTAL', unit: 'PC' }, unit: '%', good: 'down', decimals: 1 },
 ]
@@ -165,7 +167,7 @@ const REN_TARGET = 42.5
 const REN_AIM = 45
 const EU_MEMBERS = PROFILE_GEOS.slice(1, 28)
 // The indicators worth ranking: relative ones (shares, intensities, per person), not sizes.
-const RANKED = ['elecPrice', 'gasPrice', 'elecPriceInd', 'gasPriceInd', 'ren', 'ei', 'ep', 'dep', 'fossil', 'poverty', 'pecPc', 'fecPc', 'hhPc', 'traPc', 'indPc']
+const RANKED = ['elecPrice', 'gasPrice', 'elecPriceInd', 'gasPriceInd', 'ren', 'ei', 'ep', 'dep', 'fossil', 'ghgPc', 'poverty', 'pecPc', 'fecPc', 'hhPc', 'traPc', 'indPc']
 const TRANSPORT_FUELS = ['G3000', 'O4630', 'O4652XR5210B', 'O4671XR5220B', 'R5210P', 'R5210B', 'R5220P', 'R5220B', 'R5290', 'R5300', 'E7000']
 const INDUSTRY_FUELS = ['C0000X0350-0370', 'C0350-0370', 'E7000', 'G3000', 'H8000', 'N900H', 'O4000XBIO', 'P1000', 'RA000', 'S2000', 'W6100_6220']
 const GHG_SECTORS = ['CRF1A1', 'CRF1A2', 'CRF1A3', 'CRF1A4A', 'CRF1A4B', 'CRF1A4C', 'CRF1A5']
@@ -375,7 +377,7 @@ export async function buildProfileDashboard(
       goodDirection: ind.good === 'up' || ind.good === 'down' ? ind.good : 'neutral',
       trend: years.slice(-15).map((y) => own.get(y) ?? null),
     })
-    if (years.length > 2 && ['ren', 'dep', 'fossil', 'ei', 'pecPc', 'hhPc', 'elcPc', 'hh', 'ind', 'indPc', 'elecPrice', 'gasPrice', 'elecPriceInd', 'gasPriceInd'].includes(ind.key)) {
+    if (years.length > 2 && ['ren', 'dep', 'fossil', 'ghgPc', 'ei', 'pecPc', 'hhPc', 'elcPc', 'hh', 'ind', 'indPc', 'elecPrice', 'gasPrice', 'elecPriceInd', 'gasPriceInd'].includes(ind.key)) {
       const euSeries = seriesOf(result, ref, ind.per, population)
       const shown = years.slice(-20)
       trendCharts.push({

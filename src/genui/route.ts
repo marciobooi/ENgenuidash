@@ -56,6 +56,18 @@ export interface RouteContext {
   previous: string[]
 }
 
+/**
+ * The oil, balance, energy flow and country profile dashboards show one country at a time: "compare
+ * with France" must not hand them two (they would build from "DE,FR"). They switch to the new
+ * country; the views that can compare (trade, energy flow, profile) have their own follow-up rules.
+ */
+function oneCountryViews(plan: Plan | null, current: Plan): Plan | null {
+  if (!plan || !(current.oil || current.balance || current.sankey || current.profile) || !Array.isArray(plan.filters.geo)) return plan
+  const before = ([] as string[]).concat(current.filters.geo ?? [])
+  const geo = plan.filters.geo.filter((g) => !before.includes(g)).at(-1) ?? plan.filters.geo.at(-1)
+  return geo ? { ...plan, filters: { ...plan.filters, geo } } : plan
+}
+
 export function routeMessage(typed: string, ctx: RouteContext): Route {
   const { current, dict, codelists } = ctx
   // Lead-ins dropped, other EU languages as English keywords, typing slips corrected (prepare.ts).
@@ -107,7 +119,7 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
   const verdict = ctx.classify(text, ctx.previous)
   // Content words ENgenuidash does not know ("date" in "what is the date of oil?").
   const unknown = ctx.unknownWords(text)
-  const refined = current && dict && codelists && unknown.length === 0 ? refinePlan(current, text, dict, codelists) : null
+  const refined = current && dict && codelists && unknown.length === 0 ? oneCountryViews(refinePlan(current, text, dict, codelists), current) : null
 
   // A starter topic typed in any language ("Endenergieverbrauch nach Sektor in der EU", "final
   // non-energy consumption by fuel in Germany", "energy poverty in Portugal"): its exact plan,

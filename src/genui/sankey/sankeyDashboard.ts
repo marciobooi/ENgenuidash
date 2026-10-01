@@ -30,6 +30,9 @@ const fill = (template: string, values: Record<string, string>) => template.repl
 
 const SANKEY = / (sankeys?|energy sankey|energy flow (diagrams?|charts?)|energy flows?|flow diagrams?|ensankey|energiefluss\w*|flussdiagramm\w*|energieflussdiagramm\w*|diagrammes? de flux|flux d energie|flux energetiques?|from production to (consumption|use|end use)|from source to (use|consumption|end use)|supply (and|to) (use|demand|consumption)|where (does|do) .*(energy|electricity|gas|oil|fuel|heat).* (come from and go|come from and goes|come from and end up|go)|energy (comes? from and goes?|sources and uses|supply and use)|woher kommt .* und wohin|d ou vient .* et ou va) /
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
+/** "compare with France", "versus the EU", "gegen Frankreich", "par rapport à l'UE". */
+const COMPARE = /\b(compare|compared|comparing|comparison|versus|vs|against|gegen|vergleich\w*|verglichen|comparer|compar\w*|par rapport|rapport)\b/
+const NO_COMPARE = /\b(no comparison|without comparison|remove (the )?comparison|stop comparing|ohne vergleich|sans comparaison)\b/
 const FUEL_WORDS: [string, RegExp][] = [
   ['SFF_P1000', / (coal|solid fuels?|solid fossil|kohle|charbon|combustibles solides) /],
   ['O4000', / (oil|petroleum|erdol|mineralol|petrole) /],
@@ -95,6 +98,15 @@ export function refineSankey(current: Plan, text: string, dict: EnergyDictionary
   const p = parse(text.replace(/[-–,]/g, ' '))
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => GEOS.includes(c)) ?? (places.eu ? EU : undefined)
+  // "compare with France", "versus the EU", "compared to last year": the diagram's comparison (another country, or earlier years); "no comparison" takes it off.
+  const here = String(current.filters.geo ?? EU)
+  if (NO_COMPARE.test(p.text)) return current.sankey.compare ? { ...current, sankey: { ...current.sankey, compare: undefined }, notes: [] } : null
+  if (COMPARE.test(p.text)) {
+    const years = /\b(last year|previous year|year before|vorjahr\w*|letztes jahr|annee precedente|annee derniere)\b/.test(p.text) ? 'y1' : /\b(5|five|fünf|funf|cinq) years?\b/.test(p.text) ? 'y5' : /\b(10|ten|zehn|dix) years?\b/.test(p.text) ? 'y10' : undefined
+    const other = geo && geo !== here ? geo : undefined
+    const target = years ?? other ?? (here !== EU ? EU : 'y1')
+    return { ...current, sankey: { ...current.sankey, compare: target }, notes: [] }
+  }
   const year = detectTime(p).years.at(-1)
   const unit = requestedUnit(p, ds)
   const fuel = FUEL_WORDS.find(([, re]) => re.test(p.text))?.[0]

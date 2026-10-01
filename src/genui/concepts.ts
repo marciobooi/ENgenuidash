@@ -169,7 +169,11 @@ export const TREND_WORDS = [
 ]
 
 /** Words that signal "add to the current selection" rather than "replace it". */
-export const ADD_WORDS = ['add', 'also', 'plus', 'include', 'compare with', 'hinzu', 'hinzufugen', 'auch', 'vergleiche mit', 'ajoute', 'aussi', 'compare avec', 'comparer avec']
+export const ADD_WORDS = [
+  'add', 'also', 'plus', 'include', 'compare with', 'compare to', 'compared to', 'compared with', 'comparing with', 'comparing to', 'comparison with', 'comparison to', 'versus', 'vs', 'against', 'relative to', 'alongside', 'together with', 'along with', 'as well as',
+  'hinzu', 'hinzufugen', 'auch', 'vergleiche mit', 'vergleich mit', 'im vergleich zu', 'im vergleich mit', 'verglichen mit', 'gegenuber', 'zusammen mit', 'sowie', 'zusatzlich',
+  'ajoute', 'aussi', 'compare avec', 'comparer avec', 'compare a', 'compare au', 'compare aux', 'par rapport a', 'par rapport au', 'par rapport aux', 'en plus de', 'ainsi que',
+]
 /** A message starting with one of these ("and Germany?") also adds to the selection. */
 export const ADD_PREFIXES = ['and', 'und', 'et', 'what about', 'how about', 'und was ist mit', 'et pour']
 export const ONLY_WORDS = ['only', 'just', 'nur', 'seulement', 'uniquement']

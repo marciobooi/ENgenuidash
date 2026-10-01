@@ -93,7 +93,7 @@ export function refineProfile(current: Plan, text: string, dict: EnergyDictionar
   const year = detectTime(p).years.at(-1)
   const per = PER_CAPITA_WORDS.test(p.text) ? true : / (totals?|absolute|gesamt|totaux) /.test(p.text) ? false : undefined
   const consumer = / (all consumers|everyone|everything|alle|tous) /.test(p.text) ? null : focusOf(p.text)
-  const rest = p.words.filter((w) => !/^(vs|versus|against|compared?|with|to|comparison|gegen|mit|zu|contre|par|rapport|and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|households?|industry|industrial|consumers?|all|everyone|domestic|residential|haushalte?|industrie|menages?|tous|alle|per|capita|person|head|pro|kopf|par|habitant|habitants|totals|total|totaux|absolute|gesamt|as|it|this|\d{4})$/.test(w))
+  const rest = p.words.filter((w) => !/^(average|avg|mean|median|durchschnitt|durchschnitts\w*|moyenne|vs|versus|against|compared?|comparing|with|to|comparison|gegen|mit|zu|contre|par|rapport|and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant|households?|industry|industrial|consumers?|all|everyone|domestic|residential|haushalte?|industrie|menages?|tous|alle|per|capita|person|head|pro|kopf|par|habitant|habitants|totals|total|totaux|absolute|gesamt|as|it|this|\d{4})$/.test(w))
   const known = rest.every((w) => detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)
   if (!(geo || year || compare || per !== undefined || consumer !== undefined) || (!known && !PROFILE.test(p.text))) return null
   return {

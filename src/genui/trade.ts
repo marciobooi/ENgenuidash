@@ -143,7 +143,7 @@ export function refineTrade(current: Plan, text: string, dict: EnergyDictionary,
   // "compare with the EU" / "versus Germany": the partners' shares of the country on screen against it; "no comparison" takes it off.
   const here = typeof current.filters.geo === 'string' ? current.filters.geo : undefined
   if (here && NO_COMPARE.test(p.text)) return current.trade.compare ? { ...current, trade: { ...current.trade, compare: undefined }, notes: [] } : null
-  if (here && COMPARE.test(p.text)) {
+  if (here && COMPARE.test(p.text) && !/\b(last year|previous year|year before|vorjahr\w*|annee precedente)\b/.test(p.text)) {
     const geosHere = codesOf(dict, current.dataset, 'geo')
     const other = places.eu ? 'EU27_2020' : places.codes.find((c) => c !== here && isCountry(c) && geosHere.includes(c))
     const target = other ?? (here !== 'EU27_2020' ? 'EU27_2020' : undefined)

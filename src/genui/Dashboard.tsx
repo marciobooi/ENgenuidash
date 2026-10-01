@@ -179,7 +179,7 @@ export function Dashboard({
       case 'partners':
         return labels.partners ? (
           <section className="chart-card">
-            <PartnersTable caption={w.title} unit={w.unit} rows={w.rows} locale={lang} decimals={w.decimals} labels={labels.partners} />
+            <PartnersTable caption={w.title} captionExtra={titleExtra} unit={w.unit} rows={w.rows} locale={lang} decimals={w.decimals} labels={labels.partners} />
             <SourceLine source={spec.source} labels={labels} />
           </section>
         ) : null
@@ -192,6 +192,7 @@ export function Dashboard({
             missing={labels.missing}
             chartLabels={chartLabels}
             source={<SourceLine source={spec.source} labels={labels} />}
+            titleExtra={titleExtra}
           />
         ) : null
       default:

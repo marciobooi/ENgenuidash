@@ -65,6 +65,7 @@ export function BalanceSheet({
   missing,
   chartLabels,
   source,
+  titleExtra,
 }: {
   widget: BalanceWidget
   lang: string
@@ -72,6 +73,8 @@ export function BalanceSheet({
   missing: string
   chartLabels: Partial<ChartActionLabels>
   source: ReactNode
+  /** After the table's title: the toggle between the places of a comparison. */
+  titleExtra?: ReactNode
 }) {
   const id = useId()
   const [line, setLine] = useState('NRGSUP')
@@ -200,6 +203,7 @@ export function BalanceSheet({
       <section className="chart-card">
         <BalanceTable
           caption={w.title}
+          captionExtra={titleExtra}
           unit={w.unit}
           columns={w.columns}
           rows={w.rows}

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Tooltip } from '../tooltip'
 import { ChartColumn, ChevronRight } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
@@ -31,6 +32,7 @@ export interface BalanceTableLabels {
  */
 export function BalanceTable({
   caption,
+  captionExtra,
   unit,
   columns,
   rows,
@@ -42,6 +44,8 @@ export function BalanceTable({
   onChart,
 }: {
   caption: string
+  /** After the caption: e.g. the toggle between the places of a comparison. */
+  captionExtra?: ReactNode
   unit?: string
   columns: { code: string; label: string }[]
   rows: BalanceRow[]
@@ -83,6 +87,7 @@ export function BalanceTable({
         <table className="data-table__table">
           <caption id={`${id}-caption`} className="data-table__caption">
             {caption}
+            {captionExtra && <span className="data-table__extra"> {captionExtra}</span>}
             {unit && <span className="data-table__unit"> ({unit})</span>}
           </caption>
           <thead>

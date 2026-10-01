@@ -1,6 +1,8 @@
 import { DESCRIPTIONS, type Description } from '../llm/descriptions'
 import {
+  codeLabel,
   fetchEurostatData,
+  loadEnergyCodelists,
   pick,
   type EnergyDictionary,
   type EurostatResult,
@@ -142,22 +144,46 @@ function fill(template: string, values: Record<string, string>): string {
  * attached to the matching ones (same kind, same place in the order).
  */
 export function alternatePlan(plan: Plan, spec?: DashboardSpec): Plan | null {
-  const compare = plan.trade?.compare ?? plan.oil?.compare ?? plan.balance?.compare
-  if (!compare) return null
-  if (/^y\d+$/.test(compare)) {
+  const geo = plan.filters.geo
+  // Another country (or the EU) set against the one shown: the profile, the energy flow diagram, trade, oil and the balance.
+  const compare = plan.trade?.compare ?? plan.oil?.compare ?? plan.balance?.compare ?? plan.profile?.compare ?? (plan.sankey?.compare && !/^y\d+$/.test(plan.sankey.compare) ? plan.sankey.compare : undefined)
+  if (compare && /^y\d+$/.test(compare)) {
     const year = Number(spec?.plan.focusPeriod ?? plan.focusPeriod)
     return plan.balance && year ? { ...plan, focusPeriod: String(year - Number(compare.slice(1))), time: { kind: 'range', since: String(year - Number(compare.slice(1))), until: String(year - Number(compare.slice(1))) }, balance: { ...plan.balance, compare: undefined } } : null
   }
-  const alone = { filters: { ...plan.filters, geo: compare } }
-  if (plan.trade) return { ...plan, ...alone, trade: { ...plan.trade, compare: undefined } }
-  if (plan.oil) return { ...plan, ...alone, oil: {} }
-  if (plan.balance) return { ...plan, ...alone, balance: { ...plan.balance, compare: undefined } }
+  if (compare) {
+    const alone = { filters: { ...plan.filters, geo: compare } }
+    if (plan.trade) return { ...plan, ...alone, trade: { ...plan.trade, compare: undefined } }
+    if (plan.oil) return { ...plan, ...alone, oil: {} }
+    if (plan.balance) return { ...plan, ...alone, balance: { ...plan.balance, compare: undefined } }
+    if (plan.profile) return { ...plan, ...alone, profile: { ...plan.profile, compare: undefined } }
+    if (plan.sankey) return { ...plan, ...alone, sankey: { ...plan.sankey, compare: undefined } }
+  }
+  // An ordinary dashboard of two places (a country and another, or the EU): the charts that show only the first.
+  if (!compare && Array.isArray(geo) && geo.length === 2 && !plan.allCountries && !plan.trade && !plan.oil && !plan.balance && !plan.profile && !plan.sankey && !isMonthlyDataset(plan.dataset)) {
+    return { ...plan, filters: { ...plan.filters, geo: geo[1] } }
+  }
   return null
 }
 
-export function withAlternates(spec: DashboardSpec, other: DashboardSpec): DashboardSpec {
-  if (!spec.compareNames) return spec
-  const [mainName, otherName] = spec.compareNames
+/** The place a plan shows first (a country code). */
+const firstPlace = (plan: Plan) => String(([] as string[]).concat(plan.filters.geo ?? [])[0] ?? 'EU27_2020')
+
+/** The name of a place, for the toggle ("EU-27" for the Union). */
+async function placeName(dict: EnergyDictionary, dataset: string, code: string, lang: string): Promise<string> {
+  if (code === 'EU27_2020') return 'EU-27'
+  const codelists = await loadEnergyCodelists().catch(() => null)
+  const dim = dict.datasets[dataset]?.dimensions.find((d) => d.id === 'geo')
+  return (codelists ? codeLabel(codelists, dim?.codelist ?? null, code, lang) : code).replace(/\s*\(.*?\)\s*$/, '')
+}
+
+/** Whether a chart already shows a place (its name is in its series, categories or slices). */
+const mentions = (text: string, name: string) => text.includes(name.toLowerCase()) || (name === 'EU-27' && /eu-27|european union/.test(text))
+
+export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?: [string, string]): DashboardSpec {
+  const pair = spec.compareNames ?? names
+  if (!pair) return spec
+  const [mainName, otherName] = pair
   const seen = new Map<string, number>()
   const others = new Map<string, WidgetSpec[]>()
   for (const w of other.widgets) if (!w.cmp && w.type !== 'kpis') others.set(w.type, [...(others.get(w.type) ?? []), w])
@@ -165,6 +191,9 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec): Dashb
     if (w.cmp || w.type === 'kpis') return w
     const k = seen.get(w.type) ?? 0
     seen.set(w.type, k + 1)
+    // A chart that already has both places (two or more in it) needs no toggle.
+    const text = JSON.stringify(w).toLowerCase()
+    if (mentions(text, mainName) && mentions(text, otherName)) return w
     const twin = others.get(w.type)?.[k]
     return twin && twin.role === w.role ? { ...w, alt: { label: otherName, mainLabel: mainName, widget: twin } } : w
   })
@@ -179,11 +208,12 @@ export async function buildDashboard(
   signal?: AbortSignal,
   chooseVariant?: ChooseVariant,
 ): Promise<DashboardSpec> {
+  const names = async (a: Plan, b: Plan): Promise<[string, string]> => [await placeName(dict, a.dataset, firstPlace(a), lang), await placeName(dict, b.dataset, firstPlace(b), lang)]
   const alt = alternatePlan(plan)
   // (the other place can be built at the same time; the other year of a balance sheet needs the year the sheet turned out to be)
   if (alt) {
     const [spec, other] = await Promise.all([buildDashboardCore(plan, dict, lang, s, signal, chooseVariant), buildDashboardCore(alt, dict, lang, s, signal, chooseVariant).catch(() => null)])
-    return other ? withAlternates(spec, other) : spec
+    return other ? withAlternates(spec, other, await names(spec.plan, other.plan)) : spec
   }
   const spec = await buildDashboardCore(plan, dict, lang, s, signal, chooseVariant)
   const later = plan.balance?.compare && /^y\d+$/.test(plan.balance.compare) ? alternatePlan(plan, spec) : null

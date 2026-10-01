@@ -64,6 +64,9 @@ const PARTNERS =
   / (by partners?( countries| country)?|by (country of )?origin|by destination|per partner|partner countr(y|ies)|trade partners?|trading partners?|suppliers?|supplying countries|where (does|do|did) .*(import|export|buy|get|come)|where .* (comes?|came) from|come from|comes from|energy trade|trade between|trade with|trade of|trade in|nach partner(land|landern)?|nach herkunft\w*|nach bestimmung\w*|handelspartner|lieferland|lieferlander|woher|herkunftsland\w*|energiehandel|par partenaire|par pays (partenaire|d origine|de destination)|par origine|par provenance|fournisseurs?|partenaires commerciaux|from whom|importers?|exporters?|importeurs?|exporteurs?|importeure?|who (supplies|sells|delivers|sends|exports)|who (do|does) .* (buy|get|import) .* from|(main|top|biggest|largest|major|key) (suppliers?|partners?|sources?|origins?|sellers?|exporters?)|main (gas|oil|coal|energy|electricity) (suppliers?|partners?|sources?)|\w*lieferant\w*|bezieht|beziehen|wer liefert|de qui .* (achete|importe|recoit)|qui (fournit|vend|livre)|d ou (viennent|vient|provient|proviennent)|commerce (de l energie|d energie|du gaz|du petrole|du charbon|de l electricite)) /
 const IMPORT_EXPORT = /\b(imports?|exports?|einfuhr\w*|ausfuhr\w*|importations?|exportations?)\b/
 const NOT_TRADE = /\b(balance|supply|transformation|consumption|stock|stocks|storage|price|prices|generation|production|bill|gross|net)\b/
+/** "compare with the EU", "versus Germany", "gegen die EU", "par rapport à l'UE". */
+const COMPARE = /\b(compare|compared|comparing|comparison|versus|vs|against|gegen|vergleich\w*|vergleiche\w*|comparer|compar\w*|par rapport|rapport)\b/
+const NO_COMPARE = /\b(no comparison|without comparison|remove (the )?comparison|stop comparing|no compare|ohne vergleich|sans comparaison)\b/
 const EXPORTS = /\b(export\w*|ausfuhr\w*|exportation\w*|exporte\w*)\b/
 const FUEL_WORDS: [TradeFuel, RegExp][] = [
   ['electricity', / (electricity|power|heat|strom|elektrizitat|warme|electricite|chaleur) /],
@@ -115,13 +118,16 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
   const geo = named.length >= 2 ? named.slice(0, 2) : (places.codes.find((c) => geos.includes(c)) ?? 'EU27_2020')
   const year = time.years.at(-1)
   const period = monthly ? (time.month ? `${time.month.year}-${String(time.month.month).padStart(2, '0')}` : undefined) : year ? String(year) : undefined
+  // One country set against the EU or another country ("Hungary gas imports vs the EU").
+  const single = typeof geo === 'string' ? geo : undefined
+  const compare = single && single !== 'EU27_2020' && COMPARE.test(p.text) ? (places.eu ? 'EU27_2020' : places.codes.find((c) => c !== single && geos.includes(c) && isCountry(c))) : undefined
   return {
     dataset,
     filters: { geo, siec, unit: requestedUnit(p, ds) ?? DEFAULT_UNIT[fuel] },
     time: { kind: 'all' },
     ...(period ? { focusPeriod: period } : {}),
     intent: 'snapshot',
-    trade: { flow, fuel, ...(monthly ? { monthly } : {}), ...(Array.isArray(geo) && !fromPlanner && !fuelOf(p) ? { auto: true as const } : {}) },
+    trade: { flow, fuel, ...(monthly ? { monthly } : {}), ...(compare ? { compare } : {}), ...(Array.isArray(geo) && !fromPlanner && !fuelOf(p) ? { auto: true as const } : {}) },
   }
 }
 
@@ -134,12 +140,21 @@ export function refineTrade(current: Plan, text: string, dict: EnergyDictionary,
   const p = parse(text.replace(/[-–,?]/g, ' '))
   const words = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|des|the|la|le|les|das|die|der|what|about|now|jetzt|maintenant|show|zeige|montre|between|zwischen|entre|with|mit|avec|trade|handel|commerce|monthly|yearly|annual|monatlich|mensuel\w*|annuel\w*|\d{4})$/.test(w) && !MONTH_NAMES[w])
   const places = detectGeos(p, codelists)
+  // "compare with the EU" / "versus Germany": the partners' shares of the country on screen against it; "no comparison" takes it off.
+  const here = typeof current.filters.geo === 'string' ? current.filters.geo : undefined
+  if (here && NO_COMPARE.test(p.text)) return current.trade.compare ? { ...current, trade: { ...current.trade, compare: undefined }, notes: [] } : null
+  if (here && COMPARE.test(p.text)) {
+    const geosHere = codesOf(dict, current.dataset, 'geo')
+    const other = places.eu ? 'EU27_2020' : places.codes.find((c) => c !== here && isCountry(c) && geosHere.includes(c))
+    const target = other ?? (here !== 'EU27_2020' ? 'EU27_2020' : undefined)
+    if (target && target !== here) return { ...current, trade: { ...current.trade, compare: target }, notes: [] }
+  }
   const time = detectTime(p)
   const year = time.years.at(-1)
   const asksMonthly = time.month || time.monthly ? true : /\b(annual|yearly|per year|jahres\w*|annuel\w*)\b/.test(p.text) ? false : undefined
   const flow: TradeFlow | undefined = EXPORTS.test(p.text) ? 'exp' : /\b(import\w*|einfuhr\w*|importation\w*)\b/.test(p.text) ? 'imp' : undefined
   const fuel = fuelOf(p)
-  const known = words.every((w) => EXPORTS.test(w) || /^(import\w*|einfuhr\w*|importation\w*|ktoe|gwh|tj|m3)$/.test(w) || fuelOf(parse(w)) || detectGeos(parse(w), codelists).codes.length || detectGeos(parse(w), codelists).eu)
+  const known = words.every((w) => COMPARE.test(w) || EXPORTS.test(w) || /^(import\w*|einfuhr\w*|importation\w*|ktoe|gwh|tj|m3)$/.test(w) || fuelOf(parse(w)) || detectGeos(parse(w), codelists).codes.length || detectGeos(parse(w), codelists).eu)
   if (!known || !(places.codes.length || places.eu || year || flow || fuel || asksMonthly !== undefined)) return null
   const next = { flow: flow ?? current.trade.flow, fuel: fuel ?? current.trade.fuel }
   const monthly = (asksMonthly ?? !!current.trade.monthly) && hasMonthly(next.fuel) ? (true as const) : undefined
@@ -165,7 +180,9 @@ export function refineTrade(current: Plan, text: string, dict: EnergyDictionary,
         : current.trade.monthly
           ? undefined
           : current.focusPeriod
-  return { ...current, dataset, filters: { geo, siec, unit }, focusPeriod, trade: { ...next, ...(monthly ? { monthly } : {}) }, notes: [] }
+  // The comparison stays unless the country changes to the one compared with, or becomes two countries.
+  const compare = typeof geo === 'string' && geo !== current.trade.compare ? current.trade.compare : undefined
+  return { ...current, dataset, filters: { geo, siec, unit }, focusPeriod, trade: { ...next, ...(monthly ? { monthly } : {}), ...(compare ? { compare } : {}) }, notes: [] }
 }
 
 const codesOf = (dict: EnergyDictionary, dataset: string, dim: string) => dict.datasets[dataset]?.dimensions.find((d) => d.id === dim)?.codes ?? []
@@ -217,6 +234,15 @@ export async function buildTradeDashboard(
     values.set(o.keys.partner, byYear)
   }
   const years = (result.dimensions.time?.codes ?? []).map((c) => c.code).sort()
+  // What the shares are compared with ("compare with the EU"): the same trade of another place.
+  const compareGeo = trade.compare && trade.compare !== geo ? trade.compare : undefined
+  const compareResult = compareGeo ? await fetchEurostatData(dataset, { filters: { geo: compareGeo, siec, unit }, lang, signal }).catch(() => null) : null
+  const compareValues = new Map<string, Map<string, number | null>>()
+  for (const o of compareResult?.observations ?? []) {
+    const byYear = compareValues.get(o.keys.partner) ?? new Map()
+    byYear.set(o.keys.time, o.value)
+    compareValues.set(o.keys.partner, byYear)
+  }
   // The total is the partner countries' sum (as entrade): shares add up to 100 %, without the
   // quantities of unspecified origin that Eurostat's TOTAL also counts.
   const totalOf = (y: string) => ranked(values, y).reduce((sum, p) => sum + p.value, 0)
@@ -301,6 +327,36 @@ export async function buildTradeDashboard(
     size: 'half',
     role: 'ranking',
   })
+  // Against the other place: the shares of the partners side by side, and who each relies on.
+  if (compareResult && compareValues.size && compareGeo) {
+    const cmpRanked = ranked(compareValues, year)
+    const cmpTotal = cmpRanked.reduce((sum, p) => sum + p.value, 0)
+    if (cmpTotal > 0) {
+      const cmpName = compareGeo === 'EU27_2020' ? 'EU-27' : (compareResult.dimensions.geo?.codes.find((c) => c.code === compareGeo)?.label ?? compareGeo).replace(/\s*\(.*?\)\s*$/, '')
+      const cmpShare = new Map(cmpRanked.map((p) => [p.code, shareOf(p.value, cmpTotal)]))
+      // The main partners of both sides (the country's first), so each side's big suppliers show.
+      const topCodes = [...new Set([...now.slice(0, 6).map((p) => p.code), ...cmpRanked.slice(0, 6).map((p) => p.code)])].slice(0, 10)
+      const round1 = (v: number) => Math.round(v * 10) / 10
+      widgets.push({
+        type: 'bar',
+        title: fill(t.compareTitle, { flow: flowWord, geo: geoName, other: cmpName }),
+        subtitle: `${year}, % ${t.shareOfTotal.toLowerCase()}`,
+        categories: topCodes.map(name),
+        series: [
+          { name: geoName, data: topCodes.map((c) => round1(shareOf(now.find((p) => p.code === c)?.value ?? 0, total))) },
+          { name: cmpName, data: topCodes.map((c) => round1(cmpShare.get(c) ?? 0)) },
+        ],
+        horizontal: true,
+        unit: '%',
+        decimals: 1,
+        size: 'half',
+        role: 'ranking',
+      })
+      if (rows[0]) summary.push(fill(t.compareLead, { geo: geoName, top: rows[0].name, share: fmtPct(rows[0].share), otherShare: fmtPct(cmpShare.get(now[0].code) ?? 0), other: cmpName, flow: flowWord }))
+      const cmpHhi = hhiOf(cmpRanked.map((p) => shareOf(p.value, cmpTotal)))
+      if (hhi > 0 && cmpHhi > 0) summary.push(fill(t.compareHhi, { geo: geoName, dir: hhi >= cmpHhi ? t.higher : t.lower, other: cmpName, a: nf.format(hhi), b: nf.format(cmpHhi) }))
+    }
+  }
   const slices = rows.slice(0, TOP_SLICES).map((r) => ({ name: r.name, y: r.value }))
   const restSlices = total - slices.reduce((sum, x) => sum + x.y, 0)
   if (slices.length >= 2) {
@@ -687,6 +743,7 @@ function tradeSuggestions(plan: Plan, s: { trade: TradeStrings; sugExplain: stri
     { label: fill(s.trade.sugOther, { flow: s.trade.flowWords[other] }), plan: { ...plan, dataset: datasetOf({ flow: other, fuel: trade.fuel, monthly: trade.monthly }), trade: { ...trade, flow: other } } },
   ]
   if (plan.filters.geo !== 'EU27_2020') out.push({ label: s.trade.sugEu, plan: { ...plan, filters: { ...plan.filters, geo: 'EU27_2020' } } })
+  if (typeof plan.filters.geo === 'string' && plan.filters.geo !== 'EU27_2020' && !trade.compare) out.push({ label: s.trade.sugCompare, plan: { ...plan, trade: { ...trade, compare: 'EU27_2020' } } })
   out.push({ label: s.sugExplain, explain: true })
   return out
 }

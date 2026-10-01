@@ -259,6 +259,11 @@ const PHRASINGS: [string, string][] = [
   ["Concept data", "who collects the energy data"],
   ["Concept data", "how up to date is the data"],
   ["Concept data", "d'où viennent les données sur le gaz"],
+  ["Enprices", "share of taxes in household electricity prices by country"],
+  ["Enprices", "VAT share of household electricity price"],
+  ["Enprices", "electricity price with and without taxes"],
+  ["Enprices", "share of taxes in electricity prices for industry by country"],
+  ["Enprices", "gas price taxes and levies share Germany"],
 ]
 
 test('every way of asking reaches its view', () => {

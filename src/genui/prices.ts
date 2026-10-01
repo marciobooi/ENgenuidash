@@ -1,5 +1,5 @@
 import { codeLabel, fetchEurostatData, loadEnergyCodelists, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
-import { INDUSTRY_WORDS } from './concepts'
+import { EU27, INDUSTRY_WORDS } from './concepts'
 import { NoDataError } from './execute'
 import { any, detectGeos, detectTime, parse, requestedUnit, type Parsed } from './planner/parse'
 import type { DashboardControls, DashboardSpec, Insight, KpiSpec, Plan, PriceConsumer, PriceProduct, Suggestion, WidgetSpec } from './types'
@@ -86,6 +86,10 @@ const TAX_VIEW =
 // Short follow-ups only: a long sentence is a new question.
 const TO_TAXES = { test: (text: string) => text.trim().split(/\s+/).length <= 10 && TAX_VIEW.test(text) }
 const GAS = / (gas|gaz|erdgas)( |$)/
+// "share of taxes in the electricity price by country", "VAT share", "with and without taxes": the tax view of the price dashboard.
+const TAX_SHARE =
+  /(share|proportion|percentage|weight|burden|anteil|part|poids) (of )?(the )?(taxes|tax|vat|levies|steuern|mehrwertsteuer|taxes et|tva)|(taxes|vat|levies|steuern|tva|mehrwertsteuer) (share|proportion|percentage|anteil|part)|(with|before) and (without|after) tax(es)?|taxes? and levies|steuerlast|mit und ohne steuern|avec et sans taxes|steuern und abgaben|taxes et prelevements/
+const PRICE_WORD = /(price|prices|preis|preise|prix|tarif|tarife|electricity|strom|electricite|gas|gaz|erdgas)/
 
 function productOf(p: Parsed): PriceProduct {
   return GAS.test(p.text) ? 'gas' : 'electricity'
@@ -130,10 +134,12 @@ export function pricesPlanFor(product: PriceProduct, consumer: PriceConsumer, ge
 
 export function pricesPlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   const p = parse(text.replace(/[-–,?]/g, ' '))
-  if (!STRUCTURE.test(p.text)) return null
+  const structure = STRUCTURE.test(p.text)
+  const taxView = !structure && TAX_SHARE.test(p.text) && PRICE_WORD.test(p.text)
+  if (!structure && !taxView) return null
   const product = productOf(p)
   const consumer = consumerOf(p)
-  const dataset = DATASETS[product][consumer]
+  const dataset = taxView ? BASE_DATASETS[product][consumer] : DATASETS[product][consumer]
   const ds = dict.datasets[dataset]
   if (!ds) return null
   const places = detectGeos(p, codelists)
@@ -146,7 +152,7 @@ export function pricesPlan(text: string, dict: EnergyDictionary, codelists: Ener
     time: { kind: 'all' },
     ...(year ? { focusPeriod: String(year) } : {}),
     intent: 'snapshot',
-    prices: { product, consumer },
+    prices: { product, consumer, ...(taxView ? { view: 'taxes' as const } : {}) },
   }
 }
 
@@ -245,6 +251,17 @@ export function refinePrices(current: Plan, text: string, dict: EnergyDictionary
 
 export interface PricesStrings {
   title: string
+  /** Change on the same semester a year earlier, by country (national currency) and the sentence about it. */
+  yoyTitle: string
+  nationalCurrency: string
+  yoySentence: string
+  yoyFocus: string
+  /** The split of the network costs into transmission and distribution (nrg_pc_206). */
+  networkTitle: string
+  distribution: string
+  transmission: string
+  networkSentence: string
+  networkFocus: string
   product: string
   consumer: string
   products: Record<PriceProduct, string>
@@ -442,7 +459,7 @@ export async function buildPricesDashboard(
   // Charts: country comparison (values, then shares), the focus country's own split, the band
   // effect (non-decomposed, the "auxiliary" view), main countries over time and the focus
   // country's components over time, and the map.
-  const w: Partial<Record<'countries' | 'shares' | 'structure' | 'bands' | 'main' | 'history' | 'map', WidgetSpec>> = {}
+  const w: Partial<Record<'countries' | 'shares' | 'structure' | 'bands' | 'main' | 'history' | 'map' | 'yoy' | 'network', WidgetSpec>> = {}
   // The countries asked for (and the EU average), or the top 15.
   const top = countryFocus ? [...selected, ...euRow] : ranked.slice(0, 15)
   // Tax items a country does not levy (all zero) are left out of the legend.
@@ -543,7 +560,96 @@ export async function buildPricesDashboard(
   const mapData = ranked.filter((r) => /^[A-Z]{2}$/.test(r.code)).map((r) => ({ code: r.code, name: r.name, value: r.total }))
   if (!countryFocus && mapData.length >= 3) w.map = { type: 'map', title: t.map, subtitle: `${productName} · ${consumerName} · ${year}`, data: mapData, size: 'full' }
 
-  const order = countryFocus ? (['structure', 'history', 'countries', 'bands', 'main', 'shares'] as const) : (['countries', 'shares', 'structure', 'bands', 'main', 'history', 'map'] as const)
+  // ----- year on year by country, and the split of the network costs (Eurostat's electricity and gas price articles) -----
+  const highlights: string[] = []
+  {
+    const standardBand: Record<PriceProduct, Record<PriceConsumer, string>> = { electricity: { household: 'KWH2500-4999', nonHousehold: 'MWH500-1999' }, gas: { household: 'GJ20-199', nonHousehold: 'GJ10000-99999' } }
+    const baseDs = BASE_DATASETS[prices.product][prices.consumer]
+    const has = (ds: string, dim: string) => !!dict.datasets[ds]?.dimensions.some((d) => d.id === dim)
+    const [yoyData, tdData] = await Promise.all([
+      dict.datasets[baseDs]
+        ? fetchEurostatData(baseDs, { filters: { ...(has(baseDs, 'freq') ? { freq: 'S' } : {}), ...(has(baseDs, 'siec') ? { siec: prices.product === 'gas' ? 'G3000' : 'E7000' } : {}), nrg_cons: standardBand[prices.product][prices.consumer], tax: 'I_TAX', currency: 'NAC', ...(has(baseDs, 'unit') ? { unit: 'KWH' } : {}) }, lastTimePeriod: 3, lang, signal }).catch(() => null)
+        : null,
+      dict.datasets.nrg_pc_206
+        ? fetchEurostatData('nrg_pc_206', { filters: { customer: prices.consumer === 'household' ? 'HH' : 'NHH', siec: prices.product === 'gas' ? 'G3000' : 'E7000', nrg_prc: ['NETC_TRANS', 'NETC_DIST'], unit: 'PC' }, lastTimePeriod: 1, lang, signal }).catch(() => null)
+        : null,
+    ])
+    const nameIn = (r: EurostatResult, code: string) => (r.dimensions.geo?.codes.find((c) => c.code === code)?.label ?? code).replace(/\s*\(.*?\)\s*$/, '')
+    // Change on the same semester a year earlier, in national currency (as Eurostat's articles do: no exchange rate in it).
+    if (yoyData) {
+      const periods = [...new Set(yoyData.observations.map((o) => o.keys.time))].sort()
+      const latest = periods.at(-1)
+      const m = latest ? /^(\d{4})-S(\d)$/.exec(latest) : null
+      if (latest && m) {
+        const before = `${Number(m[1]) - 1}-S${m[2]}`
+        const at = (g: string, per: string) => yoyData.observations.find((o) => o.keys.geo === g && o.keys.time === per)?.value ?? null
+        const rows = (yoyData.dimensions.geo?.codes ?? [])
+          .filter((c) => EU27.includes(c.code))
+          .map((c) => ({ code: c.code, name: nameIn(yoyData, c.code), a: at(c.code, latest), b: at(c.code, before) }))
+          .filter((r): r is typeof r & { a: number; b: number } => r.a != null && r.b != null && r.b > 0)
+          .map((r) => ({ ...r, change: (100 * (r.a - r.b)) / r.b }))
+          .sort((x, y) => y.change - x.change)
+        if (rows.length >= 8) {
+          const up = rows.filter((r) => r.change > 0).length
+          const down = rows.filter((r) => r.change < 0).length
+          highlights.push(fill(t.yoySentence, { product: productName, consumer: consumerName, up: String(up), down: String(down), before, latest, topUp: rows[0].name, upPct: `+${pct.format(rows[0].change)}${lang === 'en' ? '%' : ' %'}`, topDown: rows[rows.length - 1].name, downPct: `−${pct.format(Math.abs(rows[rows.length - 1].change))}${lang === 'en' ? '%' : ' %'}` }))
+          const mine = rows.find((r) => r.code === focus.code)
+          if (countryFocus && mine) highlights.push(fill(t.yoyFocus, { geo: mine.name, dir: mine.change >= 0 ? t.rose : t.fell, pct: fmtPct(Math.abs(mine.change)), before, latest }))
+          if (!countryFocus) {
+            w.yoy = {
+              type: 'bar',
+              title: fill(t.yoyTitle, { latest, before }),
+              subtitle: `${productName} · ${consumerName} · ${t.nationalCurrency}`,
+              categories: rows.map((r) => r.name),
+              series: [{ name: t.yoyTitle.split(':')[0], data: rows.map((r) => Math.round(r.change * 10) / 10) }],
+              signed: true,
+              unit: '%',
+              decimals: 1,
+              size: 'full',
+              role: 'change',
+            }
+          }
+        }
+      }
+    }
+    // Transmission and distribution in the network costs (reported once a year).
+    if (tdData) {
+      const years = [...new Set(tdData.observations.map((o) => o.keys.time))].sort()
+      const ty = years.at(-1)
+      const val = (g: string, code: string) => tdData.observations.find((o) => o.keys.geo === g && o.keys.time === ty && o.keys.nrg_prc === code)?.value ?? null
+      const rows = (tdData.dimensions.geo?.codes ?? [])
+        .filter((c) => EU27.includes(c.code))
+        .map((c) => ({ code: c.code, name: nameIn(tdData, c.code), dist: val(c.code, 'NETC_DIST'), trans: val(c.code, 'NETC_TRANS') }))
+        .filter((r): r is typeof r & { dist: number; trans: number } => r.dist != null && r.trans != null)
+        .sort((x, y) => y.dist - x.dist)
+      if (ty && rows.length >= 8) {
+        const topT = [...rows].sort((x, y) => y.trans - x.trans)[0]
+        highlights.push(fill(t.networkSentence, { year: ty, topD: rows[0].name, d: fmtPct(rows[0].dist), topT: topT.name, tr: fmtPct(topT.trans) }))
+        const mine = rows.find((r) => r.code === focus.code)
+        if (countryFocus && mine) highlights.push(fill(t.networkFocus, { geo: mine.name, d: fmtPct(mine.dist), tr: fmtPct(mine.trans), year: ty }))
+        if (!countryFocus) {
+          w.network = {
+            type: 'bar',
+            title: fill(t.networkTitle, { year: ty }),
+            subtitle: `${productName} · ${consumerName} · %`,
+            categories: rows.map((r) => r.name),
+            series: [
+              { name: t.distribution, data: rows.map((r) => Math.round(r.dist * 10) / 10) },
+              { name: t.transmission, data: rows.map((r) => Math.round(r.trans * 10) / 10) },
+            ],
+            stacked: 'percent',
+            unit: '%',
+            decimals: 1,
+            size: 'full',
+            role: 'composition',
+            source: { code: 'nrg_pc_206', url: `https://ec.europa.eu/eurostat/databrowser/view/nrg_pc_206/default/table?lang=${lang}` },
+          }
+        }
+      }
+    }
+  }
+
+  const order = countryFocus ? (['structure', 'history', 'countries', 'bands', 'main', 'shares'] as const) : (['countries', 'shares', 'yoy', 'network', 'structure', 'bands', 'main', 'history', 'map'] as const)
   const widgets: WidgetSpec[] = [{ type: 'kpis', items: kpis }, ...order.flatMap((k) => (w[k] ? [w[k]] : []))]
 
   // Summary and insights.
@@ -551,6 +657,7 @@ export async function buildPricesDashboard(
   if (countryFocus && euTotal != null) summary.push(fill(t.leadFocus, { geo: focus.name, product: productName.toLowerCase(), consumer: consumerName, year, value: `${nf.format(focus.total)} ${symbol}`, taxShare: fmtPct(taxShareOf(focus)), eu: `${nf.format(euTotal)} ${symbol}` }))
   else if (euTotal != null) summary.push(fill(t.lead, { product: productName.toLowerCase(), consumer: consumerName, year, value: `${nf.format(euTotal)} ${symbol}`, top: highest.name, topValue: `${nf.format(highest.total)} ${symbol}`, bottom: lowest.name, bottomValue: `${nf.format(lowest.total)} ${symbol}` }))
   if (changePct != null && prev) summary.push(fill(t.change, { geo: focus.name, dir: changePct >= 0 ? t.rose : t.fell, pct: fmtPct(Math.abs(changePct)), prev }))
+  summary.push(...highlights)
 
   const insights: Insight[] = []
   const taxTop = highestTaxShare[0]

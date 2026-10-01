@@ -29,11 +29,25 @@ const follow = (current: Plan, q: string): Plan => {
   return (r as Extract<Route, { kind: 'refine' }>).plan
 }
 
-test('views that show one country switch to the one asked for, never "DE,FR"', () => {
-  for (const q of ['oil security in Germany', 'energy balance of Germany']) {
+test('oil security and the energy balance compare with another country or the EU, keeping their own', () => {
+  for (const [q, view] of [['oil security in Germany', 'oil'], ['energy balance of Germany', 'balance']] as const) {
     const p = follow(planOf(q), 'compare with France')
-    assert.equal(p.filters.geo, 'FR', q)
-    assert.equal(follow(planOf(q), 'compared to the EU average').filters.geo, 'EU27_2020', q)
+    assert.equal(p[view]?.compare, 'FR', q)
+    assert.equal(p.filters.geo, 'DE', q)
+    assert.equal(follow(planOf(q), 'compared to the EU average')[view]?.compare, 'EU27_2020', q)
+    assert.equal(follow(follow(planOf(q), 'versus France'), 'no comparison')[view]?.compare, undefined, q)
+    // another country keeps the comparison, the compared country replaces it
+    const on = follow(planOf(q), 'compare with France')
+    assert.equal(follow(on, 'and Italy').oil?.compare ?? follow(on, 'and Italy').balance?.compare, 'FR', q)
+  }
+})
+
+test('"compare with last year": earlier years on the energy balance and the flow diagram, an explanation of the change elsewhere', () => {
+  assert.equal(follow(planOf('energy balance of Germany'), 'compare with last year').balance?.compare, 'y1')
+  assert.equal(follow(planOf('energy balance of Germany'), 'compared to 5 years earlier').balance?.compare, 'y5')
+  for (const q of ['oil security in Germany', 'energy profile of Germany', 'imports of natural gas by partner Germany', 'renewable share in Germany', 'electricity prices for households in Germany']) {
+    assert.equal(route('compare with last year', planOf(q)).kind, 'explain', q)
+    assert.equal(route('compared to the previous year', planOf(q)).kind, 'explain', q)
   }
 })
 

@@ -1,5 +1,6 @@
 import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
+import { compareRequest } from './comparing'
 import { detectGeos, detectTime, parse, requestedUnit, type Parsed } from './planner/parse'
 import type { DashboardControls, DashboardSpec, FuelGroup, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -119,6 +120,10 @@ export function refineBalance(current: Plan, text: string, dict: EnergyDictionar
   const p = parse(text.replace(/[-–,]/g, ' '))
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => GEOS.includes(c)) ?? (places.eu ? 'EU27_2020' : undefined)
+  // "compare with France", "versus the EU", "compared to last year", "no comparison": the sheet's comparison.
+  const asked = compareRequest(p.text, places, GEOS, String(current.filters.geo ?? 'EU27_2020'), true)
+  if (asked && 'off' in asked) return current.balance.compare ? { ...current, balance: { ...current.balance, compare: undefined }, notes: [] } : null
+  if (asked) return { ...current, balance: { ...current.balance, compare: asked.target }, notes: [] }
   const year = detectTime(p).years.at(-1)
   const unit = requestedUnit(p, ds)
   const fuels = fuelGroupOf(p)
@@ -130,7 +135,8 @@ export function refineBalance(current: Plan, text: string, dict: EnergyDictionar
     ...current,
     filters: { ...current.filters, ...(geo ? { geo } : {}), ...(unit ? { unit } : {}) },
     ...(year ? { time: { kind: 'range', since: String(year), until: String(year) }, focusPeriod: String(year) } : {}),
-    balance: { fuels: fuels ?? current.balance.fuels },
+    // (the comparison stays, unless the country becomes the one it was compared with)
+    balance: { fuels: fuels ?? current.balance.fuels, ...(current.balance.compare && current.balance.compare !== geo ? { compare: current.balance.compare } : {}) },
     notes: [],
   }
 }
@@ -197,9 +203,85 @@ export async function buildBalanceDashboard(
     : []
   if (kpis.length) widgets.push({ type: 'kpis', items: kpis })
   widgets.push({ type: 'balance', title: `${title} · ${groupName}`, query: { geo, unit, year }, unit: symbol, decimals, columns, rows })
+  // Compared with another country or the EU (shares of supply, comparable between countries of any size) or with earlier years (the same lines).
+  const compare = plan.balance?.compare
+  const back = compare && /^y\d+$/.test(compare) ? Number(compare.slice(1)) : 0
+  const otherGeo = compare && !back && compare !== geo ? compare : undefined
+  const comparison: string[] = []
+  if (hasTotal && (otherGeo || back)) {
+    const otherYear = String(Number(year) - back)
+    const other = await fetchEurostatData(DATASET, {
+      filters: { geo: otherGeo ?? geo, unit, nrg_bal: lines.map((l) => l.code), siec: fuels },
+      sinceTimePeriod: back ? otherYear : year,
+      untilTimePeriod: back ? otherYear : year,
+      lang,
+      signal,
+    }).catch(() => null)
+    if (other) {
+      const otherValues = cells(other)
+      const cellB = (line: string, fuel: string) => otherValues.get(`${line}|${fuel}`)?.value ?? null
+      const otherName = back ? otherYear : otherGeo === 'EU27_2020' ? 'EU-27' : (other.dimensions.geo?.codes.find((c) => c.code === otherGeo)?.label ?? String(otherGeo)).replace(/\s*\(.*?\)\s*$/, '')
+      const mainName = back ? year : geoName
+      const supplyA = cell('NRGSUP', 'TOTAL')
+      const supplyB = cellB('NRGSUP', 'TOTAL')
+      const share = (v: number | null, of: number | null) => (v != null && of ? Math.round((1000 * v) / of) / 10 : null)
+      const keyLines = ['PPRD', 'IMP', 'GIC', 'FC_E'].filter((c) => cell(c, 'TOTAL') != null && cellB(c, 'TOTAL') != null)
+      if (keyLines.length >= 2) {
+        // other countries: shares of supply; earlier years: the lines themselves (same unit)
+        widgets.push({
+          type: 'bar',
+          title: back ? fill(s.balance.compareLinesYears, { year, prev: otherYear }) : fill(s.balance.compareLines, { geo: geoName, other: otherName }),
+          subtitle: back ? `${symbol} · ${geoName}` : `% ${s.balance.ofSupply}`,
+          categories: keyLines.map((c) => label('nrg_bal', c)),
+          series: [
+            { name: mainName, data: keyLines.map((c) => (back ? cell(c, 'TOTAL') : share(cell(c, 'TOTAL'), supplyA)) ?? 0) },
+            { name: otherName, data: keyLines.map((c) => (back ? cellB(c, 'TOTAL') : share(cellB(c, 'TOTAL'), supplyB)) ?? 0) },
+          ],
+          horizontal: true,
+          unit: back ? symbol : '%',
+          decimals: back ? 0 : 1,
+          size: 'half',
+          role: 'ranking',
+        })
+      }
+      const mix = columns.filter((c) => c.code !== 'TOTAL' && (cell('GIC', c.code) ?? 0) > 0 || (cellB('GIC', c.code) ?? 0) > 0).filter((c) => c.code !== 'TOTAL')
+      const gicA = cell('GIC', 'TOTAL')
+      const gicB = cellB('GIC', 'TOTAL')
+      if (mix.length >= 2 && gicA && gicB) {
+        widgets.push({
+          type: 'bar',
+          title: fill(s.balance.compareFuels, { a: mainName, b: otherName }),
+          subtitle: `% · ${s.balance.gicByFuel}`,
+          categories: mix.map((c) => c.label),
+          series: [
+            { name: mainName, data: mix.map((c) => share(Math.max(cell('GIC', c.code) ?? 0, 0), gicA) ?? 0) },
+            { name: otherName, data: mix.map((c) => share(Math.max(cellB('GIC', c.code) ?? 0, 0), gicB) ?? 0) },
+          ],
+          horizontal: true,
+          unit: '%',
+          decimals: 1,
+          size: 'half',
+          role: 'composition',
+        })
+      }
+      const pct = new Intl.NumberFormat(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+      if (back) {
+        const change = (c: string) => {
+          const a = cell(c, 'TOTAL')
+          const b = cellB(c, 'TOTAL')
+          return a != null && b ? `${a >= b ? '+' : '−'}${pct.format(Math.abs((100 * (a - b)) / b))}%` : null
+        }
+        const [pp, im, fc] = [change('PPRD'), change('IMP'), change('FC_E')]
+        if (pp && im && fc) comparison.push(fill(s.balance.compareYearsSummary, { geo: geoName, prev: otherYear, production: pp, imports: im, final: fc }))
+      } else {
+        const [ia, ib, fa, fb] = [share(cell('IMP', 'TOTAL'), supplyA), share(cellB('IMP', 'TOTAL'), supplyB), share(cell('FC_E', 'TOTAL'), supplyA), share(cellB('FC_E', 'TOTAL'), supplyB)]
+        if (ia != null && ib != null) comparison.push(fill(s.balance.compareSummary, { geo: geoName, other: otherName, imports: `${pct.format(ia)}%`, otherImports: `${pct.format(ib)}%`, final: fa != null ? `${pct.format(fa)}%` : '–', otherFinal: fb != null ? `${pct.format(fb)}%` : '–' }))
+      }
+    }
+  }
   const supply = hasTotal ? cell('NRGSUP', 'TOTAL') : null
   const final = hasTotal ? cell('FC_E', 'TOTAL') : null
-  const summary = supply != null && final != null ? [fill(s.balance.summary, { year, geo: geoName, supply: fmt.format(supply), final: fmt.format(final), unit: symbol })] : []
+  const summary = [...(supply != null && final != null ? [fill(s.balance.summary, { year, geo: geoName, supply: fmt.format(supply), final: fmt.format(final), unit: symbol })] : []), ...comparison]
 
   const { spec } = sanitizeSpec({
     title,
@@ -243,6 +325,8 @@ function balanceControls(plan: Plan, dataStart: string | undefined, dataEnd: str
 function balanceSuggestions(plan: Plan, s: { balance: BalanceStrings; sugExplain: string }): Suggestion[] {
   const out: Suggestion[] = []
   if (plan.filters.geo !== 'EU27_2020') out.push({ label: s.balance.sugEu, plan: { ...plan, filters: { ...plan.filters, geo: 'EU27_2020' } } })
+  if (!plan.balance?.compare && plan.filters.geo !== 'EU27_2020') out.push({ label: s.balance.sugCompare, plan: { ...plan, balance: { ...plan.balance!, compare: 'EU27_2020' } } })
+  if (!plan.balance?.compare) out.push({ label: s.balance.sugYears, plan: { ...plan, balance: { ...plan.balance!, compare: 'y1' } } })
   out.push({ label: s.sugExplain, explain: true })
   return out
 }

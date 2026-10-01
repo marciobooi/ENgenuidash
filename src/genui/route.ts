@@ -2,6 +2,7 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import type { ScopeVerdict } from '../llm/energyScope'
 import { normalize } from '../llm/energyScope'
 import { isExplainRequest } from './actions'
+import { COMPARE, yearsBack } from './comparing'
 import { planQuestion, refinePlan } from './planner'
 import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
@@ -75,6 +76,9 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
   if (current && isExplainRequest(text)) return { kind: 'explain' }
   const q = normalize(text).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
   if (current && BACK.test(q)) return { kind: 'back' }
+  // "Compare with last year": the energy flow diagram and the balance sheet set it against earlier years; the other dashboards already
+  // show the change on the year before (the arrows of the key figures), which is what the explanation of the figures reports.
+  if (current && !current.sankey && !current.balance && COMPARE.test(q) && yearsBack(q)) return { kind: 'explain' }
   // "Why did it rise in 2022?", "is that good?": about the figures on screen.
   if (current && ((WHY.test(q) && REFERS.test(q)) || JUDGE.test(q))) return { kind: 'explain' }
 

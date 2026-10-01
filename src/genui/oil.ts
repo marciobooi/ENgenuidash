@@ -3,6 +3,7 @@ import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
 import { detectGeos, detectTime, parse } from './planner/parse'
 import type { DashboardSpec, Insight, KpiSpec, Plan, Suggestion, WidgetSpec } from './types'
+import { compareRequest } from './comparing'
 import { sanitizeSpec } from './validate'
 
 /**
@@ -51,10 +52,14 @@ export function refineOil(current: Plan, text: string, dict: EnergyDictionary, c
   const p = parse(text.replace(/[-–,?]/g, ' '))
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => OIL_GEOS.includes(c)) ?? (places.eu ? EU : undefined)
+  // "compare with France", "versus the EU", "no comparison": the country set against another (earlier years are the key figures' arrows).
+  const asked = compareRequest(p.text, places, OIL_GEOS, String(current.filters.geo ?? EU), false)
+  if (asked && 'off' in asked) return current.oil.compare ? { ...current, oil: {}, notes: [] } : null
+  if (asked) return { ...current, oil: { ...current.oil, compare: asked.target }, notes: [] }
   const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|wie|ist|es|show|zeige|montre|now|jetzt|maintenant)$/.test(w))
   const known = rest.every((w) => detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)
   if (!geo || (!known && !(OIL.test(p.text) && OIL_TOPIC.test(p.text)))) return null
-  return { ...current, filters: { ...current.filters, geo }, notes: [] }
+  return { ...current, filters: { ...current.filters, geo }, oil: current.oil.compare && current.oil.compare !== geo ? { compare: current.oil.compare } : {}, notes: [] }
 }
 
 // ---------- data helpers ----------
@@ -93,19 +98,28 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
   const ask = (dataset: string, filters: Record<string, string | string[]>, query: Record<string, string> = {}) =>
     dict.datasets[dataset] ? fetchEurostatData(dataset, { filters, lang, signal, ...query }).catch(() => null) : Promise.resolve(null)
   const productCodes = Object.keys(PRODUCT_SIEC)
+  const compareGeo = plan.oil?.compare && plan.oil.compare !== geo ? plan.oil.compare : undefined
   const [crude, products, stocks, cosm, balance, dependency, russiaByCountry, productImports, dieselRu, productStocks, exportsAll] = await Promise.all([
     ask(DATASET, { geo, siec: 'O4100_TOT', partner: [...CRUDE_PARTNERS, 'TOTAL'], unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask(DATASET, { geo, siec: 'O4000', partner: ['TOTAL', 'RU'], unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask('nrg_stk_oilm', { geo, siec: 'O4000', stk_flow: 'STK_CL', unit: 'THS_T' }),
     ask('nrg_cb_cosm', { freq: 'M', geo: isEu ? EU_MEMBERS : geo, nrg_bal: 'IMP', indic_nrg: ['AVGPRC_USD_BBL', 'VOL_THS_BBL'] }),
     ask('nrg_bal_c', { geo, siec: ['O4000XBIO', 'TOTAL', ...Object.keys(PRODUCT_SIEC)], nrg_bal: ['GAE', 'IMP', 'EXP', 'FC_E', 'FC_NE', 'FC_TRA_E', 'FC_IND_E', 'FC_OTH_HH_E', 'FC_OTH_CP_E', 'INTMARB', 'INTAVI'], unit: 'KTOE' }),
-    ask('nrg_ind_id', { geo: [...new Set([geo, ...EU_MEMBERS])], siec: 'O4000XBIO', unit: 'PC' }),
+    ask('nrg_ind_id', { geo: [...new Set([geo, ...EU_MEMBERS, ...(compareGeo ? [compareGeo] : [])])], siec: 'O4000XBIO', unit: 'PC' }),
     ask('nrg_ind_idooil', { geo: EU_MEMBERS, partner: 'RU', unit: 'PC' }),
     ask(DATASET, { geo, siec: productCodes, partner: 'TOTAL', unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask(DATASET, { geo, siec: 'O4671XR5220B', partner: ['TOTAL', 'RU'], unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask('nrg_stk_oilm', { geo, siec: ['O4100_TOT', ...productCodes], stk_flow: 'STK_CL', unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
     ask('nrg_te_oilm', { geo, siec: 'O4000', partner: 'TOTAL', unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
   ])
+  // The other place of a comparison: its oil imports (and Russia's share), stocks and exports.
+  const compareData = compareGeo
+    ? await Promise.all([
+        ask(DATASET, { geo: compareGeo, siec: 'O4000', partner: ['TOTAL', 'RU'], unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
+        ask('nrg_stk_oilm', { geo: compareGeo, siec: 'O4000', stk_flow: 'STK_CL', unit: 'THS_T' }),
+        ask('nrg_te_oilm', { geo: compareGeo, siec: 'O4000', partner: 'TOTAL', unit: 'THS_T' }, { sinceTimePeriod: '2015-01' }),
+      ])
+    : null
   if (!crude && !products && !cosm && !balance) throw new NoDataError(DATASET)
 
   const geoName = (label(crude ?? balance ?? cosm, 'geo', geo) || geo).replace(/\s*\(.*?\)\s*$/, '')
@@ -225,6 +239,43 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
     kpis.push({ label: t.kpiCover, value: Math.round(coverNow), unit: t.unitDays, decimals: 0, ...(coverAgo != null ? { delta: Math.round(coverNow - coverAgo), deltaUnit: t.unitDays, deltaLabel: coverAgoKey } : {}), caption: coverMonths.at(-1), goodDirection: 'up', trend: coverMonths.slice(-24).map((m) => Math.round(cover.get(m)!)) })
   if (mixNow != null && mixYear) kpis.push({ label: t.kpiShare, value: Math.round(mixNow * 10) / 10, unit: '%', decimals: 1, caption: mixYear, goodDirection: 'down', trend: mixYears.slice(-15).map((y) => Math.round(shareOfMix(y)! * 10) / 10) })
   widgets.push({ type: 'kpis', items: kpis })
+
+  // ----- compared with another country or the EU: dependency, Russia's share, stock cover -----
+  const comparisonSummary: string[] = []
+  if (compareGeo && compareData) {
+    const [productsC, stocksC, exportsC] = compareData
+    const nameC = compareGeo === EU ? 'EU-27' : (label(productsC ?? stocksC, 'geo', compareGeo) || compareGeo).replace(/\s*\(.*?\)\s*$/, '')
+    const totalC = seriesOf(productsC, (k) => k.partner === 'TOTAL')
+    const ruC = annual(seriesOf(productsC, (k) => k.partner === 'RU'))
+    const totalCa = annual(totalC)
+    const ruShareC = new Map<string, number>()
+    for (const [y, v] of totalCa) if (v > 0) ruShareC.set(y, (100 * (ruC.get(y) ?? 0)) / v)
+    const depC = seriesOf(dependency, (k) => k.geo === compareGeo)
+    const stockC = seriesOf(stocksC, () => true)
+    const exportsTotalC = seriesOf(exportsC, (k) => k.partner === 'TOTAL')
+    const coverC: Month = new Map()
+    {
+      const netMonths = sortedKeys(totalC)
+      const net = new Map(netMonths.map((m) => [m, (totalC.get(m) ?? 0) - (exportsTotalC.get(m) ?? 0)]))
+      for (let i = 11; i < netMonths.length; i++) {
+        const window = netMonths.slice(i - 11, i + 1)
+        if (window.some((w) => !net.has(w)) || !stockC.has(netMonths[i])) continue
+        const daily = window.reduce((a, w) => a + net.get(w)!, 0) / 365
+        if (daily > 0) coverC.set(netMonths[i], stockC.get(netMonths[i])! / daily)
+      }
+    }
+    const pair = (title: string, subtitle: string, a: Map<string, number>, b: Map<string, number>, from: string, unit: string) => {
+      const cats = [...new Set([...a.keys(), ...b.keys()])].filter((c) => c >= from).sort()
+      if (cats.length >= 2 && a.size && b.size) widgets.push({ type: 'line', title, subtitle, categories: cats, series: [{ name: geoName, data: cats.map((c) => a.get(c) ?? null) }, { name: nameC, data: cats.map((c) => b.get(c) ?? null) }], unit, size: 'half', role: 'evolution' })
+    }
+    pair(fill(t.compareDependency, { geo: geoName, other: nameC }), '%', depSeries, depC, '2005', '%')
+    pair(fill(t.compareRussia, { geo: geoName, other: nameC }), '%', ruAnnual, ruShareC, '2015', '%')
+    pair(fill(t.compareCover, { geo: geoName, other: nameC }), t.unitDays, cover, coverC, [...new Set([...cover.keys(), ...coverC.keys()])].sort().slice(-60)[0] ?? '2020-01', t.unitDays)
+    const last = (m: Map<string, number>) => (m.size ? m.get([...m.keys()].sort().at(-1)!)! : null)
+    const [da, db, ra, rb, ca, cb] = [last(depSeries), last(depC), last(ruAnnual), last(ruShareC), last(cover), last(coverC)]
+    const f = (v: number | null, unit: string) => (v == null ? '–' : `${nf(v >= 100 || unit === t.unitDays ? 0 : 1).format(v)}${unit === '%' ? '%' : ` ${unit}`}`)
+    if (da != null || ra != null || ca != null) comparisonSummary.push(fill(t.compareSummary, { geo: geoName, other: nameC, dep: f(da, '%'), otherDep: f(db, '%'), ru: f(ra, '%'), otherRu: f(rb, '%'), cover: f(ca, t.unitDays), otherCover: f(cb, t.unitDays) }))
+  }
 
   // ----- price gauge -----
   if (priceNow != null && priceAvg != null && lastPriceMonth) {
@@ -385,12 +436,14 @@ export async function buildOilDashboard(plan: Plan, dict: EnergyDictionary, lang
   if (mixNow != null && mixYear && mixYears.length > 1) insights.push({ tone: 'down', parts: [fill(t.insShare, { pct: pct(mixNow), year: mixYear, then: pct(shareOfMix(mixYears[0])!), first: mixYears[0] })] })
   if (depNow != null && depYear) insights.push({ tone: 'down', parts: [fill(t.insDependency, { pct: pct(depNow), year: depYear })] })
 
-  const summary =
+  const summary: string[] =
     depNow != null && ruYear && ru21 != null && priceNow != null && lastPriceMonth
       ? [fill(t.summary, { geo: geoName, year: depYear ?? '', dep: pct(depNow), ru: pct(ruAnnual.get(ruYear)!), ruYear, ru21: pct(ru21), price: nf(0).format(priceNow), month: lastPriceMonth })]
       : []
   const title = fill(t.title, { geo: geoName })
+  summary.push(...comparisonSummary)
   const suggestions: Suggestion[] = []
+  if (!compareGeo && !isEu) suggestions.push({ label: t.sugCompare, plan: { ...plan, oil: { ...plan.oil, compare: EU } } })
   if (!isEu) suggestions.push({ label: t.sugEu, plan: { ...plan, filters: { ...plan.filters, geo: EU } } })
   else suggestions.push({ label: label(crude ?? balance, 'geo', 'DE') || 'Germany', plan: { ...plan, filters: { ...plan.filters, geo: 'DE' } } })
   suggestions.push({ label: s.sugExplain, explain: true })

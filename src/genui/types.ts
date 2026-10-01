@@ -45,7 +45,7 @@ export interface Plan {
    * for one country, year (focusPeriod; latest if unset) and unit, with one group of fuels as
    * columns (see balance.ts).
    */
-  balance?: { fuels: FuelGroup }
+  balance?: { fuels: FuelGroup; /** What the sheet is compared with: another country or the EU, or earlier years ("y1", "y5", "y10"). */ compare?: string }
   /**
    * Energy trade by partner (as Eurostat's entrade visualisation): one country's imports or
    * exports of one product, by partner country, for one year (see trade.ts).
@@ -60,7 +60,7 @@ export interface Plan {
   /** The energy flow diagram (sankey/): the fuel family shown, and whether flows are split by fuel. */
   sankey?: { fuel?: string; byFuel?: true; /** The households view (products into the uses of households) instead of the whole balance. */ scope?: 'households'; /** What to compare with: "y1", "y5", "y10" (years earlier) or a country code. */ compare?: string; /** The nodes opened up, by name (sankey/state.ts); the first picture when absent. */ nodes?: string }
   /** The oil security dashboard (see oil.ts). */
-  oil?: { view?: 'all' }
+  oil?: { view?: 'all'; /** What the country is compared with: another country or the EU ("compare with France"). */ compare?: string }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 

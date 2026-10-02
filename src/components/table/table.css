@@ -192,6 +192,20 @@
   padding-right: 40px !important;
 }
 
+/* The tooltip wrapper of the chart button sits at the right end of the row header (the button is static inside it). */
+.balance-table__line > .tooltip-anchor:has(> .balance-table__chart) {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  transform: translateY(-50%);
+}
+
+.balance-table__line > .tooltip-anchor > .balance-table__chart {
+  position: static;
+  transform: none;
+}
+
 .balance-table__chart {
   position: absolute;
   top: 50%;

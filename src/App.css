@@ -937,7 +937,7 @@ main:focus {
 @media (max-height: 820px) {
   .app--welcome .es-header {
     height: 75px;
-    min-height: 56px;
+    min-height: 75px;
   }
 
   .app--welcome .es-header__title {

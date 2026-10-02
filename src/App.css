@@ -936,7 +936,7 @@ main:focus {
 /* ---------- Welcome screen on a short (laptop) screen: everything fits without scrolling ---------- */
 @media (max-height: 820px) {
   .app--welcome .es-header {
-    height: 56px;
+    height: 75px;
     min-height: 56px;
   }
 
@@ -945,13 +945,13 @@ main:focus {
   }
 
   .app--welcome .welcome {
-    gap: 8px;
-    padding-top: clamp(0.5rem, 3vh, 1.5rem);
+    gap: 10px;
+    padding-top: clamp(0.5rem, 7vh, 5rem);
     padding-bottom: 0.75rem;
   }
 
   .app--welcome .welcome__head {
-    margin-bottom: 6px;
+    margin-bottom: 12px;
   }
 
   .app--welcome .welcome__title {
@@ -968,7 +968,7 @@ main:focus {
   }
 
   .app--welcome .ideas {
-    margin-top: 8px;
+    margin-top: 12px;
   }
 
   .app--welcome .idea {

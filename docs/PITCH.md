@@ -1,210 +1,164 @@
-# Summary
+# ENgenuidash: ask a question, see the answer
 
-One-minute summary: people come to Eurostat with a question and get tables; this tool answers the question with a dashboard.
-
-The problem: what users want next to what they have to do today, e.g. knowing that import dependency is dataset nrg_ind_id before they can find it.
-
-What generative UI is: compared with a fixed dashboard and a chatbot. The key selling point is that the AI arranges the answer but never produces a number; every figure comes from the Eurostat API.
-
-What it can do:
-questions in three languages, with follow-ups like "top 5"
-layouts that fit the question, 11 chart types and related data
-insights calculated from the data, with sources and definitions
-data tables and CSV, share links, and the optional AI running on the user's device
-
-Why it fits Eurostat: accuracy, privacy (no server, nothing sent to an AI company), no usage fees, accessibility, three languages, EC design system, tests and CI.
-
-Who benefits: citizens, journalists, policy officers, and Eurostat itself.
-A 5-minute demo script, step by step.
-
-Honest limits: energy data only, unusual wording may not be understood, 26 descriptions translated, one-time 0.6–0.9 GB model download, not yet tested with real users.
-
-The ask: a 4–6 week internal pilot, measure how it's used, then decide whether to extend it to more topics and languages.
-
-
-
-# ENgenuidash: ask a question, get a dashboard
-
-*A pitch: what generative UI is, what this prototype does, and what it solves for Eurostat's users.*
+*A pitch you can say out loud. Start with the 30 seconds; the rest is there if they want more.*
 
 ---
 
-## In one minute
+## The 30 seconds (say this)
 
-People come to Eurostat with a **question** ("How dependent is Germany on gas imports?"). What
-they find is **tables**: dataset codes, dimension codes and filters they have to know in advance.
-
-**ENgenuidash turns the question into the answer.** The user types a question in plain English,
-German or French. A few seconds later they get a **dashboard built for that question**, with the
-headline figure, the right charts, key insights, a plain-language summary and the official
-definition. Every number comes straight from the Eurostat API and links back to its source.
-
-It is a working prototype. It runs entirely in the browser, needs no server and has no AI usage
-costs. It uses the European Commission's own design system (ECL) and Webtools charts.
+> "Today, when someone asks Eurostat a question like *'How dependent is Germany on gas?'*, they get
+> a list of tables and codes, and they have to work out the answer themselves.
+>
+> ENgenuidash answers the question itself. You type it in your own language, and in a few seconds
+> you get one page with the right charts, a plain sentence saying what they show, and the official
+> source behind every number.
+>
+> Every number comes straight from Eurostat. The AI never makes one up."
 
 ---
 
-## 1. The problem: Eurostat data is rich but hard to reach
+## The problem, in plain words
 
-| What users want | What they have to do today |
+Think of a huge library with no librarian. Everything is in there, but you have to know the shelf
+code before you can find anything.
+
+- Eurostat's energy section alone has **about 145 datasets**, each with its own codes and filters.
+- Most people are **not statisticians**: citizens, students, journalists, civil servants.
+- They arrive with a **question**. They leave with a **table**.
+- Many do not read English comfortably, and a lot of the explanations are English only.
+
+**ENgenuidash is the librarian:** you ask, it fetches and lays out the answer.
+
+---
+
+## What it does (five things, with real examples)
+
+**1. It understands a normal question, in English, German or French.**
+It copes with typos, with how people actually talk ("how is Spain doing?", "who sells Hungary its
+gas?"), and with follow-ups like *"top 5"*, *"in 2018"* or *"add Germany"*.
+
+**2. It builds the right page for that question.** Some examples:
+- *"Energy profile of Germany"*: one page with the country's key figures, its rank among the 27
+  EU countries, progress towards the 2030 goals, and what its energy is made of.
+- *"Energy flow diagram"*: where a country's energy comes from, where it goes, and what is lost
+  on the way. There is a version for households.
+- *"Oil security in the EU"*: how much oil comes from where, how dependent we are, how many days
+  of stock there are. Useful when oil is in the news.
+- *"Where does France buy its gas?"*: the supplier countries, month by month if you want.
+- *"Electricity price components"*: how much of the bill is energy, network and taxes.
+
+**3. It explains in simple words.**
+Each page has a short summary written from the numbers, and a definition of what is being
+measured. Questions like *"What is biogas?"*, *"Why do renewables matter?"* or *"How is energy
+dependency calculated?"* get a plain answer with a link to the Eurostat page it comes from.
+
+**4. It lets you compare and dig.**
+*"Compare with France"* puts two countries side by side, and a small switch on each chart flips it
+between them. Filters, data tables and downloads are one click away.
+
+**5. It remembers and shares.**
+Past conversations are kept on your own computer, and one link rebuilds the exact same page for a
+colleague.
+
+---
+
+## Why you can trust it
+
+This is the point to stress. Most people's worry about AI is that it invents things.
+
+- **The numbers are never written by AI.** They come live from Eurostat's own data service.
+- **The AI only arranges the page.** It decides which charts to show, never what the figures are.
+- **Every chart names its source** and links back to Eurostat.
+- **The sentences are calculated from the data**, for example "Romania had the biggest rise".
+- **Gaps are shown, not hidden.** If a country has no data, the page says so.
+- The optional AI helper that writes longer explanations **runs on the user's own device**, and
+  the app **checks that any number it mentions really is in the sources**.
+
+---
+
+## Why it suits Eurostat
+
+| Question a boss asks | The short answer |
 |---|---|
-| "Which EU country relies most on energy imports?" | Know the dataset is `nrg_ind_id`, open the data browser, pick the unit, the fuel `TOTAL`, all countries and the latest year, then sort |
-| A chart they can put in a report | Build it themselves in Excel from a CSV download |
-| To understand what an indicator means | Find the reference metadata page (English only) |
-| To compare countries or years | Re-filter, re-download and re-chart |
-
-- **The energy database alone has about 140 datasets**, each with its own codes (`SIEC`,
-  `NRG_BAL`, units, flows). Journalists, students, policy officers and citizens rarely know them.
-- **Most users are not statisticians.** They ask questions; the site answers with tables.
-- **Many users do not read English comfortably**, yet much of the explanatory material is English
-  only.
+| Is it accurate? | Numbers only come from Eurostat. Nothing is generated. |
+| What about privacy? | There is no server collecting questions. The AI runs on the user's device. Nothing goes to an AI company. |
+| What does it cost to run? | No per-question fees and no special servers. It can be hosted like an ordinary website. |
+| Does it look official? | It uses the Commission's own design system and chart service. |
+| Is it accessible? | Keyboard use, screen-reader descriptions for every chart, and a data table behind each one. |
+| Which languages? | English, German and French today. Adding more means adding translations, not rebuilding. |
+| Is it solid? | Nearly 280 automated tests run on every change. |
 
 ---
 
-## 2. What is "generative UI"?
-
-The idea: **AI builds the interface as well as the text**.
-
-| Approach | What the user gets |
-|---|---|
-| **Classic dashboard** | The same fixed charts for everyone. Designers had to predict every question in advance. |
-| **Chatbot** | A paragraph of text. It is hard to check, often has no numbers, and can invent them ("hallucinate"). |
-| **Generative UI** | A **new interface for each question**: the system picks the data, the chart types, the layout and the controls that answer *this* question, then assembles them from trusted, pre-built components. |
-
-The key design choice in ENgenuidash is **a strict separation of roles**:
-
-- **The system decides *what to show*:** which dataset, countries, years and charts, and in what order.
-- **Eurostat provides *every number*:** live from the official API, never generated by AI.
-- **Official EC components *draw* it:** ECL design system, Webtools/Highcharts charts,
-  accessible by default.
-- **The optional AI model only *writes explanations*,** and the app checks that any figure it
-  mentions actually appears in the sources.
-
-This is what makes the approach safe for an official statistics provider: **the AI cannot make
-up a statistic**, because it never produces the numbers.
-
----
-
-## 3. What the dashboard does
-
-### Ask in plain language, in three languages
-- "Share of energy from renewable sources in the EU"
-- "Which country has the highest import dependency?"
-- "Electricity prices for households in Spain and Portugal since 2015"
-- "Wofür verbrauchen Haushalte in der EU Energie?"
-
-Questions are understood in English, German and French, including follow-ups such as
-**"top 5"**, **"add Germany"**, **"in 2018"** or **"as a bar chart"**.
-
-### A dashboard shaped by the question
-The layout adapts to what was asked:
-- **"Which…?" questions** open with a direct **answer card** and a ranking.
-- **"How has it changed?"** leads with the change over time.
-- **Comparisons** get country rankings, a map and the EU-27 reference line.
-- **Breakdowns** get composition charts: by fuel, by sector, by use.
-
-It has **11 chart types**, including line, bar, stacked, pie, map, heat map, "dumbbell"
-(before/after) and bubble charts. Each is chosen **only when the data makes it meaningful**.
-
-### It answers the next question too
-The dashboard adds **related data** that answers the natural follow-up. For example, import
-dependency comes **by fuel**, alongside **where the gas comes from**; a price comes split into
-**energy, network, taxes and VAT**.
-
-### Written insights, computed from the numbers
-For example "Malta has the highest value in 2023", "Romania grew the fastest", or "Spain has
-overtaken Italy". These sentences are calculated from the data, not written by AI, so they are
-always correct.
-
-### Trust and transparency built in
-- **Every chart names its source dataset** and links to it on Eurostat.
-- **"About this indicator"** gives the official definition, now in all three languages.
-- **Data gaps are stated** ("No data for Kosovo* in this selection") rather than hidden.
-- **Partial years are handled honestly.** Totals are only compared when they cover the same
-  components, so no misleading +600,000% jumps.
-- **Outliers are shown truthfully.** One extreme value does not squash the rest of the chart; its
-  real value is labelled.
-
-### Work with the result
-- **Toolbar filters** change countries, products, years and units without typing.
-- **Data table view** for every chart, with **CSV and PNG download**.
-- **Shareable links:** the URL rebuilds the exact same dashboard for a colleague.
-- **Language switch** re-translates the whole dashboard on the spot.
-
-### Explain in words (optional AI)
-A small language model can write a fuller explanation of the figures on screen, e.g.
-"Explain these figures". It **runs inside the user's browser**: nothing is sent to an AI
-provider. Numbers it mentions are **checked against the sources and flagged** if they are not
-there.
-
-It also answers **"What is…?"** questions ("What is energy dependency?") by **quoting Eurostat's own
-glossary and documentation**: about 1,100 passages and 53 official glossary entries, with their
-source links.
-
----
-
-## 4. Why this approach fits Eurostat
-
-| Concern | How ENgenuidash handles it |
-|---|---|
-| **Accuracy** | Numbers only ever come from the Eurostat API. AI never generates statistics. |
-| **Privacy / GDPR** | No backend and no tracking. The optional AI model runs on the user's device, so questions never leave the browser. |
-| **Cost** | No per-question AI API fees and no GPU servers. It can be hosted as a static website. |
-| **Resilience** | If the Eurostat API is down, the last cached data is shown and clearly marked as such. |
-| **Accessibility** | ECL components, keyboard navigation, screen-reader descriptions for every chart, and data tables. |
-| **Multilingual** | Interface, dashboards, insights and definitions in EN / DE / FR. More languages mean adding translations, not rebuilding. |
-| **Brand consistency** | Uses the Commission's own ECL design system and Webtools charting service. |
-| **Maintainability** | A tested codebase (170+ automated tests) with CI on every change. The dataset dictionary regenerates from Eurostat's own catalogue in seconds. |
-
----
-
-## 5. Who benefits
+## Who benefits
 
 - **Citizens and students:** get an answer without learning dataset codes.
-- **Journalists:** a correct, sourced chart in seconds, with the link to share.
-- **Policy officers and analysts:** fast first look, comparisons and rankings, then the CSV for
-  deeper work.
-- **Eurostat itself:** more reach for existing data, fewer "where do I find…" requests, and a
-  showcase of trustworthy AI use in official statistics.
+- **Journalists:** a correct, sourced chart in seconds, with a link to share.
+- **Policy officers and analysts:** a fast first look and comparisons, then the data to download.
+- **Eurostat:** more people reaching its data, fewer "where do I find…?" requests, and an example
+  of AI used in a trustworthy way.
 
 ---
 
-## 6. Suggested demo (5 minutes)
+## A 5-minute demo (follow these steps)
 
-1. **Start page:** click a starter topic, e.g. *"Share of energy from renewable sources in the EU"*.
-   Show the headline figure, the insights and the source links.
-2. **Ask a comparison:** *"Which country has the highest energy import dependency?"* The
-   answer card comes first, then the ranking and map.
-3. **Follow up:** type *"top 5"*, then *"in 2015"*. The dashboard updates instantly.
-4. **Switch to Deutsch.** Everything re-translates, including the indicator definition.
-5. **Open a chart's data table** and download the CSV.
-6. **Copy the link** and open it in another tab. It shows the same dashboard.
-7. *(If the model is loaded)* **"Explain these figures"** gives a written explanation that is
-   generated on the device and checked against the sources.
-
----
-
-## 7. Honest limits of the prototype
-
-- **Scope:** the energy database only (about 140 datasets). The same method would extend to other
-  Eurostat domains.
-- **Question coverage:** very unusual wording may not find the right dataset. The app then says
-  so rather than guessing.
-- **Descriptions:** the 26 most-used indicator descriptions are translated; the rest show
-  Eurostat's English text, clearly labelled.
-- **The optional AI model** is a one-time download of about 0.6–0.9 GB, and is slower on older
-  devices. Dashboards work fully without it.
-- **Not yet user-tested** with real Eurostat audiences.
+1. **Type "Energy profile of Germany".** Show the one-page picture: key figures, rank in the EU,
+   the 2030 goals. *Say:* "Everything here is live Eurostat data."
+2. **Type "Compare with France".** Two countries side by side. Click the small switch on a chart
+   to flip it between them.
+3. **Type "Hungary buys gas from whom".** Show the suppliers, then **"compare with the EU"**.
+   *Say:* "Look at how much more it relies on one supplier than the EU does."
+4. **Type "Why are renewables important?"** A plain explanation with its sources. *Say:* "Written
+   for people who are not experts, with the Eurostat page behind it."
+5. **Type "Oil security in the EU".** *Say:* "This is the kind of page that matters when oil
+   is in the news."
+6. **Switch the language to German.** The whole page translates, including the definitions.
+7. **Copy the link** and open it in a new tab, or open **History** to show past conversations.
 
 ---
 
-## 8. The ask / next steps
+## Questions you may be asked
 
-1. **Pilot:** host it internally and let a small group (communication, dissemination, a few
-   external users) try it for 4–6 weeks.
-2. **Measure:** track which questions are asked, which fail, and time-to-answer compared with the data browser.
-3. **Decide:** whether to extend it to more domains (e.g. prices, environment, transport) and
-   more EU languages.
+**"Can the AI be wrong?"**
+It cannot invent a number, because it never writes them. It can misunderstand an unusual question.
+When it does, it says so and offers the closest pages instead of guessing.
 
-> **One-line pitch:** *"Ask Eurostat a question in your own language and get an official,
-> sourced dashboard in seconds, with AI arranging the answer but never inventing the numbers."*
+**"Does it send our questions to an AI company?"**
+No. There is no server in the middle. The optional AI helper runs inside the user's own browser.
+
+**"How much work is it to add other topics, such as prices, environment or transport?"**
+The method is the same, so it is a matter of adding datasets and a few page designs, not
+starting again. Energy took the longest because it is the first.
+
+**"What if Eurostat's service is down?"**
+The page says the data service is unavailable instead of showing something wrong.
+
+**"Is this finished?"**
+It is a working prototype that already covers energy well. The next step is to see how real people
+use it.
+
+---
+
+## Honest limits
+
+- **Energy only** for now (about 145 datasets).
+- **Unusual wording** may not be understood. The app says so and suggests pages instead of
+  guessing, and we can keep teaching it from the questions that fail.
+- **The optional AI helper** is a one-time download of roughly 0.6 to 1.4 GB, depending on the
+  device. Everything else works without it.
+- **Translations:** the interface, pages and definitions are in three languages, but only the 26
+  most-used indicator descriptions are fully translated; the rest show Eurostat's English text.
+- **Not yet tested with real users** from Eurostat's audience.
+
+---
+
+## What we are asking for
+
+1. **A pilot of 4 to 6 weeks.** Host it internally for a small group (communication,
+   dissemination, a few outside users).
+2. **Measure it:** which questions people ask, which ones fail, and how long it takes to get an
+   answer compared with the data browser.
+3. **Then decide** whether to extend it to more topics and more EU languages.
+
+> **One-line pitch:** *"Ask Eurostat a question in your own language and get an official, sourced
+> page in seconds, with AI arranging the answer but never inventing the numbers."*

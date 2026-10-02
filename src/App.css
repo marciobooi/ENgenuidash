@@ -933,3 +933,51 @@ main:focus {
   }
 }
 
+/* ---------- Welcome screen on a short (laptop) screen: everything fits without scrolling ---------- */
+@media (max-height: 820px) {
+  .app--welcome .es-header {
+    height: 75px;
+    min-height: 75px;
+  }
+
+  .app--welcome .es-header__title {
+    font-size: 1.75rem;
+  }
+
+  .app--welcome .welcome {
+    gap: 10px;
+    padding-top: clamp(5rem, 7vh, 5rem);
+    padding-bottom: 0.75rem;
+  }
+
+  .app--welcome .welcome__head {
+    margin-bottom: 12px;
+  }
+
+  .app--welcome .welcome__title {
+    font-size: 1.5rem;
+  }
+
+  .app--welcome .welcome__title svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .app--welcome .welcome__sub {
+    font-size: 0.875rem;
+  }
+
+  .app--welcome .ideas {
+    margin-top: 12px;
+  }
+
+  .app--welcome .idea {
+    padding: 5px 10px 5px 6px;
+  }
+}
+
+@media (max-height: 600px) {
+  .app--welcome .welcome__sub {
+    display: none;
+  }
+}

@@ -946,7 +946,7 @@ main:focus {
 
   .app--welcome .welcome {
     gap: 10px;
-    padding-top: clamp(0.5rem, 7vh, 5rem);
+    padding-top: clamp(5rem, 7vh, 5rem);
     padding-bottom: 0.75rem;
   }
 

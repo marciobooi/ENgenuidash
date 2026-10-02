@@ -1,7 +1,7 @@
 import type Highcharts from 'highcharts'
 import { useEffect, useRef, type RefObject } from 'react'
 import { applyMapLang, repairChartLang } from './chartLang'
-import { fallbackOptions, loadOwnHighcharts } from './ownHighcharts'
+import { fallbackOptions, loadOwnHighcharts, webtoolsDomain } from './ownHighcharts'
 import { destroyChart, ensurePlugin, loadWebtools, webtoolsHighcharts } from './webtools'
 
 export type ChartStatus = 'loading' | 'ready' | 'error'
@@ -95,6 +95,14 @@ export function WebtoolsChart({
         .catch((err: Error) => {
           if (!cancelled) onStatusRef.current?.('error', err.message)
         })
+
+    // A domain Webtools always refuses (anywhere but europa.eu and localhost): no attempt, the bundled
+    // Highcharts draws at once. (Trying Webtools first loaded a second copy of Highcharts next to the
+    // bundled one, which clashed - error #16 - when many charts started before the first had settled.)
+    if (!webtoolsDomain() && new URLSearchParams(window.location.search).get('charts') !== 'webtools') {
+      drawOwn(kind === 'map')
+      return cleanup
+    }
 
     if (kind === 'map') {
       // Maps: load Webtools' map module, then draw with Highcharts.mapChart from that same build.

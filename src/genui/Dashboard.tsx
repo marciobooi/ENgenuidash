@@ -6,6 +6,7 @@ import { InsightsPanel } from '../components/insights'
 import { EclSelect, FilterField, type EclMultiSelectLabels, type FilterControl } from '../components/filters'
 import { KpiCard, KpiGrid } from '../components/kpi'
 import { Tooltip } from '../components/tooltip'
+import { track } from '../app/visitPing'
 import { DataTable, PartnersTable, type PartnersTableLabels } from '../components/table'
 import { BalanceSheet, type BalanceSheetLabels } from './BalanceSheet'
 import { AnswerCard } from './AnswerCard'
@@ -404,7 +405,10 @@ function PlaceSwitch({ widget, render, label }: { widget: WidgetSpec; render: (w
   return render(
     shown,
     <Tooltip content={text}>
-      <button type="button" className="chart-card__place" aria-label={text} aria-pressed={other} onClick={() => setOther((o) => !o)}>
+      <button type="button" className="chart-card__place" aria-label={text} aria-pressed={other} onClick={() => {
+          track('switch')
+          setOther((o) => !o)
+        }}>
         <ArrowRightLeft size={14} aria-hidden="true" />
         {other ? alt.label : alt.mainLabel}
       </button>

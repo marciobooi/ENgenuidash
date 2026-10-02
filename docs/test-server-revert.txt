@@ -72,5 +72,37 @@ WHAT IS NOT ON THE SERVER'S SIDE
 REDEPLOY (for later tests, without touching nginx)
 --------------------------------------------------
    cd /opt/test-project && git pull --ff-only
-   docker run --rm --pull=never -v /opt/test-project:/app -w /app node:22-slim npm run build -- --base=/test/ --outDir=dist-test --emptyOutDir
+   docker run --rm --pull=never -e VITE_STATS=1 -v /opt/test-project:/app -w /app node:22-slim npm run build -- --base=/test/ --outDir=dist-test --emptyOutDir
    rm -rf /opt/test-project/dist-test/models      (models are served from public/models)
+
+
+PAGE STATISTICS (pilot only: kill them when the test site goes to production)
+-----------------------------------------------------------------------------
+What: anonymous visit counts and usage events for the test build, shown at
+https://freshbubbles.pt/test/pagestats (a redirect to /test/#/pagestats). Public, unlisted link.
+
+How it works
+   - Only the test build has it: it is built with VITE_STATS=1 (see REDEPLOY above). A production
+     build, without that variable, contains no pings and no statistics page.
+   - The page sends a ping (POST /test/ping?v=<random id>&e=start|beat|end|ev&a=<seconds>&l=<lang>
+     &n=<name>&d=<detail>) when it opens, every 30 s while visible, and when it closes. The id exists only
+     while the page is open (not stored, no cookie). Events are short fixed names ("ask:dashboard",
+     "filter", "compare"...), never what was typed, never a country. Off for Do Not Track and localhost.
+   - nginx logs the pings in /var/log/engenui/ping.log with its own log format WITHOUT the visitor's address.
+   - /usr/local/bin/engenui-stats.py (cron every 5 minutes, /etc/cron.d/engenui-stats) turns the log into
+     /var/lib/engenui-stats/stats.json, which the page reads. The log is rotated weekly and kept 8 weeks.
+   - Files in the repo: scripts/server/ (engenui-stats.py, engenui-stats.nginx.conf, setup-stats.sh,
+     remove-stats.sh); the app side is src/app/visitPing.ts and src/stats/.
+
+Installed on the server (all reversible)
+   /etc/nginx/conf.d/engenui-ping.conf       the log format
+   /etc/nginx/snippets/engenui-stats.conf    the three locations (ping, stats.json, pagestats)
+   /etc/nginx/sites-enabled/freshbubbles.pt  ONE added line: include /etc/nginx/snippets/engenui-stats.conf;
+                                             (backup: /root/nginx-backup/freshbubbles.pt.before-stats.<time>)
+   /usr/local/bin/engenui-stats.py, /etc/cron.d/engenui-stats, /etc/logrotate.d/engenui-ping
+   /var/log/engenui/, /var/lib/engenui-stats/   the data
+
+Install again (idempotent):   scp scripts/server/* root@SERVER:/root/engenui-stats-setup/ ; ssh root@SERVER 'cd /root/engenui-stats-setup && sh setup-stats.sh'
+Remove:                       ssh root@SERVER 'sh /root/engenui-stats-setup/remove-stats.sh'
+                              (then delete /var/log/engenui and /var/lib/engenui-stats if the data is not wanted)
+For production: build without VITE_STATS (the normal build); no ping is sent and the page does not exist.

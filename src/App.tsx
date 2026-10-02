@@ -33,6 +33,7 @@ import { clearShareLink, decodePlan, readShareLink, shareUrl } from './app/share
 import { useAssistant } from './app/useAssistant'
 import { useChatFlow } from './app/useChatFlow'
 import { useChatHistory } from './app/useChatHistory'
+import { startVisitPing, track } from './app/visitPing'
 import { useDashboards } from './app/useDashboards'
 import { useEnergyData } from './app/useEnergyData'
 import { WelcomePage, type Idea } from './app/WelcomePage'
@@ -70,6 +71,8 @@ const PRESET_ICONS: Record<PresetId, LucideIcon> = {
 // Pages off the main path, loaded only when opened: the components gallery (#/components) and
 // the development-only evaluation page (#/eval, whose import is dropped from production builds).
 const ComponentsGallery = lazy(() => import('./ComponentsGallery'))
+// (the pilot's test build only: VITE_STATS=1, see app/visitPing.ts)
+const StatsPage = import.meta.env.VITE_STATS === '1' ? lazy(() => import('./stats/StatsPage')) : null
 const EvalPage = import.meta.env.DEV ? lazy(() => import('./eval/EvalPage')) : null
 
 /**
@@ -94,6 +97,9 @@ export default function App() {
   const dashTitleRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Anonymous visit counting for the pilot's page statistics (app/visitPing.ts).
+  useEffect(() => startVisitPing(lang), [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const data = useEnergyData()
   const assistant = useAssistant({
@@ -196,6 +202,7 @@ export default function App() {
   }
 
   const copyLink = () => {
+    track('share')
     navigator.clipboard.writeText(window.location.href).then(
       () => notify.success(t.linkCopied),
       () => notify.info(window.location.href),
@@ -210,6 +217,7 @@ export default function App() {
   }
 
   const newChat = () => {
+    track('newchat')
     if (busy || !inConversation) return
     resetScreen()
     history.startNew()
@@ -225,7 +233,10 @@ export default function App() {
       onSend={() => send(input)}
       onStop={llm.stop}
       onNewChat={newChat}
-      onHistory={() => setHistoryOpen(true)}
+      onHistory={() => {
+        track('history')
+        setHistoryOpen(true)
+      }}
       canSend={!!input.trim() && !busy && (!!data.dict || ready)}
       canClear={!busy && inConversation}
       generating={llm.generating}
@@ -249,15 +260,16 @@ export default function App() {
         // After the dialog has closed: while it is modal, the rest of the page is inert.
         requestAnimationFrame(() => fabRef.current?.focus())
       }}
-      onChoice={(c) =>
-        c.explainAi
+      onChoice={(c) => {
+        track('choice')
+        return c.explainAi
           ? chat.requestAiExplanation(t.explainWithAi)
           : c.fuller
             ? chat.requestFullerAnswer(c.query)
             : c.plan || c.explain
               ? chat.runAction(c, c.label)
               : send(c.query)
-      }
+      }}
       endRef={endRef}
     />
   )
@@ -282,9 +294,15 @@ export default function App() {
   // Long pages (dashboards, the gallery, the evaluation) scroll with the browser window; the chat
   // and welcome screens keep the one-screen layout (conversation above, input below).
   // The welcome screen (no conversation yet): compact on a short laptop screen so it fits without scrolling (App.css).
-  const onWelcome = route !== '#/components' && !(EvalPage && route === '#/eval') && !current && !inConversation
-  const scrollsWithWindow = route === '#/components' || (!!EvalPage && route === '#/eval') || !!current
-  if (route === '#/components') {
+  const onWelcome = route !== '#/components' && !(StatsPage && route === '#/pagestats') && !(EvalPage && route === '#/eval') && !current && !inConversation
+  const scrollsWithWindow = route === '#/components' || (!!StatsPage && route === '#/pagestats') || (!!EvalPage && route === '#/eval') || !!current
+  if (StatsPage && route === '#/pagestats') {
+    page = (
+      <Suspense>
+        <StatsPage t={t} lang={lang} chartLabels={chartLabels} />
+      </Suspense>
+    )
+  } else if (route === '#/components') {
     page = (
       <Suspense>
         <ComponentsGallery locale={lang} t={t} />
@@ -364,6 +382,7 @@ export default function App() {
         lang={lang}
         t={t}
         onLangChange={(l) => {
+          track('lang', l)
           setLang(l)
           setAnnouncement(STRINGS[l].languageChanged)
         }}

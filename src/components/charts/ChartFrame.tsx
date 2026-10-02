@@ -3,6 +3,7 @@ import { ArrowLeftRight, CircleAlert, ImageDown, Sheet, Table2 } from 'lucide-re
 import { useId, useRef, useState, type ReactNode } from 'react'
 import { chartTable, readable, transpose, type ChartTable } from './chartTable'
 import { Tooltip } from '../tooltip'
+import { track } from '../../app/visitPing'
 import { BASE_OPTIONS } from './baseOptions'
 import { mergeOptions } from './merge'
 import { PALETTE } from './theme'
@@ -142,7 +143,10 @@ export function ChartFrame({
               type="button"
               className="chart-card__action"
               aria-pressed={tableOpen}
-              onClick={() => setTableOpen(!tableOpen)}
+              onClick={() => {
+                if (!tableOpen) track('table')
+                setTableOpen(!tableOpen)
+              }}
             >
               <Table2 size={16} aria-hidden="true" />
             </button>
@@ -151,13 +155,23 @@ export function ChartFrame({
             <button
               type="button"
               className="chart-card__action"
-              onClick={() => exporting()?.exportChart({ type: 'image/png' })}
+              onClick={() => {
+                track('png')
+                exporting()?.exportChart({ type: 'image/png' })
+              }}
             >
               <ImageDown size={16} aria-hidden="true" />
             </button>
           </Tooltip>
           <Tooltip content={l.downloadCsv}>
-            <button type="button" className="chart-card__action" onClick={() => exporting()?.downloadCSV()}>
+            <button
+              type="button"
+              className="chart-card__action"
+              onClick={() => {
+                track('csv')
+                exporting()?.downloadCSV()
+              }}
+            >
               <Sheet size={16} aria-hidden="true" />
             </button>
           </Tooltip>

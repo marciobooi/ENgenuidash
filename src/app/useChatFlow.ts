@@ -19,6 +19,7 @@ import type { Vocabulary } from '../llm/vocabulary'
 import type { Assistant } from './useAssistant'
 import type { Dashboards } from './useDashboards'
 import { fill } from './text'
+import { track } from './visitPing'
 
 /**
  * The chat flow: what happens to a message. routeMessage (src/genui/route.ts) decides the route;
@@ -109,6 +110,8 @@ export function useChatFlow({
    * src/eval/IntentEval.tsx). With nothing to offer, `fallback` is said.
    */
   function respondUnread(typed: string, fallback: { content: string; kind?: 'refusal'; choices?: NonNullable<typeof llm.messages[number]['choices']> }, missKind: 'rephrase' | 'refused' | 'unclear') {
+    // (what the rules could not read: counted by outcome, never by text)
+    track('ask', missKind === 'refused' ? 'refused' : 'unclear')
     const miss = () => recordMiss({ text: typed, lang, kind: missKind, followUp: hasDashboard })
     const say = (m: { content: string; kind?: 'refusal'; choices?: typeof fallback.choices }, pending: boolean) => {
       if (pending) llm.updateLast((x) => !!x.pending, { ...m, pending: false })
@@ -136,6 +139,7 @@ export function useChatFlow({
         miss()
         return false
       }
+      track('intent', 'shown')
       recordMiss({ text: typed, lang, kind: 'intent', followUp: hasDashboard })
       const place = geoName(hinted.place)
       return { content: place ? fill(t.unreadOfferPlace, { place }) : t.intentDidYouMean, choices }
@@ -168,6 +172,7 @@ export function useChatFlow({
     // routing: "where does the wind data come from?" is not a request for a dashboard).
     const concept = verdict !== 'small-talk' ? conceptAnswer([typed, text], questionLanguage(typed, lang)) : null
     if (concept) {
+      track('ask', 'concept')
       llm.reply(typed, concept.text, undefined, concept.sources.length ? concept.sources : undefined, dashboardChoices(concept.dashboards))
       announce(concept.text)
       if (hasDashboard) openChat()
@@ -187,8 +192,10 @@ export function useChatFlow({
     switch (route.kind) {
       // "Explain these figures" (typed or clicked) explains the dashboard on screen.
       case 'explain':
+        track('ask', 'explain')
         return void explainDashboard(typed)
       case 'back': {
+        track('ask', 'back')
         // The previous dashboard of this conversation (they are kept in order).
         const r = dash.back()
         const message = r.ok ? fill(t.backTo, { title: r.title ?? '' }) : t.noPrevious
@@ -229,11 +236,13 @@ export function useChatFlow({
       }
       case 'refine':
       case 'plan':
+        track('ask', route.kind === 'refine' ? 'followup' : 'dashboard')
         return void dash.runPlan(route.plan, typed)
       case 'actions':
         if (resolveWithActions(typed)) return
         break
       case 'clarify':
+        track('ask', 'clarify')
         llm.append(
           { role: 'user', content: typed },
           {
@@ -264,6 +273,7 @@ export function useChatFlow({
     // "What is X?" for a known concept → the verified glossary definition, word for word.
     const definition = verdict !== 'small-talk' ? directDefinition(text) : null
     if (definition) {
+      track('ask', 'definition')
       const answer = definitionText(definition)
       llm.reply(typed, answer, undefined, definition.url ? [{ code: definition.official ? 'Glossary' : 'Reference', title: definition.term, url: definition.url }] : undefined, dashboardChoices(glossaryDashboards(definition.term, questionLanguage(typed, lang))))
       announce(answer)
@@ -273,6 +283,7 @@ export function useChatFlow({
 
     // Small talk → a fixed reply (no model needed).
     if (verdict === 'small-talk') {
+      track('ask', 'smalltalk')
       const reply = smallTalkReply(typed, { hello: t.smallTalkHello, thanks: t.smallTalkThanks })
       llm.append({ role: 'user', content: typed }, { role: 'assistant', content: reply, choices: ideaChoices })
       announce(reply)
@@ -284,6 +295,9 @@ export function useChatFlow({
     // passages as background; otherwise ("what is the date of oil") → ask to rephrase.
     const query = searchQuery(verdict === 'follow-up' ? `${previous.at(-1)} ${text}` : text)
     void answerFromDocuments(typed, query).then((outcome) => {
+      if (outcome === 'quoted') track('ask', 'quote')
+      else if (outcome === 'offered') track('ask', 'offered')
+      else if (outcome === 'model') track('ask', 'model')
       if (outcome === 'model') askModel(typed, verdict, previous, conceptual)
       else if (outcome === 'unclear') {
         respondUnread(typed, { content: t.notUnderstood, choices: ideaChoices }, 'unclear')
@@ -319,6 +333,7 @@ export function useChatFlow({
   }
 
   const onSuggestion = (s: Suggestion) => {
+    track('suggest')
     if (dash.building || llm.generating || !current) return
     if (s.plan) return void dash.runPlan(s.plan, s.label)
     if (s.explain) void explainDashboard(s.label)

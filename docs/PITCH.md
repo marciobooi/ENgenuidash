@@ -149,6 +149,8 @@ use it.
 - **Translations:** the interface, pages and definitions are in three languages, but only the 26
   most-used indicator descriptions are fully translated; the rest show Eurostat's English text.
 - **Not yet tested with real users** from Eurostat's audience.
+- **During the pilot** the test site counts visits anonymously (no cookies, no addresses, and never what
+  was asked) so we can see how it is used. This is switched off in the production version.
 
 ---
 

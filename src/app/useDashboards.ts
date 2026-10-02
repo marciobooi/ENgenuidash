@@ -3,6 +3,7 @@ import type { FilterControl } from '../components/filters'
 import { notify } from '../components/toast'
 import { EurostatUnavailableError, type EnergyCodelists, type EnergyDictionary } from '../data/eurostat'
 import { recordMiss } from '../eval/missLog'
+import { intentOfPlan } from '../genui/intent'
 import { buildDashboard, NoDataError, type ChooseVariant } from '../genui/execute'
 import { variantPrompt } from '../genui/layout'
 import { applyFilter, filterControls } from '../genui/filters'
@@ -13,6 +14,7 @@ import type { DashboardSpec, Plan } from '../genui/types'
 import type { Lang, Strings } from '../i18n'
 import type { Assistant } from './useAssistant'
 import { fill } from './text'
+import { track } from './visitPing'
 
 /**
  * The dashboards of the conversation (JSON specs, kept in order) and which one is on screen:
@@ -107,6 +109,8 @@ export function useDashboards({
       const answer = spec.widgets.find((w) => w.type === 'answer')
       const message = [fill(hasDashboard ? t.dashboardUpdated : t.dashboardReady, { title: spec.title }), answer?.text].filter(Boolean).join(' ')
       builtIn.current[index] = lang
+      track('dash', intentOfPlan(plan) === 'other' ? 'dataset' : intentOfPlan(plan))
+      if (plan.trade?.compare || plan.oil?.compare || plan.balance?.compare || plan.profile?.compare || plan.sankey?.compare) track('compare')
       setDashboards((d) => [...d, { ...spec, question }])
       setActive(index)
       llm.updateLast((m) => !!m.pending, { content: message, pending: false, card: { index, title: spec.title } })
@@ -127,6 +131,7 @@ export function useDashboards({
   /** A toolbar filter changed: rebuild the dashboard, as if the change had been typed. */
   const onFilter = (f: FilterControl, codes: string[]) => {
     if (building || llm.generating || !current || !dict) return
+    track('filter')
     const names = codes.map((c) => f.options.find((o) => o.code === c)?.label ?? c)
     void runPlan(applyFilter(current.plan, f.dim, codes, dict), `${f.label}: ${names.join(', ')}`)
   }

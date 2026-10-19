@@ -101,6 +101,8 @@ export type ReportingStrings = Strings['reporting']
 
 export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary, lang: string, s: { reporting: ReportingStrings; sugExplain: string }, signal?: AbortSignal): Promise<DashboardSpec> {
   const t = s.reporting
+  // (German nouns keep their capital letter inside a sentence)
+  const lc = (x: string) => (lang === 'de' ? x : x.toLowerCase())
   const tab = plan.reporting?.tab ?? 'efficiency'
   if (!dict.datasets[DATASETS[tab]]) throw new NoDataError(DATASETS[tab])
   const from = plan.reporting?.from ?? 'all'
@@ -180,7 +182,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
       widgets.push({ type: 'bar', title: t.sectorsTitle, subtitle: `${geoName} · Mtoe`, categories: secYears, series: lines(secYears, sectors).map((x) => ({ ...x, data: x.data.map((n) => (n == null ? null : round(n, 1))) })), stacked: true, unit: 'Mtoe', decimals: 1, size: 'full', role: 'composition' })
       const top = [...sectors].sort((a, b) => (b.values.get(secYears.at(-1)!) ?? 0) - (a.values.get(secYears.at(-1)!) ?? 0))[0]
       const tot = sectors.reduce((a, x) => a + (x.values.get(secYears.at(-1)!) ?? 0), 0)
-      if (tot > 0) insights.push({ tone: 'neutral', parts: [fill(t.insTop, { name: top.name.toLowerCase(), share: `${num((100 * (top.values.get(secYears.at(-1)!) ?? 0)) / tot)}%`, year: secYears.at(-1)! })] })
+      if (tot > 0) insights.push({ tone: 'neutral', parts: [fill(t.insTop, { name: lc(top.name), share: `${num((100 * (top.values.get(secYears.at(-1)!) ?? 0)) / tot)}%`, year: secYears.at(-1)! })] })
     }
     // Key figures, summary, insights.
     const stat = (series: Series | undefined, label: string, dt?: Series) => {
@@ -190,18 +192,18 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
       const base = series!.get('2005')
       const gap = dt?.get(l.y)
       kpis.push({ label, value: round(l.v, 0), unit: 'Mtoe', decimals: 0, caption: l.y, goodDirection: 'down', ...(prev != null ? { delta: round(((l.v - prev) / prev) * 100), deltaUnit: '%', deltaLabel: String(Number(l.y) - 1) } : {}), trend: years.map((y) => series!.get(y) ?? null) })
-      if (base != null && l.y !== '2005') kpis.push({ label: fill(t.kpiSince, { label: label.toLowerCase(), year: '2005' }), value: round(((l.v - base) / base) * 100), unit: '%', decimals: 1, goodDirection: 'down' })
-      if (gap != null && euLevel) kpis.push({ label: fill(t.kpiGap, { label: label.toLowerCase() }), value: round(gap, 0), unit: 'Mtoe', decimals: 0, caption: l.y, goodDirection: 'down' })
+      if (base != null && l.y !== '2005') kpis.push({ label: fill(t.kpiSince, { label: lc(label), year: '2005' }), value: round(((l.v - base) / base) * 100), unit: '%', decimals: 1, goodDirection: 'down' })
+      if (gap != null && euLevel) kpis.push({ label: fill(t.kpiGap, { label: lc(label) }), value: round(gap, 0), unit: 'Mtoe', decimals: 0, caption: l.y, goodDirection: 'down' })
     }
     stat(fec, t.fec, v.get('FEC_DT2030'))
     stat(pec, t.pec, v.get('PEC_DT2030'))
-    if (!euLevel && fecCeiling != null && last(fec)) kpis.push({ label: fill(t.kpiGap, { label: t.fec.toLowerCase() }), value: round(last(fec)!.v - fecCeiling, 1), unit: 'Mtoe', decimals: 1, caption: last(fec)!.y, goodDirection: 'down' })
+    if (!euLevel && fecCeiling != null && last(fec)) kpis.push({ label: fill(t.kpiGap, { label: lc(t.fec) }), value: round(last(fec)!.v - fecCeiling, 1), unit: 'Mtoe', decimals: 1, caption: last(fec)!.y, goodDirection: 'down' })
     const fl = last(fec)
     const pl = last(pec)
     if (fl && pl) summary.push(fill(t.sumEff, { geo: geoName, year: fl.y, fec: `${num(fl.v, 0)} Mtoe`, pec: `${num(pl.v, 0)} Mtoe` }))
     if (fecCeiling != null && fl) {
       const gap = fl.v - fecCeiling
-      insights.push({ tone: gap > 0 ? 'down' : 'up', parts: [fill(gap > 0 ? t.insAbove : t.insBelow, { label: t.fec.toLowerCase(), gap: `${num(Math.abs(gap), euLevel ? 0 : 1)} Mtoe`, ceiling: `${num(fecCeiling, euLevel ? 1 : 2)} Mtoe`, who: euLevel ? t.whoEu : geoName })] })
+      insights.push({ tone: gap > 0 ? 'down' : 'up', parts: [fill(gap > 0 ? t.insAbove : t.insBelow, { label: lc(t.fec), Label: t.fec, gap: `${num(Math.abs(gap), euLevel ? 0 : 1)} Mtoe`, ceiling: `${num(fecCeiling, euLevel ? 1 : 2)} Mtoe`, who: euLevel ? t.whoEu : geoName })] })
       const b = fec?.get('2020')
       if (b != null && Number(fl.y) > 2020) insights.push({ tone: fl.v < b ? 'up' : 'down', parts: [fill(t.insNeedCut, { pct: `${num(Math.max(((fl.v - fecCeiling) / (Number(2030) - Number(fl.y))) / fl.v * 100, 0), 1)}%`, year: fl.y })] })
     }
@@ -253,13 +255,13 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
       const ren = groups.find((x) => x.key === 'renewables')
       if (gas) kpis.push({ label: t.fuels.gas, value: round(((gas.values.get(y) ?? 0) / (total.get(y) || 1)) * 100), unit: '%', decimals: 1, caption: y, goodDirection: 'down' })
       if (ren) kpis.push({ label: t.fuels.renewables, value: round(((ren.values.get(y) ?? 0) / (total.get(y) || 1)) * 100), unit: '%', decimals: 1, caption: y, goodDirection: 'up' })
-      summary.push(fill(t.sumMix, { geo: geoName, year: y, total: `${num(total.get(y) ?? 0, 0)} Mtoe`, top: shares[0].x.name, share: `${num(shares[0].s * 100)}%`, second: shares[1]?.x.name.toLowerCase() ?? '', share2: `${num((shares[1]?.s ?? 0) * 100)}%` }))
+      summary.push(fill(t.sumMix, { geo: geoName, year: y, total: `${num(total.get(y) ?? 0, 0)} Mtoe`, top: shares[0].x.name, share: `${num(shares[0].s * 100)}%`, second: lc(shares[1]?.x.name) ?? '', share2: `${num((shares[1]?.s ?? 0) * 100)}%` }))
       const ago = years.find((yy) => Number(yy) === Number(y) - 10)
       if (ago) {
         const best = groups.map((x) => ({ x, d: (100 * (x.values.get(y) ?? 0)) / (total.get(y) || 1) - (100 * (x.values.get(ago) ?? 0)) / (total.get(ago) || 1) })).sort((a, b) => b.d - a.d)[0]
-        if (best.d > 0.5) insights.push({ tone: 'up', parts: [fill(t.insGained, { name: best.x.name.toLowerCase(), pp: num(best.d), year: ago })] })
+        if (best.d > 0.5) insights.push({ tone: 'up', parts: [fill(t.insGained, { name: lc(best.x.name), pp: num(best.d), year: ago })] })
         const worst = groups.map((x) => ({ x, d: (100 * (x.values.get(y) ?? 0)) / (total.get(y) || 1) - (100 * (x.values.get(ago) ?? 0)) / (total.get(ago) || 1) })).sort((a, b) => a.d - b.d)[0]
-        if (worst.d < -0.5) insights.push({ tone: 'neutral', parts: [fill(t.insLost, { name: worst.x.name.toLowerCase(), pp: num(Math.abs(worst.d)), year: ago })] })
+        if (worst.d < -0.5) insights.push({ tone: 'neutral', parts: [fill(t.insLost, { name: lc(worst.x.name), pp: num(Math.abs(worst.d)), year: ago })] })
       }
       notes.push(t.noteMix, t.noteDiversity)
       widgets.push({ type: 'table', title: t.tableAll, columns: years, rows: [...groups.map((x) => ({ label: `${x.name} (Mtoe)`, values: years.map((yy) => (x.values.has(yy) ? round(x.values.get(yy)!, 2) : null)) })), { label: `${t.kpiTotal} (Mtoe)`, values: years.map((yy) => (total.has(yy) ? round(total.get(yy)!, 2) : null)) }] })
@@ -302,7 +304,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
       const rows = (rank?.observations ?? []).filter((o) => o.value != null && o.keys.time === y).map((o) => ({ code: o.keys.geo, name: stripEu(labelOf(rank, 'geo', o.keys.geo)), value: o.value as number })).sort((a, b) => b.value - a.value)
       if (rows.length >= 10) {
         widgets.push({ type: 'bar', title: fill(t.rankTitle, { year: y }), subtitle: '%', categories: rows.map((x) => x.name), series: [{ name: t.fuels.total, data: rows.map((x) => round(x.value, 1)) }], horizontal: true, unit: '%', decimals: 1, size: 'full', role: 'ranking' })
-        peers.push(...peerChips(rows, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, reporting: { ...plan.reporting!, compare: c } })))
+        peers.push(...peerChips(rows, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, reporting: { ...plan.reporting!, compare: c } }), lang))
         const at = rows.findIndex((x) => x.code === geo)
         if (at >= 0) insights.push({ tone: 'neutral', parts: [fill(t.insRank, { geo: geoName, rank: String(at + 1), of: String(rows.length), year: y })] })
       }
@@ -319,9 +321,9 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
       const peak = [...(v.get('TOTAL') ?? new Map())].sort((a, b) => b[1] - a[1])[0]
       if (tot && peak && peak[0] !== tot.y) insights.push({ tone: tot.v < peak[1] ? 'up' : 'neutral', parts: [fill(t.insPeak, { geo: geoName, peak: `${num(peak[1])}%`, year: peak[0], now: `${num(tot.v)}%` })] })
       const worstFuel = dep.filter((x) => x.name !== t.fuels.total).map((x) => ({ x, l: last(x.values) })).filter((x) => x.l).sort((a, b) => b.l!.v - a.l!.v)[0]
-      if (worstFuel) insights.push({ tone: 'down', parts: [fill(t.insWorstFuel, { fuel: worstFuel.x.name.toLowerCase(), value: `${num(worstFuel.l!.v)}%`, year: worstFuel.l!.y })] })
+      if (worstFuel) insights.push({ tone: 'down', parts: [fill(t.insWorstFuel, { fuel: lc(worstFuel.x.name), value: `${num(worstFuel.l!.v)}%`, year: worstFuel.l!.y })] })
       notes.push(t.noteDep, t.noteImports)
-      widgets.push({ type: 'table', title: t.tableAll, columns: years, rows: [...dep.map((x) => ({ label: `${t.depPrefix} ${x.name.toLowerCase()} (%)`, values: years.map((yy) => x.values!.get(yy) ?? null) })), ...impParts.map((x) => ({ label: `${t.importsPrefix} ${x.name.toLowerCase()} (Mtoe)`, values: years.map((yy) => (x.values.has(yy) ? round(x.values.get(yy)!, 2) : null)) }))] })
+      widgets.push({ type: 'table', title: t.tableAll, columns: years, rows: [...dep.map((x) => ({ label: `${t.depPrefix} ${lc(x.name)} (%)`, values: years.map((yy) => x.values!.get(yy) ?? null) })), ...impParts.map((x) => ({ label: `${t.importsPrefix} ${lc(x.name)} (Mtoe)`, values: years.map((yy) => (x.values.has(yy) ? round(x.values.get(yy)!, 2) : null)) }))] })
     }
   } else if (tab === 'poverty') {
     const base = { geo, hhcomp: 'TOTAL', rskpovth: ['TOTAL', 'B_60'], unit: 'PC' }
@@ -361,7 +363,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     const rows = (rank?.observations ?? []).filter((o) => o.value != null && o.keys.time === lastYear).map((o) => ({ code: o.keys.geo, name: stripEu(labelOf(rank, 'geo', o.keys.geo)), value: o.value as number })).sort((a, b) => b.value - a.value)
     if (rows.length >= 10 && lastYear) {
       widgets.push({ type: 'bar', title: fill(t.rankWarm, { year: lastYear }), subtitle: '%', categories: rows.map((x) => x.name), series: [{ name: t.indicators.warm, data: rows.map((x) => round(x.value, 1)) }], horizontal: true, unit: '%', decimals: 1, size: 'full', role: 'ranking' })
-      if (geo !== EU) peers.push(...peerChips(rows, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, reporting: { ...plan.reporting!, compare: c } })))
+      if (geo !== EU) peers.push(...peerChips(rows, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, reporting: { ...plan.reporting!, compare: c } }), lang))
       const at = rows.findIndex((x) => x.code === geo)
       if (at >= 0 && geo !== EU) insights.push({ tone: 'neutral', parts: [fill(t.insRankWarm, { geo: geoName, rank: String(at + 1), of: String(rows.length), year: lastYear })] })
     }
@@ -403,7 +405,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
       if (l) {
         const prev = incl!.get(`${Number(l.y.slice(0, 4)) - 1}${l.y.slice(4)}`)
         kpis.push({ label: unit, value: round(l.v, 3), unit: 'EUR/kWh', decimals: 3, caption: l.y, goodDirection: 'down', ...(prev != null ? { delta: round(((l.v - prev) / prev) * 100), deltaUnit: '%', deltaLabel: `${Number(l.y.slice(0, 4)) - 1}${l.y.slice(4)}` } : {}), trend: ys.map((yy) => incl!.get(yy) ?? null) })
-        if (x && l.v > 0) kpis.push({ label: fill(t.kpiTaxShare, { fuel: unit.toLowerCase() }), value: round(((l.v - x.v) / l.v) * 100), unit: '%', decimals: 1, caption: l.y, goodDirection: 'neutral' })
+        if (x && l.v > 0) kpis.push({ label: fill(t.kpiTaxShare, { fuel: lc(unit) }), value: round(((l.v - x.v) / l.v) * 100), unit: '%', decimals: 1, caption: l.y, goodDirection: 'neutral' })
       }
     }
     // Both fuels in one picture: how much more a household pays now than at the start of the period shown.
@@ -415,7 +417,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     for (const [name, series] of [[t.fuels.electricity, e], [t.fuels.gas, g]] as const) {
       const l = last(series)
       const first = [...(series ?? new Map())].sort()[0]
-      if (l && first && first[0] !== l.y) insights.push({ tone: l.v > first[1] ? 'down' : 'up', parts: [fill(l.v > first[1] ? t.insPriceUp : t.insPriceDown, { fuel: name.toLowerCase(), pct: `${num(Math.abs(((l.v - first[1]) / first[1]) * 100), 0)}%`, year: first[0] })] })
+      if (l && first && first[0] !== l.y) insights.push({ tone: l.v > first[1] ? 'down' : 'up', parts: [fill(l.v > first[1] ? t.insPriceUp : t.insPriceDown, { fuel: lc(name), pct: `${num(Math.abs(((l.v - first[1]) / first[1]) * 100), 0)}%`, year: first[0] })] })
     }
     notes.push(t.notePrices)
     widgets.push({ type: 'table', title: t.tableAll, columns: years, rows: tableRows.map((x) => ({ label: x.label, values: years.map((y) => (x.values.has(y) ? round(x.values.get(y)!, 4) : null)) })) })

@@ -357,7 +357,7 @@ export function Dashboard({
           {spec.subtitle && <p className="dash__subtitle">{spec.subtitle}</p>}
           {spec.reading && spec.reading.parts.length > 0 && (
             <p className="dash__reading">
-              <span className="dash__reading-label">{spec.reading.label}:</span>
+              <span className="dash__reading-label">{spec.reading.label}</span>
               {spec.reading.parts.map((p) => (
                 <span key={p} className="dash__reading-chip">
                   {p}

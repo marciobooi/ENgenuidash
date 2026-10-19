@@ -287,6 +287,7 @@ export const fill = (template: string, values: Record<string, string>) => templa
 
 export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionary, lang: string, s: { renewables: RenewablesStrings; sugExplain: string }, signal?: AbortSignal): Promise<DashboardSpec> {
   const t = s.renewables
+  const lc = (x: string) => (lang === 'de' ? x : x.toLowerCase())
   const tab = plan.renewables?.tab ?? 'shares'
   const from = plan.renewables?.from ?? 'all'
   const percent = !!plan.renewables?.pct
@@ -387,10 +388,10 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
       const y = rows.map((o) => o.keys.time).sort().at(-1)
       const rank = rows.filter((o) => o.keys.time === y).map((o) => ({ code: o.keys.geo, name: labelOf(all, 'geo', o.keys.geo).replace(/\s*\(.*?\)\s*$/, ''), value: o.value as number })).sort((a, b) => b.value - a.value)
       if (rank.length < 10 || !y) continue
-      if (sec.key === 'overall' && !euLevel) peers.push(...peerChips(rank, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, renewables: { ...plan.renewables!, compare: c } })))
-      widgets.push({ type: 'bar', title: fill(sec.key === 'overall' ? t.ranking : t.rankingSector, { year: y, sector: t.sectors[sec.key].toLowerCase() }), subtitle: `${t.sectors[sec.key]} · %`, categories: rank.map((x) => x.name), series: [{ name: t.sectors[sec.key], data: rank.map((x) => Math.round(x.value * 10) / 10) }], horizontal: true, unit: '%', decimals: 1, size: sec.key === 'overall' ? 'full' : 'half', role: 'ranking' })
+      if (sec.key === 'overall' && !euLevel) peers.push(...peerChips(rank, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, renewables: { ...plan.renewables!, compare: c } }), lang))
+      widgets.push({ type: 'bar', title: fill(sec.key === 'overall' ? t.ranking : t.rankingSector, { year: y, sector: lc(t.sectors[sec.key]) }), subtitle: `${t.sectors[sec.key]} · %`, categories: rank.map((x) => x.name), series: [{ name: t.sectors[sec.key], data: rank.map((x) => Math.round(x.value * 10) / 10) }], horizontal: true, unit: '%', decimals: 1, size: sec.key === 'overall' ? 'full' : 'half', role: 'ranking' })
       const place = rank.findIndex((x) => x.code === geo)
-      if (place >= 0 && !euLevel) insights.push({ tone: 'neutral', parts: [fill(sec.key === 'overall' ? t.insRank : t.insRankSector, { geo: geoName, rank: String(place + 1), of: String(rank.length), year: y, sector: t.sectors[sec.key].toLowerCase() })] })
+      if (place >= 0 && !euLevel) insights.push({ tone: 'neutral', parts: [fill(sec.key === 'overall' ? t.insRank : t.insRankSector, { geo: geoName, rank: String(place + 1), of: String(rank.length), year: y, sector: lc(t.sectors[sec.key]) })] })
     }
     // Key figures, summary, insights.
     for (const sec of sectors) {
@@ -413,7 +414,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
       if (first2020 != null && lastN > 2020) insights.push({ tone: overall >= first2020 ? 'up' : 'down', parts: [fill(t.insSince2020, { geo: geoName, from: `${pct(first2020)}%`, to: `${pct(overall)}%` })] })
     }
     const fast = sectors.map((sec) => ({ sec, d: (at(sec.code, last) ?? 0) - (at(sec.code, String(lastN - 5)) ?? at(sec.code, years[0]) ?? 0) })).filter((x) => x.sec.key !== 'overall').sort((a, b) => b.d - a.d)[0]
-    if (fast && fast.d > 0) insights.push({ tone: 'up', parts: [fill(t.insFastest, { sector: t.sectors[fast.sec.key].toLowerCase(), pp: pct(fast.d) })] })
+    if (fast && fast.d > 0) insights.push({ tone: 'up', parts: [fill(t.insFastest, { sector: lc(t.sectors[fast.sec.key]), pp: pct(fast.d) })] })
     notes.push(t.noteSeries, goal2020Shown ? t.note2020 : t.noteTargets, ...(nat && !goal2020Shown ? [t.noteNationalRes] : []), t.noteTransport29)
     // The table: all values.
     widgets.push({

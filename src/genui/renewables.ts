@@ -1,5 +1,7 @@
 import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
+import { compareChoice, placeNameOf, withVersus } from './compareControl'
+import { compareRequest } from './comparing'
 import { renewablesTabByWords } from './customWords'
 import { NoDataError } from './execute'
 import { NATIONAL_RES_2030, RES_2020_TARGET } from './nationalTargets'
@@ -78,6 +80,10 @@ export function refineRenewables(current: Plan, text: string, dict: EnergyDictio
   const geos = dict.datasets[DATASET].dimensions.find((d) => d.id === 'geo')?.codes ?? []
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => geos.includes(c)) ?? (places.eu ? EU : undefined)
+  // "compare with France", "versus the EU", "no comparison"
+  const asked = compareRequest(p.text, places, geos, String(current.filters.geo ?? EU), false)
+  if (asked && 'off' in asked) return current.renewables.compare ? { ...current, renewables: { ...current.renewables, compare: undefined }, notes: [] } : null
+  if (asked) return { ...current, renewables: { ...current.renewables, compare: asked.target }, notes: [] }
   const tab = tabOf(p.text)
   const from = FROM_WORDS.find(([, re]) => re.test(p.text))?.[0]
   const pct = PERCENT.test(p.text) ? true : ABSOLUTE.test(p.text) ? false : undefined
@@ -88,7 +94,7 @@ export function refineRenewables(current: Plan, text: string, dict: EnergyDictio
   return {
     ...current,
     filters: { ...current.filters, ...(geo ? { geo } : {}) },
-    renewables: { tab: tab ?? r.tab, ...(r.goal ? { goal: r.goal } : {}), ...((from ?? r.from) && (from ?? r.from) !== 'all' ? { from: (from ?? r.from) as RenewablesFrom } : {}), ...((pct ?? r.pct) ? { pct: true as const } : {}) },
+    renewables: { tab: tab ?? r.tab, ...(r.goal ? { goal: r.goal } : {}), ...(r.compare && r.compare !== (geo ?? current.filters.geo) ? { compare: r.compare } : {}), ...((from ?? r.from) && (from ?? r.from) !== 'all' ? { from: (from ?? r.from) as RenewablesFrom } : {}), ...((pct ?? r.pct) ? { pct: true as const } : {}) },
     notes: [],
   }
 }
@@ -283,6 +289,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
   const tab = plan.renewables?.tab ?? 'shares'
   const from = plan.renewables?.from ?? 'all'
   const percent = !!plan.renewables?.pct
+  const compareGeo = plan.renewables?.compare && plan.renewables.compare !== String(plan.filters.geo ?? EU) ? plan.renewables.compare : undefined
   const geo = String(plan.filters.geo ?? EU)
   const since = from === 'all' ? '2004' : from
   const ask: Ask = (dataset, filters, sinceYear) =>
@@ -495,7 +502,8 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
   }
 
   widgets.unshift({ type: 'kpis', items: kpis })
-  const title = fill(t.title, { geo: geoName })
+  const versusName = compareGeo ? await placeNameOf(dict, DATASET, compareGeo, lang) : undefined
+  const title = withVersus(fill(t.title, { geo: geoName }), versusName, lang)
   const link = (code: string) => `https://ec.europa.eu/eurostat/databrowser/view/${code}/default/table?lang=${lang}`
   const { spec } = sanitizeSpec({
     title,
@@ -505,10 +513,11 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     notes,
     widgets,
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'table', 'suggestions'],
-    presentation: { template: 'renewables', kpiStyle: 'cards', controls: ['geo', 'period', 'goal', 'view'], primaryControls: 3, accent: 'teal' },
+    presentation: { template: 'renewables', kpiStyle: 'cards', controls: ['geo', 'compare', 'period', 'goal', 'view'], primaryControls: 3, accent: 'teal' },
     source: { code: source.code, title: source.title || source.code, url: link(source.code) },
+    ...(versusName ? { compareNames: [geoName, versusName] as [string, string] } : {}),
     suggestions: suggestions(plan, s, tab),
-    controls: controls(plan, t, tab, from, percent),
+    controls: await controls(plan, dict, lang, t, tab, from, percent, compareGeo),
     context: [title, tabName, ...summary, ...kpis.map((k) => `${k.label}: ${k.value} ${k.unit ?? ''}`)].join('\n'),
     plan,
     shown: { geo: [geo] },
@@ -519,19 +528,21 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
 /** The EU Member States, for the ranking of the overall share. */
 const EU27_LIST = ['BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'HR', 'IT', 'CY', 'LV', 'LT', 'LU', 'HU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'FI', 'SE']
 
-function controls(plan: Plan, t: RenewablesStrings, tab: RenewablesTab, from: RenewablesFrom, percent: boolean) {
+async function controls(plan: Plan, dict: EnergyDictionary, lang: string, t: RenewablesStrings, tab: RenewablesTab, from: RenewablesFrom, percent: boolean, compareGeo: string | undefined) {
   const goal = plan.renewables?.goal
   const at = (over: Partial<NonNullable<Plan['renewables']>>): Plan => {
-    const next = { tab, ...(from !== 'all' ? { from } : {}), ...(percent ? { pct: true as const } : {}), ...(goal ? { goal } : {}), ...over }
+    const next = { tab, ...(from !== 'all' ? { from } : {}), ...(percent ? { pct: true as const } : {}), ...(goal ? { goal } : {}), ...(compareGeo ? { compare: compareGeo } : {}), ...over }
     if (!next.goal) delete next.goal
+    if (!next.compare) delete next.compare
     if (next.from === 'all') delete next.from
     if (!next.pct) delete next.pct
     return { ...plan, renewables: next as NonNullable<Plan['renewables']> }
   }
+  const compare = await compareChoice({ plan, dict, dataset: DATASET, lang, current: compareGeo, set: (c) => at({ compare: c }), t })
   return {
     tabs: RENEWABLES_TABS.map((k) => ({ label: t.tabs[k], plan: at({ tab: k }), active: k === tab })),
     periods: (['all', '2010', '2020'] as RenewablesFrom[]).map((f) => ({ label: t.from[f], plan: at({ from: f }), active: f === from })),
-    choices: tab === 'shares' ? [{ key: 'goal', label: t.goalLabel, options: [{ label: t.goal2030, plan: at({ goal: undefined }), active: !goal }, { label: t.goal2020, plan: at({ goal: '2020' }), active: goal === '2020' }] }] : [{ key: 'view', label: t.view, options: [{ label: t.absolute, plan: at({ pct: undefined }), active: !percent }, { label: t.shareOfTotal, plan: at({ pct: true }), active: percent }] }],
+    choices: tab === 'shares' ? [compare, { key: 'goal', label: t.goalLabel, options: [{ label: t.goal2030, plan: at({ goal: undefined }), active: !goal }, { label: t.goal2020, plan: at({ goal: '2020' }), active: goal === '2020' }] }] : [{ key: 'view', label: t.view, options: [{ label: t.absolute, plan: at({ pct: undefined }), active: !percent }, { label: t.shareOfTotal, plan: at({ pct: true }), active: percent }] }, compare],
   }
 }
 

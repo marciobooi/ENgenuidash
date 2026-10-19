@@ -16,6 +16,14 @@ export interface CompareStrings {
   yearsEarlierN?: string
 }
 
+/** The name of a place for a title ("France", "EU-27"). */
+export async function placeNameOf(dict: EnergyDictionary, dataset: string, code: string, lang: string): Promise<string> {
+  if (code === 'EU27_2020') return 'EU-27'
+  const codelists = await loadEnergyCodelists().catch(() => null)
+  const dim = dict.datasets[dataset]?.dimensions.find((d) => d.id === 'geo')
+  return (codelists ? codeLabel(codelists, dim?.codelist ?? null, code, lang) : code).replace(/\s*\(.*?\)\s*$/, '')
+}
+
 /** The "Compare with" choice: `set` is the plan with that comparison (undefined: none). */
 export async function compareChoice({ plan, dict, dataset, lang, current, set, t, years = false }: { plan: Plan; dict: EnergyDictionary; dataset: string; lang: string; current: string | undefined; set: (code: string | undefined) => Plan; t: CompareStrings; years?: boolean }) {
   // (the names come from the codelists the browser loads; without them, in tests, the codes stand in)

@@ -64,9 +64,9 @@ export interface Plan {
   /** The oil security dashboard (see oil.ts). */
   oil?: { view?: 'all'; /** What the country is compared with: another country or the EU ("compare with France"). */ compare?: string }
   /** The renewables (SHARES) dashboard, one tab at a time (see renewables.ts). */
-  renewables?: { tab: RenewablesTab; pct?: true; /** The reference drawn on the shares: the EU 2030 level (default) or the binding 2020 targets. */ goal?: '2020'; from?: 'all' | '2010' | '2020' }
+  renewables?: { tab: RenewablesTab; /** What the country is set against: another country or the EU. */ compare?: string; pct?: true; /** The reference drawn on the shares: the EU 2030 level (default) or the binding 2020 targets. */ goal?: '2020'; from?: 'all' | '2010' | '2020' }
   /** The energy and climate plan progress dashboards: efficiency, security, poverty (see reporting.ts). */
-  reporting?: { tab: ReportingTab; from?: 'all' | '2010' | '2020' }
+  reporting?: { tab: ReportingTab; compare?: string; from?: 'all' | '2010' | '2020' }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 

@@ -2,6 +2,8 @@ import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type Eu
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
 import { detectGeos, parse } from './planner/parse'
+import { compareChoice, placeNameOf, withVersus } from './compareControl'
+import { compareRequest } from './comparing'
 import { reportingTabByWords } from './customWords'
 import { NATIONAL_FEC_2030, NATIONAL_PEC_2030 } from './nationalTargets'
 import { fill, labelOf, minus, sumSeries, valuesOf, yearsOf, type Ask, type Series } from './renewables'
@@ -69,6 +71,9 @@ export function refineReporting(current: Plan, text: string, dict: EnergyDiction
   const p = parse(text.replace(/[-–,?&]/g, ' '))
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => MEMBERS.includes(c) || ['NO', 'IS', 'UK', 'TR'].includes(c)) ?? (places.eu ? EU : undefined)
+  const asked = compareRequest(p.text, places, [EU, ...MEMBERS, 'NO', 'IS', 'UK', 'TR'], String(current.filters.geo ?? EU), false)
+  if (asked && 'off' in asked) return current.reporting.compare ? { ...current, reporting: { ...current.reporting, compare: undefined }, notes: [] } : null
+  if (asked) return { ...current, reporting: { ...current.reporting, compare: asked.target }, notes: [] }
   const tab = tabOf(p.text) ?? reportingTabByWords(p.text, true) ?? SHORT.find(([, re]) => re.test(p.text))?.[0]
   const from = FROM_WORDS.find(([, re]) => re.test(p.text))?.[0]
   const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|show|zeige|montre|now|jetzt|maintenant|energy|energie\w*|since|from|seit|depuis|year|only|nur|zeigen|anzeigen|afficher)$/.test(w) && !/^\d{4}$/.test(w))
@@ -77,7 +82,7 @@ export function refineReporting(current: Plan, text: string, dict: EnergyDiction
   const r = current.reporting
   const nextTab = tab ?? r.tab
   const fromNext = from ?? r.from
-  return { ...current, dataset: DATASETS[nextTab], filters: { ...current.filters, ...(geo ? { geo } : {}) }, reporting: { tab: nextTab, ...(fromNext && fromNext !== 'all' ? { from: fromNext } : {}) }, notes: [] }
+  return { ...current, dataset: DATASETS[nextTab], filters: { ...current.filters, ...(geo ? { geo } : {}) }, reporting: { tab: nextTab, ...(r.compare && r.compare !== (geo ?? current.filters.geo) ? { compare: r.compare } : {}), ...(fromNext && fromNext !== 'all' ? { from: fromNext } : {}) }, notes: [] }
 }
 
 // ---------- the data of each tab ----------
@@ -98,6 +103,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
   const tab = plan.reporting?.tab ?? 'efficiency'
   if (!dict.datasets[DATASETS[tab]]) throw new NoDataError(DATASETS[tab])
   const from = plan.reporting?.from ?? 'all'
+  const compareGeo = plan.reporting?.compare && plan.reporting.compare !== String(plan.filters.geo ?? EU) ? plan.reporting.compare : undefined
   const geo = String(plan.filters.geo ?? EU)
   const since = from === 'all' ? '2005' : from
   const ask: Ask = (dataset, filters, sinceYear) =>
@@ -412,22 +418,27 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
   }
 
   widgets.unshift({ type: 'kpis', items: kpis })
-  const title = fill(t.titles[tab], { geo: geoName })
+  const versusName = compareGeo ? await placeNameOf(dict, DATASETS[tab], compareGeo, lang) : undefined
+  const title = withVersus(fill(t.titles[tab], { geo: geoName }), versusName, lang)
+  const cmp = compareGeo ? { compare: compareGeo } : {}
+  const compare = await compareChoice({ plan, dict, dataset: DATASETS[tab], lang, current: compareGeo, set: (c) => ({ ...plan, reporting: { tab, ...(from !== 'all' ? { from } : {}), ...(c ? { compare: c } : {}) } }), t })
   const link = (code: string) => `https://ec.europa.eu/eurostat/databrowser/view/${code}/default/table?lang=${lang}`
   const { spec } = sanitizeSpec({
     title,
     subtitle: t.tabs[tab],
+    ...(versusName ? { compareNames: [geoName, versusName] as [string, string] } : {}),
     summary,
     insights: insights.slice(0, 5),
     notes,
     widgets,
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'table', 'suggestions'],
-    presentation: { template: 'reporting', kpiStyle: 'cards', controls: ['geo', 'period'], primaryControls: 2, accent: tab === 'efficiency' ? 'blue' : tab === 'poverty' || tab === 'prices' ? 'violet' : 'orange' },
+    presentation: { template: 'reporting', kpiStyle: 'cards', controls: ['geo', 'compare', 'period'], primaryControls: 2, accent: tab === 'efficiency' ? 'blue' : tab === 'poverty' || tab === 'prices' ? 'violet' : 'orange' },
     source: { code: source.code, title: source.title || source.code, url: link(source.code) },
     suggestions: suggestions(plan, s, tab),
     controls: {
-      tabs: REPORTING_TABS.map((k) => ({ label: t.tabs[k], plan: { ...plan, dataset: DATASETS[k], reporting: { tab: k, ...(from !== 'all' ? { from } : {}) } }, active: k === tab })),
-      periods: (['all', '2010', '2020'] as ReportingFrom[]).map((f) => ({ label: t.from[f], plan: { ...plan, reporting: { tab, ...(f !== 'all' ? { from: f } : {}) } }, active: f === from })),
+      tabs: REPORTING_TABS.map((k) => ({ label: t.tabs[k], plan: { ...plan, dataset: DATASETS[k], reporting: { tab: k, ...cmp, ...(from !== 'all' ? { from } : {}) } }, active: k === tab })),
+      periods: (['all', '2010', '2020'] as ReportingFrom[]).map((f) => ({ label: t.from[f], plan: { ...plan, reporting: { tab, ...cmp, ...(f !== 'all' ? { from: f } : {}) } }, active: f === from })),
+      choices: [compare],
     },
     context: [title, t.tabs[tab], ...summary, ...kpis.map((k) => `${k.label}: ${k.value} ${k.unit ?? ''}`)].join('\n'),
     plan,

@@ -37,3 +37,11 @@ test('a follow-up changes the tab, country or period', () => {
   assert.equal(refineReporting(on, 'since 2020', dict, codelists)?.reporting?.from, '2020')
   assert.equal(refineReporting(on, 'coal in Poland', dict, codelists), null)
 })
+
+test('"compare with Italy" sets a country against the one on screen and stays when the tab changes', () => {
+  const on = reportingPlan(' energy efficiency dashboard for germany ', dict, codelists)!
+  const compared = refineReporting(on, 'compare with Italy', dict, codelists)
+  assert.equal(compared?.reporting?.compare, 'IT')
+  assert.equal(refineReporting(compared!, 'prices', dict, codelists)?.reporting?.compare, 'IT')
+  assert.equal(refineReporting(compared!, 'without comparison', dict, codelists)?.reporting?.compare, undefined)
+})

@@ -68,3 +68,13 @@ test('"show me the shares of Poland" opens the shares tab, with or without a das
   assert.equal(next?.renewables?.tab, 'shares')
   assert.equal(next?.filters.geo, 'PL')
 })
+
+test('"compare with France" sets a country against the one on screen, and "no comparison" clears it', () => {
+  const on = renewablesPlan(' renewable energy dashboard for germany ', dict, codelists)!
+  const compared = refineRenewables(on, 'compare with France', dict, codelists)
+  assert.equal(compared?.renewables?.compare, 'FR')
+  assert.equal(compared?.filters.geo, 'DE')
+  assert.equal(refineRenewables(compared!, 'capacity', dict, codelists)?.renewables?.compare, 'FR')
+  assert.equal(refineRenewables(compared!, 'no comparison', dict, codelists)?.renewables?.compare, undefined)
+  assert.equal(refineRenewables(on, 'compare with the EU', dict, codelists)?.renewables?.compare, 'EU27_2020')
+})

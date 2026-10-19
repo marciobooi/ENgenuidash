@@ -158,7 +158,7 @@ function fill(template: string, values: Record<string, string>): string {
 export function alternatePlan(plan: Plan, spec?: DashboardSpec): Plan | null {
   const geo = plan.filters.geo
   // Another country (or the EU) set against the one shown: the profile, the energy flow diagram, trade, oil and the balance.
-  const compare = plan.trade?.compare ?? plan.oil?.compare ?? plan.balance?.compare ?? plan.profile?.compare ?? (plan.sankey?.compare && !/^y\d+$/.test(plan.sankey.compare) ? plan.sankey.compare : undefined)
+  const compare = plan.trade?.compare ?? plan.oil?.compare ?? plan.renewables?.compare ?? plan.reporting?.compare ?? plan.balance?.compare ?? plan.profile?.compare ?? (plan.sankey?.compare && !/^y\d+$/.test(plan.sankey.compare) ? plan.sankey.compare : undefined)
   if (compare && /^y\d+$/.test(compare)) {
     const year = Number(spec?.plan.focusPeriod ?? plan.focusPeriod)
     return plan.balance && year ? { ...plan, focusPeriod: String(year - Number(compare.slice(1))), time: { kind: 'range', since: String(year - Number(compare.slice(1))), until: String(year - Number(compare.slice(1))) }, balance: { ...plan.balance, compare: undefined } } : null
@@ -167,12 +167,14 @@ export function alternatePlan(plan: Plan, spec?: DashboardSpec): Plan | null {
     const alone = { filters: { ...plan.filters, geo: compare } }
     if (plan.trade) return { ...plan, ...alone, trade: { ...plan.trade, compare: undefined } }
     if (plan.oil) return { ...plan, ...alone, oil: {} }
+    if (plan.renewables) return { ...plan, ...alone, renewables: { ...plan.renewables, compare: undefined } }
+    if (plan.reporting) return { ...plan, ...alone, reporting: { ...plan.reporting, compare: undefined } }
     if (plan.balance) return { ...plan, ...alone, balance: { ...plan.balance, compare: undefined } }
     if (plan.profile) return { ...plan, ...alone, profile: { ...plan.profile, compare: undefined } }
     if (plan.sankey) return { ...plan, ...alone, sankey: { ...plan.sankey, compare: undefined } }
   }
   // An ordinary dashboard of two places (a country and another, or the EU): the charts that show only the first.
-  if (!compare && Array.isArray(geo) && geo.length === 2 && !plan.allCountries && !plan.trade && !plan.oil && !plan.balance && !plan.profile && !plan.sankey && !isMonthlyDataset(plan.dataset)) {
+  if (!compare && Array.isArray(geo) && geo.length === 2 && !plan.allCountries && !plan.trade && !plan.oil && !plan.renewables && !plan.reporting && !plan.balance && !plan.profile && !plan.sankey && !isMonthlyDataset(plan.dataset)) {
     // (the same dashboard with the places swapped: every card has a twin that shows the other place first)
     return { ...plan, filters: { ...plan.filters, geo: [geo[1], geo[0]] } }
   }

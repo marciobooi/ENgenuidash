@@ -153,8 +153,9 @@ async function loadCapacity(ask: Ask, geo: string, since: string): Promise<Loade
 }
 
 async function loadElectricity(ask: Ask, geo: string, since: string): Promise<Loaded> {
-  const r = await ask('nrg_ind_ured', { geo, nrg_bal: 'GEP_RED', unit: 'GWH', siec: ELECTRICITY_CODES }, since)
+  const [r, den] = await Promise.all([ask('nrg_ind_ured', { geo, nrg_bal: 'GEP_RED', unit: 'GWH', siec: ELECTRICITY_CODES }, since), ask('nrg_ind_ured', { geo, nrg_bal: 'GFC_ELC', unit: 'GWH', siec: 'TOTAL' }, since)])
   const v = valuesOf(r, (k) => k.siec)
+  const denominator = sumSeries([valuesOf(den, (k) => k.siec).get('TOTAL')], 1000)
   const g = (codes: string[]) => sumSeries(codes.map((c) => v.get(c)), 1000)
   const main = [
     { key: 'hydro', values: g(['RA100']) },
@@ -166,7 +167,7 @@ async function loadElectricity(ask: Ask, geo: string, since: string): Promise<Lo
   ]
   const other = minus(g(['RA000']), sumSeries(main.map((x) => x.values)))
   const groups = other.size && [...other.values()].some((x) => x > 0.5) ? [...main, { key: 'other', values: other }] : main
-  return { groups, table: ELECTRICITY_CODES.filter((c) => v.has(c)).map((c) => ({ label: labelOf(r, 'siec', c), values: sumSeries([v.get(c)], 1000) })), years: yearsOf(groups.map((x) => x.values)), source: { code: 'nrg_ind_ured', title: r?.label ?? '' } }
+  return { groups, table: ELECTRICITY_CODES.filter((c) => v.has(c)).map((c) => ({ label: labelOf(r, 'siec', c), values: sumSeries([v.get(c)], 1000) })), years: yearsOf(groups.map((x) => x.values)), source: { code: 'nrg_ind_ured', title: r?.label ?? '' }, ...{ denominator } } as Loaded
 }
 
 async function loadHeating(ask: Ask, geo: string, since: string): Promise<Loaded> {
@@ -366,13 +367,16 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     const transport = latest('REN_TRA')?.v ?? null
     if (overall != null) widgets.push({ type: 'gauge', title: t.gaugeOverall, subtitle: t.gaugeSub, value: Math.round(overall * 10) / 10, label: `${geoName}, ${last}`, max: 50, targets: [{ value: TARGET_OVERALL, label: pct(TARGET_OVERALL) }], goal: 'reach', unit: '%', size: 'half', role: 'headline' })
     if (transport != null) widgets.push({ type: 'gauge', title: t.gaugeTransport, subtitle: t.gaugeSub, value: Math.round(transport * 10) / 10, label: `${geoName}, ${latest('REN_TRA')?.y ?? last}`, max: 40, targets: [{ value: TARGET_TRANSPORT, label: pct(TARGET_TRANSPORT) }], goal: 'reach', unit: '%', size: 'half', role: 'headline' })
-    // The all-countries ranking of the overall share, when looking at one place only.
-    const all = await ask(DATASET, { geo: [...EU27_LIST], unit: 'PC', nrg_bal: 'REN' }, last)
-    const rank = (all?.observations ?? []).filter((o) => o.value != null && o.keys.time === last).map((o) => ({ code: o.keys.geo, name: (labelOf(all, 'geo', o.keys.geo)).replace(/\s*\(.*?\)\s*$/, ''), value: o.value as number })).sort((a, b) => b.value - a.value)
-    if (rank.length >= 10) {
-      widgets.push({ type: 'bar', title: fill(t.ranking, { year: last }), subtitle: `${t.sectors.overall} · %`, categories: rank.map((x) => x.name), series: [{ name: t.sectors.overall, data: rank.map((x) => Math.round(x.value * 10) / 10) }], horizontal: true, unit: '%', decimals: 1, size: 'full', role: 'ranking' })
+    // The all-countries rankings: the overall share and each sector's, each in its latest year.
+    const all = await ask(DATASET, { geo: [...EU27_LIST], unit: 'PC', nrg_bal: ['REN', 'REN_ELC', 'REN_HEAT_CL', 'REN_TRA'] }, String(lastN - 1))
+    for (const sec of sectors) {
+      const rows = (all?.observations ?? []).filter((o) => o.value != null && o.keys.nrg_bal === sec.code)
+      const y = rows.map((o) => o.keys.time).sort().at(-1)
+      const rank = rows.filter((o) => o.keys.time === y).map((o) => ({ code: o.keys.geo, name: labelOf(all, 'geo', o.keys.geo).replace(/\s*\(.*?\)\s*$/, ''), value: o.value as number })).sort((a, b) => b.value - a.value)
+      if (rank.length < 10 || !y) continue
+      widgets.push({ type: 'bar', title: fill(sec.key === 'overall' ? t.ranking : t.rankingSector, { year: y, sector: t.sectors[sec.key].toLowerCase() }), subtitle: `${t.sectors[sec.key]} · %`, categories: rank.map((x) => x.name), series: [{ name: t.sectors[sec.key], data: rank.map((x) => Math.round(x.value * 10) / 10) }], horizontal: true, unit: '%', decimals: 1, size: sec.key === 'overall' ? 'full' : 'half', role: 'ranking' })
       const place = rank.findIndex((x) => x.code === geo)
-      if (place >= 0 && !euLevel) insights.push({ tone: 'neutral', parts: [fill(t.insRank, { geo: geoName, rank: String(place + 1), of: String(rank.length), year: last })] })
+      if (place >= 0 && !euLevel) insights.push({ tone: 'neutral', parts: [fill(sec.key === 'overall' ? t.insRank : t.insRankSector, { geo: geoName, rank: String(place + 1), of: String(rank.length), year: y, sector: t.sectors[sec.key].toLowerCase() })] })
     }
     // Key figures, summary, insights.
     for (const sec of sectors) {
@@ -395,7 +399,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     }
     const fast = sectors.map((sec) => ({ sec, d: (at(sec.code, last) ?? 0) - (at(sec.code, String(lastN - 5)) ?? at(sec.code, years[0]) ?? 0) })).filter((x) => x.sec.key !== 'overall').sort((a, b) => b.d - a.d)[0]
     if (fast && fast.d > 0) insights.push({ tone: 'up', parts: [fill(t.insFastest, { sector: t.sectors[fast.sec.key].toLowerCase(), pp: pct(fast.d) })] })
-    notes.push(t.noteSeries, t.noteTargets, t.note2020)
+    notes.push(t.noteSeries, t.noteTargets, t.note2020, t.noteTransport29)
     // The table: all values.
     widgets.push({
       type: 'table',
@@ -438,6 +442,18 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     if (slices.length >= 2) widgets.push({ type: 'pie', title: fill(t.pieTitle, { year: last }), subtitle: `${geoName} · ${unit}`, slices, centerLabel: `${nf(decimals).format(tot)} ${unit}`, unit, size: 'half', role: 'change' })
     // Each technology over time, as lines.
     if (years.length > 2) widgets.push({ type: 'line', title: t.linesTitle, subtitle: `${geoName} · ${unit}`, categories: years, series: groups.map((g) => ({ name: name(g.key), data: years.map((y) => (g.values.has(y) ? round(g.values.get(y)!) : null)) })), unit, size: 'half', role: 'evolution' })
+    // Electricity: each source as a share of all electricity (gross final consumption of electricity).
+    const denom = (loaded as unknown as { denominator?: Series }).denominator
+    if (tab === 'electricity' && denom?.size) {
+      const sy = years.filter((y) => (denom.get(y) ?? 0) > 0)
+      widgets.push({ type: 'bar', title: t.elecShareTitle, subtitle: `${geoName} · %`, categories: sy, series: groups.map((g) => ({ name: name(g.key), data: sy.map((y) => (g.values.has(y) ? Math.round((1000 * g.values.get(y)!) / denom.get(y)!) / 10 : null)) })), stacked: true, unit: '%', decimals: 1, size: 'full', role: 'composition' })
+      const ly = sy.at(-1)
+      if (ly) {
+        const top = [...groups].sort((a, b) => (b.values.get(ly) ?? 0) - (a.values.get(ly) ?? 0))[0]
+        const totalShare = groups.reduce((a, g) => a + (g.values.get(ly) ?? 0), 0) / denom.get(ly)!
+        insights.push({ tone: 'neutral', parts: [fill(t.insElecShare, { name: name(top.key), share: `${pct((100 * (top.values.get(ly) ?? 0)) / denom.get(ly)!)}%`, total: `${pct(100 * totalShare)}%`, year: ly })] })
+      }
+    }
     // Buildings: households against services.
     const extra = loaded as unknown as { hh?: Series; cp?: Series; all?: Series }
     if (tab === 'buildings' && (extra.hh || extra.cp)) {

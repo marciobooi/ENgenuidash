@@ -43,6 +43,14 @@ export const SCOPE_CASES: ScopeCase[] = [
   { q: 'write python code to sort a list', want: 'off' },
   { q: 'inflation rate in Italy', want: 'off' },
   { q: 'how many people live in Berlin', want: 'off' },
+  { q: 'I have no energy today', want: 'off' },
+  { q: 'what gives me more energy, coffee or tea', want: 'off' },
+  { q: 'my battery is dead what do I do', want: 'off' },
+  { q: 'how much energy do I need to lose weight', want: 'off' },
+  { q: 'gas station near me', want: 'off' },
+  { q: 'power of attorney meaning', want: 'off' },
+  { q: 'the energy of the crowd was amazing', want: 'off' },
+  { q: 'fuel for my creativity', want: 'off' },
 ]
 
 export const SCOPE_HOLDOUT: ScopeCase[] = [
@@ -62,4 +70,9 @@ export const SCOPE_HOLDOUT: ScopeCase[] = [
   { q: 'Hauptstadt von Polen', want: 'off' },
   { q: 'meilleur restaurant à Paris', want: 'off' },
   { q: 'explain quantum computing', want: 'off' },
+  { q: 'power cuts and blackouts in Europe', want: 'energy' },
+  { q: 'fuel poverty in the EU', want: 'energy' },
+  { q: 'what powers Iceland', want: 'energy' },
+  { q: 'gas prices for households in Germany', want: 'energy' },
+  { q: 'energy consumption of my household in kWh', want: 'energy' },
 ]

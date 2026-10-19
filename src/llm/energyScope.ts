@@ -140,6 +140,15 @@ const FOLLOW_UP_WORDS = new Set(
 )
 
 /** Classifies a user message, taking the previous user message into account for follow-ups. */
+/**
+ * "Energy" and its neighbours used in a personal or figurative sense ("I have no energy", "energy to lose
+ * weight", "gas station near me", "power of attorney"): refused, unless the question also has a statistical
+ * word that makes it about energy data (country, EU, consumption, price, Eurostat...).
+ */
+const FIGURATIVE =
+  /\b(i (have|has|feel|felt|am|m) (no|low|lots of|so much|too much|little) (energy|power)|my (battery|phone|laptop|car battery)|(lose|losing|gain|gaining) weight|(coffee|tea|sleep|food|diet|exercise|workout|gym|calories|vitamins?|sugar) (and|or|gives|give|for)?.*\benergy\b|(gives|give|giving|got|get|getting) (me|you|us) (more |less |some )?(energy|power)|energy (drink|drinks|boost|level|levels of the crowd)|energy of (the|a|my) (crowd|room|team|music|song|city)|power of attorney|fuel for (my|your|the) (creativity|motivation|soul|mind|body|passion)|gas station|petrol station|tankstelle|station.service|(no|low|lots of) energie? (today|heute|aujourd))\b/
+const DATA_WORD = /\b(consumption|production|price|prices|imports?|exports?|eurostat|statistics|statistik|share|generation|capacity|emissions|tariff|supply|dependency|renewable|eu|europe|european|germany|france|spain|italy|poland|country|countries|households?)\b/
+
 export function classifyScope(
   text: string,
   previousUserMessages: string[],
@@ -147,6 +156,7 @@ export function classifyScope(
   placeNames?: Set<string>,
 ): ScopeVerdict {
   if (OUT_OF_SCOPE_TASK.test(normalize(text))) return 'off-topic'
+  if (FIGURATIVE.test(normalize(text)) && !DATA_WORD.test(normalize(text))) return 'off-topic'
   if (hasEnergySignal(text, lexicon)) return 'energy'
   if (SMALL_TALK.test(text.trim()) || THANKS_LEAD.test(text.trim())) return 'small-talk'
 

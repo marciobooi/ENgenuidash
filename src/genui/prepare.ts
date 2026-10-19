@@ -74,6 +74,27 @@ export function withoutLeadIns(q: string): string {
 const PHRASES: [RegExp, string][] = [
   [/\b(pobreza energetica|poverta energetica|ubostwo energetyczne|energiearmoede|energie armoede)\b/g, 'energy poverty'],
   [/\b(energia elektryczna|energii elektrycznej)\b/g, 'electricity'],
+  [/\b(cuadro de mando|tablero de control|cruscotto di controllo|painel de controlo|painel de controle|panel de control)\b/g, 'dashboard'],
+  [/\b(eficiencia energetica|efficienza energetica|efektywnosc energetyczna|energie efficientie|energy efficientie)\b/g, 'energy efficiency'],
+  [/\b(seguridad energetica|sicurezza energetica|seguranca energetica|bezpieczenstwo energetyczne|energiezekerheid|seguridad de suministro|seguridad del suministro|seguridad de abastecimiento|sicurezza dell approvvigionamento|seguranca de abastecimento)\b/g, 'energy security'],
+  [/\b(dependencia energetica|dipendenza energetica|zaleznosc energetyczna|energieafhankelijkheid)\b/g, 'energy dependency'],
+  [/\b(dependencia de terceros paises|dipendenza dai paesi terzi|dependencia de paises terceiros|zaleznosc od krajow trzecich|afhankelijkheid van derde landen)\b/g, 'energy dependence on third countries'],
+  [/\b(reservas|scorte|zapasy|voorraden) (de |di |del |of |van )?(petroleo|petrolio|ropy|aardolie|crudo)\b|\b(seguridad|sicurezza|seguranca|bezpieczenstwo) (petrolera|petrolifera|petrolifera|naftowe?|olie)\b/g, 'oil security'],
+  [/\b(petroleo|petrolio|ropa|aardolie) (reservas|scorte|zapasy|voorraden)\b/g, 'oil security'],
+  [/\b(terceros paises|paesi terzi|paises terceiros|kraje trzecie|derde landen)\b/g, 'third countries'],
+  [/\b(energias? renovables?|energie rinnovabili|energia rinnovabile|energias? renovaveis|energia renovavel|energia odnawialna|odnawialne zrodla energii|hernieuwbare energie)\b/g, 'renewable energy'],
+  [/\b(capacidad instalada|capacita installata|capacidade instalada|zainstalowana moc|geinstalleerd vermogen|capacidad de energia)\b/g, 'installed capacity'],
+  [/\b(energia solar|energia solare|energia sloneczna|zonne energie|zonne-energie)\b/g, 'solar energy'],
+  [/\b(energia eolica|energia eolica|energia wiatrowa|windenergie)\b/g, 'wind energy'],
+  [/\b(calefaccion|riscaldamento|aquecimento|ogrzewanie|verwarming) (renovable|rinnovabile|renovavel|odnawialne|hernieuwbare)\b/g, 'renewable heating'],
+  [/\b(consumo final de energia|consumo de energia final|consumo finale di energia|zuzycie energii finalnej)\b/g, 'final energy consumption'],
+  [/\b(consumo de energia primaria|consumo di energia primaria|zuzycie energii pierwotnej)\b/g, 'primary energy consumption'],
+  [/\b(facturas de (la )?(luz|electricidad|gas)|bollette (della luce|del gas)|faturas de (eletricidade|gas))\b/g, 'prices'],
+  // (English as people who speak another language put it: "energetic poverty", "renewable energies", "poverty energetic")
+  [/\b(energetic|energetical) (poverty|dependence|dependency|security|efficiency|independence|situation|balance|consumption|transition)\b/g, 'energy $2'],
+  [/\b(poverty|dependence|dependency|security|efficiency|independence|situation|balance|consumption|transition) (energetic|energetical)\b/g, 'energy $1'],
+  [/\b(renewables?) energies\b/g, 'renewable energy'],
+  [/\b(renewable|clean|green|solar|wind) energies\b/g, '$1 energy'],
   [/\b(gas natural|gas naturale|gas naturais|gaz ziemny|gazu ziemnego)\b/g, 'natural gas'],
   [/\b(paises bajos|paesi bassi|paises baixos)\b/g, 'netherlands'],
   [/\b(republica checa|repubblica ceca)\b/g, 'czechia'],
@@ -83,6 +104,18 @@ const PHRASES: [RegExp, string][] = [
 // Word by word (normalised: no accents; Polish ł is read as l).
 const WORDS: Record<string, string> = {}
 const add = (english: string, words: string) => words.split(' ').forEach((w) => (WORDS[w] = english))
+add('technology', 'tecnologia tecnologias tecnologie technologia technologie technologii')
+add('sector', 'sectores settore settori sektory sektorze')
+add('by', 'por door przez')
+add('capacity', 'capacidad capacita capacidade capacidades pojemnosc moc capaciteit vermogen')
+add('installed', 'instalada instalado installata installato zainstalowana geinstalleerd')
+add('dashboard', 'panel cuadro tablero cruscotto painel pulpit dashboard')
+add('hydro', 'hidraulica hidroelectrica idroelettrica hidroeletrica wodna')
+add('biomass', 'biomasa biomassa biomasy')
+add('heating', 'calefaccion riscaldamento aquecimento ogrzewanie verwarming')
+add('buildings', 'edificios edifici edificios budynki gebouwen')
+add('security', 'seguridad sicurezza seguranca bezpieczenstwo veiligheid')
+add('bills', 'facturas bollette faturas rachunki rekeningen')
 add('renewable', 'renovable renovables rinnovabile rinnovabili renovavel renovaveis odnawialne odnawialnych odnawialna odnawialnej hernieuwbare hernieuwbaar')
 add('energy', 'energia energii energetica energetico energetyczna energetyczny energetyczne')
 add('electricity', 'electricidad elettricita eletricidade elektrycznosc elektrycznosci elektriciteit stroom')

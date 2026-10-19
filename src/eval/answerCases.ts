@@ -84,7 +84,7 @@ export const ANSWER_CASES: AnswerCase[] = [
   { q: 'Oil consumption in Spain in 2024', lang: 'en', expect: { route: 'plan', dataset: 'nrg_bal_c' } },
   { q: 'Strompreise für Haushalte in Deutschland', lang: 'de', expect: { route: 'plan', dataset: 'nrg_pc_204' } },
   { q: 'Part des énergies renouvelables en France depuis 2010', lang: 'fr', expect: { route: 'plan', dataset: 'nrg_ind_ren' } },
-  { q: 'solar capacity in Spain', lang: 'en', expect: { route: 'plan', dataset: 'nrg_inf_epcrw' } },
+  { q: 'solar capacity in Spain', lang: 'en', expect: { route: 'plan', dataset: 'nrg_ind_ren' } },
   { q: 'imports of natural gas from Norway', lang: 'en', expect: { route: 'plan', dataset: 'nrg_ti_gas' } },
   { q: 'Show me energy prices', lang: 'en', expect: { route: 'clarify' } },
 

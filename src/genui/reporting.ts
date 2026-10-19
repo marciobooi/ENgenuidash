@@ -2,6 +2,7 @@ import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type Eu
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
 import { detectGeos, parse } from './planner/parse'
+import { reportingTabByWords } from './customWords'
 import { NATIONAL_FEC_2030, NATIONAL_PEC_2030 } from './nationalTargets'
 import { fill, labelOf, minus, sumSeries, valuesOf, yearsOf, type Ask, type Series } from './renewables'
 import type { DashboardSpec, Insight, KpiSpec, Plan, ReportingTab, Suggestion, WidgetSpec } from './types'
@@ -53,9 +54,9 @@ const SHORT: [ReportingTab, RegExp][] = [
 /** The progress dashboard a question asks for ("energy efficiency dashboard", "energy dependence on third countries in Italy"), or null. */
 export function reportingPlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   const p = parse(text.replace(/[-–,?&]/g, ' '))
-  const tab = tabOf(p.text)
-  if (!tab || DEFINITION.test(p.text) || !dict.datasets[DATASETS[tab]]) return null
   const places = detectGeos(p, codelists)
+  const tab = tabOf(p.text) ?? reportingTabByWords(p.text, places.codes.length > 0 || places.eu)
+  if (!tab || (DEFINITION.test(p.text) && !(places.codes.length || places.eu)) || !dict.datasets[DATASETS[tab]]) return null
   const geos = dict.datasets[DATASETS[tab]].dimensions.find((d) => d.id === 'geo')?.codes ?? []
   const geo = places.codes.find((c) => geos.includes(c)) ?? EU
   const from = FROM_WORDS.find(([, re]) => re.test(p.text))?.[0]
@@ -68,7 +69,7 @@ export function refineReporting(current: Plan, text: string, dict: EnergyDiction
   const p = parse(text.replace(/[-–,?&]/g, ' '))
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => MEMBERS.includes(c) || ['NO', 'IS', 'UK', 'TR'].includes(c)) ?? (places.eu ? EU : undefined)
-  const tab = tabOf(p.text) ?? SHORT.find(([, re]) => re.test(p.text))?.[0]
+  const tab = tabOf(p.text) ?? reportingTabByWords(p.text, true) ?? SHORT.find(([, re]) => re.test(p.text))?.[0]
   const from = FROM_WORDS.find(([, re]) => re.test(p.text))?.[0]
   const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|show|zeige|montre|now|jetzt|maintenant|energy|energie\w*|since|from|seit|depuis|year|only|nur|zeigen|anzeigen|afficher)$/.test(w) && !/^\d{4}$/.test(w))
   const known = rest.every((w) => SHORT.some(([, re]) => re.test(` ${w} `)) || detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)

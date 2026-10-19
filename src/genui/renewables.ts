@@ -1,5 +1,6 @@
 import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
+import { renewablesTabByWords } from './customWords'
 import { NoDataError } from './execute'
 import { NATIONAL_RES_2030, RES_2020_TARGET } from './nationalTargets'
 import { detectGeos, parse } from './planner/parse'
@@ -60,11 +61,12 @@ const ABSOLUTE = / (absolute|in absolute terms|absolut|valeurs absolues|in (gw|t
 export function renewablesPlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   if (!dict.datasets[DATASET]) return null
   const p = parse(text.replace(/[-–,?&]/g, ' '))
-  if (!RENEW.test(p.text) || DEFINITION.test(p.text)) return null
   const places = detectGeos(p, codelists)
+  const byWords = renewablesTabByWords(p.text.replace(/\benergies\b/g, 'energy'), places.codes.length > 0 || places.eu)
+  if ((!RENEW.test(p.text) && !byWords) || (DEFINITION.test(p.text) && !(places.codes.length || places.eu))) return null
   const geos = dict.datasets[DATASET].dimensions.find((d) => d.id === 'geo')?.codes ?? []
   const geo = places.codes.find((c) => geos.includes(c)) ?? EU
-  const tab = tabOf(p.text) ?? 'shares'
+  const tab = tabOf(p.text) ?? byWords ?? 'shares'
   const from = FROM_WORDS.find(([, re]) => re.test(p.text))?.[0]
   return { dataset: DATASET, filters: { geo }, time: { kind: 'all' }, intent: 'snapshot', renewables: { tab, ...(from && from !== 'all' ? { from } : {}), ...(PERCENT.test(p.text) ? { pct: true as const } : {}) } }
 }

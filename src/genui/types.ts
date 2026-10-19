@@ -62,7 +62,7 @@ export interface Plan {
   /** The oil security dashboard (see oil.ts). */
   oil?: { view?: 'all'; /** What the country is compared with: another country or the EU ("compare with France"). */ compare?: string }
   /** The renewables (SHARES) dashboard, one tab at a time (see renewables.ts). */
-  renewables?: { tab: RenewablesTab; pct?: true; from?: '2010' | '2020' }
+  renewables?: { tab: RenewablesTab; pct?: true; from?: 'all' | '2010' | '2020' }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 

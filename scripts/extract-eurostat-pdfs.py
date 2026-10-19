@@ -7,7 +7,7 @@
 kind of document. The knowledge builder (build-eurostat-knowledge.mjs) turns the pages into searchable
 passages. Page headers and footers (lines that repeat on many pages) and page numbers are removed.
 """
-import json, os, re, sys
+import html as htmllib, json, os, re, sys
 from collections import Counter
 from pypdf import PdfReader
 
@@ -20,7 +20,17 @@ for src in sources:
     if not os.path.exists(path):
         print('missing', src['file'], file=sys.stderr)
         continue
-    pages = [(p.extract_text() or '') for p in PdfReader(path).pages]
+    if path.endswith('.html'):
+        # a web page (a news item): the text between its date line and "For more information"
+        raw = open(path, encoding='utf-8', errors='ignore').read()
+        raw = re.sub(r'<(script|style|noscript)[^>]*>.*?</\1>', ' ', raw, flags=re.S)
+        raw = htmllib.unescape(re.sub(r'<[^>]+>', '\n', raw))
+        raw = re.sub(r'\n\s*\n+', '\n', raw)
+        end = raw.find('For more information')
+        starts = [m.end() for m in re.finditer(r'\n\s*\d{1,2} [A-Z][a-z]+ 20\d\d\s*\n', raw[:end])] if end > 0 else []
+        pages = [raw[starts[-1]:end] if starts else '']
+    else:
+        pages = [(p.extract_text() or '') for p in PdfReader(path).pages]
     lines = [[l.strip() for l in t.split('\n') if l.strip()] for t in pages]
     # headers and footers: a short line that appears on at least 40% of the pages
     count = Counter(l for ls in lines for l in set(ls) if len(l) < 90)

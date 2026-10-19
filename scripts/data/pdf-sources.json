@@ -173,5 +173,26 @@
   "title": "Reporting energy cost compensation (subsidies) in the price statistics",
   "url": "https://ec.europa.eu/eurostat/documents/38154/42201/Reporting-compensation-subsidies.pdf/3514d0e6-20c4-468f-7f4c-0fad45fba489?t=1676480347489",
   "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "energy-accounts.pdf",
+  "id": "energy-accounts",
+  "title": "Energy accounts (Statistics Explained)",
+  "url": "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Energy_accounts_-_use_of_energy_by_industries",
+  "topic": "energy use by economic activity"
+ },
+ {
+  "file": "data-revision-policy.pdf",
+  "id": "data-revision-policy",
+  "title": "Revision policy for energy statistics",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/4956233/Energy-statistics-Data-revision-policy.pdf/18d319a7-2df8-4e5a-bf26-9b035ce1a9b1",
+  "topic": "when and how published energy figures are revised"
+ },
+ {
+  "file": "news-shedding-light-2025.html",
+  "id": "news-shedding-light-2025",
+  "title": "Shedding light on energy in Europe 2025 (Eurostat news)",
+  "url": "https://ec.europa.eu/eurostat/web/products-eurostat-news/w/wdn-20250311-1",
+  "topic": "the 2025 energy publication"
  }
 ]

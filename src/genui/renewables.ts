@@ -86,7 +86,7 @@ export function refineRenewables(current: Plan, text: string, dict: EnergyDictio
   return {
     ...current,
     filters: { ...current.filters, ...(geo ? { geo } : {}) },
-    renewables: { tab: tab ?? r.tab, ...((from ?? r.from) && (from ?? r.from) !== 'all' ? { from: (from ?? r.from) as RenewablesFrom } : {}), ...((pct ?? r.pct) ? { pct: true as const } : {}) },
+    renewables: { tab: tab ?? r.tab, ...(r.goal ? { goal: r.goal } : {}), ...((from ?? r.from) && (from ?? r.from) !== 'all' ? { from: (from ?? r.from) as RenewablesFrom } : {}), ...((pct ?? r.pct) ? { pct: true as const } : {}) },
     notes: [],
   }
 }
@@ -321,12 +321,13 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
       return y ? { y, v: at(code, y) as number } : null
     }
     const euLevel = geo === EU
+    const goal2020Shown = plan.renewables?.goal === '2020'
     // The categories run to 2030 so the reference points have a place on the axis.
     const axis = Array.from({ length: 2030 - Number(years[0]) + 1 }, (_, i) => String(Number(years[0]) + i))
     // The path of each sector to its 2030 reference point, from the 2020 value of the place shown (EU level only).
     const path = (key: string, code: string): (number | null)[] | null => {
       const base = at(code, '2020')
-      if (!euLevel || base == null || lastN < 2020) return null
+      if (base == null || lastN < 2020) return null
       if (key === 'overall' || key === 'transport') {
         const goal = key === 'overall' ? TARGET_OVERALL : TARGET_TRANSPORT
         return axis.map((y) => (Number(y) >= 2020 ? Math.round((base + ((goal - base) * (Number(y) - 2020)) / 10) * 10) / 10 : null))
@@ -345,8 +346,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     for (const sec of sectors) {
       const data = axis.map((y) => (Number(y) <= lastN ? at(sec.code, y) : null))
       if (!data.some((x) => x != null)) continue
-      const reference = !euLevel ? (sec.key === 'overall' ? { value: TARGET_OVERALL, label: fill(t.euTarget, { value: pct(TARGET_OVERALL) }) } : sec.key === 'transport' ? { value: TARGET_TRANSPORT, label: fill(t.euTarget, { value: pct(TARGET_TRANSPORT) }) } : undefined) : undefined
-      const p = path(sec.key, sec.code)
+      const p = goal2020Shown ? null : path(sec.key, sec.code)
       // The binding 2020 target (overall: the country's own; transport: 10 % for everyone; the EU: 20 % and 10 %).
       const goal2020 = sec.key === 'overall' ? (euLevel ? 20 : RES_2020_TARGET[geo]) : sec.key === 'transport' && (euLevel || RES_2020_TARGET[geo] != null) ? 10 : undefined
       widgets.push({
@@ -354,8 +354,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
         title: t.sectors[sec.key],
         subtitle: `${geoName} · %`,
         categories: axis,
-        series: [{ name: t.sectors[sec.key], data }, ...(p ? [{ name: t.path[sec.key as 'overall' | 'heating' | 'transport'], data: p }] : []), ...(goal2020 != null ? [{ name: fill(t.target2020, { value: pct(goal2020) }), data: axis.map((y) => (Number(y) >= 2010 && Number(y) <= 2020 ? goal2020 : null)) }] : [])],
-        ...(reference ? { reference } : {}),
+        series: [{ name: t.sectors[sec.key], data }, ...(p ? [{ name: t.path[sec.key as 'overall' | 'heating' | 'transport'], data: p }] : []), ...(goal2020 != null && goal2020Shown ? [{ name: fill(t.target2020, { value: pct(goal2020) }), data: axis.map((y) => (Number(y) >= 2010 && Number(y) <= 2020 ? goal2020 : null)) }] : [])],
         highlight: last,
         unit: '%',
         size: 'half',
@@ -399,7 +398,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     }
     const fast = sectors.map((sec) => ({ sec, d: (at(sec.code, last) ?? 0) - (at(sec.code, String(lastN - 5)) ?? at(sec.code, years[0]) ?? 0) })).filter((x) => x.sec.key !== 'overall').sort((a, b) => b.d - a.d)[0]
     if (fast && fast.d > 0) insights.push({ tone: 'up', parts: [fill(t.insFastest, { sector: t.sectors[fast.sec.key].toLowerCase(), pp: pct(fast.d) })] })
-    notes.push(t.noteSeries, t.noteTargets, t.note2020, t.noteTransport29)
+    notes.push(t.noteSeries, goal2020Shown ? t.note2020 : t.noteTargets, t.noteTransport29)
     // The table: all values.
     widgets.push({
       type: 'table',
@@ -500,7 +499,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     notes,
     widgets,
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'table', 'suggestions'],
-    presentation: { template: 'renewables', kpiStyle: 'cards', controls: ['geo', 'period', 'view'], primaryControls: 3, accent: 'teal' },
+    presentation: { template: 'renewables', kpiStyle: 'cards', controls: ['geo', 'period', 'goal', 'view'], primaryControls: 3, accent: 'teal' },
     source: { code: source.code, title: source.title || source.code, url: link(source.code) },
     suggestions: suggestions(plan, s, tab),
     controls: controls(plan, t, tab, from, percent),
@@ -515,8 +514,10 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
 const EU27_LIST = ['BE', 'BG', 'CZ', 'DK', 'DE', 'EE', 'IE', 'EL', 'ES', 'FR', 'HR', 'IT', 'CY', 'LV', 'LT', 'LU', 'HU', 'MT', 'NL', 'AT', 'PL', 'PT', 'RO', 'SI', 'SK', 'FI', 'SE']
 
 function controls(plan: Plan, t: RenewablesStrings, tab: RenewablesTab, from: RenewablesFrom, percent: boolean) {
+  const goal = plan.renewables?.goal
   const at = (over: Partial<NonNullable<Plan['renewables']>>): Plan => {
-    const next = { tab, ...(from !== 'all' ? { from } : {}), ...(percent ? { pct: true as const } : {}), ...over }
+    const next = { tab, ...(from !== 'all' ? { from } : {}), ...(percent ? { pct: true as const } : {}), ...(goal ? { goal } : {}), ...over }
+    if (!next.goal) delete next.goal
     if (next.from === 'all') delete next.from
     if (!next.pct) delete next.pct
     return { ...plan, renewables: next as NonNullable<Plan['renewables']> }
@@ -524,7 +525,7 @@ function controls(plan: Plan, t: RenewablesStrings, tab: RenewablesTab, from: Re
   return {
     tabs: RENEWABLES_TABS.map((k) => ({ label: t.tabs[k], plan: at({ tab: k }), active: k === tab })),
     periods: (['all', '2010', '2020'] as RenewablesFrom[]).map((f) => ({ label: t.from[f], plan: at({ from: f }), active: f === from })),
-    choices: tab === 'shares' ? [] : [{ key: 'view', label: t.view, options: [{ label: t.absolute, plan: at({ pct: undefined }), active: !percent }, { label: t.shareOfTotal, plan: at({ pct: true }), active: percent }] }],
+    choices: tab === 'shares' ? [{ key: 'goal', label: t.goalLabel, options: [{ label: t.goal2030, plan: at({ goal: undefined }), active: !goal }, { label: t.goal2020, plan: at({ goal: '2020' }), active: goal === '2020' }] }] : [{ key: 'view', label: t.view, options: [{ label: t.absolute, plan: at({ pct: undefined }), active: !percent }, { label: t.shareOfTotal, plan: at({ pct: true }), active: percent }] }],
   }
 }
 

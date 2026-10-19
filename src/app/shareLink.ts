@@ -108,9 +108,9 @@ export function decodePlan(raw: string, dict: EnergyDictionary): Plan | null {
     plan.oil = typeof compare === 'string' && /^[A-Z0-9_]{2,10}$/.test(compare) ? { compare } : {}
   }
   if (ds.code === 'nrg_ind_ren' && p.renewables && typeof p.renewables === 'object') {
-    const rn = p.renewables as { tab?: unknown; pct?: unknown; from?: unknown }
+    const rn = p.renewables as { tab?: unknown; pct?: unknown; from?: unknown; goal?: unknown }
     const tabs = ['shares', 'capacity', 'electricity', 'heating', 'transport', 'biomass', 'solid', 'buildings']
-    if (typeof rn.tab === 'string' && tabs.includes(rn.tab)) plan.renewables = { tab: rn.tab as NonNullable<Plan['renewables']>['tab'], ...(rn.pct === true ? { pct: true as const } : {}), ...(rn.from === '2010' || rn.from === '2020' ? { from: rn.from } : {}) }
+    if (typeof rn.tab === 'string' && tabs.includes(rn.tab)) plan.renewables = { tab: rn.tab as NonNullable<Plan['renewables']>['tab'], ...(rn.pct === true ? { pct: true as const } : {}), ...(rn.goal === '2020' ? { goal: '2020' as const } : {}), ...(rn.from === '2010' || rn.from === '2020' ? { from: rn.from } : {}) }
   }
   if (p.reporting && typeof p.reporting === 'object') {
     const rp = p.reporting as { tab?: unknown; from?: unknown }

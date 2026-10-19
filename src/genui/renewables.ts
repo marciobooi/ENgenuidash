@@ -91,7 +91,7 @@ export function refineRenewables(current: Plan, text: string, dict: EnergyDictio
 
 // ---------- the data of each tab ----------
 
-type Series = Map<string, number>
+export type Series = Map<string, number>
 interface Loaded {
   /** The main categories (or the lines), each with its values by year (already in the unit shown). */
   groups: { key: string; values: Series }[]
@@ -103,7 +103,7 @@ interface Loaded {
 }
 
 const yearOf = (o: EurostatResult['observations'][number]) => o.keys.time
-const valuesOf = (r: EurostatResult | null, pick: (keys: Record<string, string>) => string | null): Map<string, Series> => {
+export const valuesOf = (r: EurostatResult | null, pick: (keys: Record<string, string>) => string | null): Map<string, Series> => {
   const out = new Map<string, Series>()
   for (const o of r?.observations ?? []) {
     if (o.value == null) continue
@@ -115,16 +115,16 @@ const valuesOf = (r: EurostatResult | null, pick: (keys: Record<string, string>)
   }
   return out
 }
-const sumSeries = (parts: (Series | undefined)[], div = 1): Series => {
+export const sumSeries = (parts: (Series | undefined)[], div = 1): Series => {
   const out: Series = new Map()
   for (const s of parts) for (const [y, v] of s ?? []) out.set(y, (out.get(y) ?? 0) + v / div)
   return out
 }
-const minus = (a: Series, b: Series): Series => new Map([...a].map(([y, v]) => [y, Math.max(v - (b.get(y) ?? 0), 0)]))
-const labelOf = (r: EurostatResult | null, dim: string, code: string) => r?.dimensions[dim]?.codes.find((c) => c.code === code)?.label ?? code
-const yearsOf = (series: Series[]) => [...new Set(series.flatMap((s) => [...s.keys()]))].sort()
+export const minus = (a: Series, b: Series): Series => new Map([...a].map(([y, v]) => [y, Math.max(v - (b.get(y) ?? 0), 0)]))
+export const labelOf = (r: EurostatResult | null, dim: string, code: string) => r?.dimensions[dim]?.codes.find((c) => c.code === code)?.label ?? code
+export const yearsOf = (series: Series[]) => [...new Set(series.flatMap((s) => [...s.keys()]))].sort()
 
-type Ask = (dataset: string, filters: Record<string, string | string[]>, since?: string) => Promise<EurostatResult | null>
+export type Ask = (dataset: string, filters: Record<string, string | string[]>, since?: string) => Promise<EurostatResult | null>
 
 // The main categories of the SHARES reporting, by the codes behind them.
 const SOLID = ['R5110-5150_W6000RI']
@@ -232,8 +232,9 @@ async function loadSolid(ask: Ask, geo: string, since: string): Promise<Loaded> 
 }
 
 async function loadBuildings(ask: Ask, geo: string, since: string): Promise<Loaded> {
-  const r = await ask('nrg_bal_c', { geo, unit: 'KTOE', nrg_bal: ['FC_OTH_HH_E', 'FC_OTH_CP_E'], siec: BUILDING_CODES }, since)
-  const v = valuesOf(r, (k) => k.siec)
+  const r = await ask('nrg_bal_c', { geo, unit: 'KTOE', nrg_bal: ['FC_OTH_HH_E', 'FC_OTH_CP_E', 'FC_E'], siec: BUILDING_CODES }, since)
+  const v = valuesOf(r, (k) => (k.nrg_bal === 'FC_E' ? null : k.siec))
+  const all = valuesOf(r, (k) => (k.nrg_bal === 'FC_E' ? k.siec : null))
   const hh = valuesOf(r, (k) => (k.nrg_bal === 'FC_OTH_HH_E' ? k.siec : null))
   const cp = valuesOf(r, (k) => (k.nrg_bal === 'FC_OTH_CP_E' ? k.siec : null))
   const g = (codes: string[]) => sumSeries(codes.map((c) => v.get(c)))
@@ -251,7 +252,7 @@ async function loadBuildings(ask: Ask, geo: string, since: string): Promise<Load
     ...BUILDING_CODES.filter((c) => hh.has(c)).map((c) => ({ label: `${labelOf(r, 'siec', c)} · ${labelOf(r, 'nrg_bal', 'FC_OTH_HH_E').slice(0, 40)}`, values: hh.get(c)! })),
     ...BUILDING_CODES.filter((c) => cp.has(c)).map((c) => ({ label: `${labelOf(r, 'siec', c)} · ${labelOf(r, 'nrg_bal', 'FC_OTH_CP_E').slice(0, 40)}`, values: cp.get(c)! })),
   ]
-  return { groups, table, years: yearsOf(groups.map((x) => x.values)), source: { code: 'nrg_bal_c', title: r?.label ?? '' }, ...{ hh: hh.get('RA000'), cp: cp.get('RA000') } } as Loaded
+  return { groups, table, years: yearsOf(groups.map((x) => x.values)), source: { code: 'nrg_bal_c', title: r?.label ?? '' }, ...{ hh: hh.get('RA000'), cp: cp.get('RA000'), all: all.get('RA000') } } as Loaded
 }
 
 const LOADERS: Record<Exclude<RenewablesTab, 'shares'>, (ask: Ask, geo: string, since: string) => Promise<Loaded>> = {
@@ -268,7 +269,7 @@ const LOADERS: Record<Exclude<RenewablesTab, 'shares'>, (ask: Ask, geo: string, 
 const UNITS: Record<Exclude<RenewablesTab, 'shares'>, string> = { capacity: 'GW', electricity: 'TWh', heating: 'ktoe', transport: 'ktoe', biomass: 'PJ', solid: 'PJ', buildings: 'ktoe' }
 
 export type RenewablesStrings = Strings['renewables']
-const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '')
+export const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '')
 
 // ---------- the dashboard ----------
 
@@ -434,9 +435,15 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     // Each technology over time, as lines.
     if (years.length > 2) widgets.push({ type: 'line', title: t.linesTitle, subtitle: `${geoName} · ${unit}`, categories: years, series: groups.map((g) => ({ name: name(g.key), data: years.map((y) => (g.values.has(y) ? round(g.values.get(y)!) : null)) })), unit, size: 'half', role: 'evolution' })
     // Buildings: households against services.
-    const extra = loaded as unknown as { hh?: Series; cp?: Series }
+    const extra = loaded as unknown as { hh?: Series; cp?: Series; all?: Series }
     if (tab === 'buildings' && (extra.hh || extra.cp)) {
       widgets.push({ type: 'bar', title: t.hhVsServices, subtitle: `${geoName} · ktoe`, categories: years, series: [{ name: t.groups.households, data: years.map((y) => extra.hh?.get(y) ?? null) }, { name: t.groups.services, data: years.map((y) => extra.cp?.get(y) ?? null) }], stacked: true, unit: 'ktoe', decimals: 0, size: 'full', role: 'detail' })
+      // Households, everyone else, and the total of all final consumers.
+      if (extra.all) {
+        const other = years.map((y) => (extra.all!.has(y) ? Math.max((extra.all!.get(y) ?? 0) - (extra.hh?.get(y) ?? 0), 0) : null))
+        widgets.push({ type: 'line', title: t.hhSplit, subtitle: `${geoName} · ktoe`, categories: years, series: [{ name: t.groups.households, data: years.map((y) => extra.hh?.get(y) ?? null) }, { name: t.groups.nonHouseholds, data: other }, { name: t.groups.total, data: years.map((y) => extra.all!.get(y) ?? null) }], unit: 'ktoe', size: 'full', role: 'evolution' })
+        loaded.table.push({ label: t.groups.households, values: extra.hh ?? new Map() }, { label: t.groups.nonHouseholds, values: new Map(years.flatMap((y, i) => (other[i] != null ? [[y, other[i] as number] as [string, number]] : []))) }, { label: t.groups.total, values: extra.all })
+      }
     }
     // Key figures.
     const prev = total.get(String(lastN - 1))

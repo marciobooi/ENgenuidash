@@ -501,6 +501,8 @@ const en = {
       energySector: 'Energy sector and other',
       households: 'Households',
       services: 'Services',
+      nonHouseholds: 'Non-households (industry, transport, services and others)',
+      total: 'Total, all consumers',
     },
     stackTitle: {
       capacity: 'Installed renewable capacity by technology, {unit}',
@@ -515,6 +517,7 @@ const en = {
     pieTitle: 'Mix in {year}',
     linesTitle: 'Each source over time',
     hhVsServices: 'Households and services',
+    hhSplit: 'Renewables: households, other consumers and total',
     kpiTotal: {
       capacity: 'Installed capacity',
       electricity: 'Renewable electricity',
@@ -1617,6 +1620,8 @@ export const STRINGS: Record<Lang, Strings> = {
         energySector: 'Energiesektor und Sonstige',
         households: 'Haushalte',
         services: 'Dienstleistungen',
+        nonHouseholds: 'Nicht-Haushalte (Industrie, Verkehr, Dienstleistungen und andere)',
+        total: 'Gesamt, alle Verbraucher',
       },
       stackTitle: {
         capacity: 'Installierte Kapazität erneuerbarer Energien nach Technologie, {unit}',
@@ -1631,6 +1636,7 @@ export const STRINGS: Record<Lang, Strings> = {
       pieTitle: 'Mix {year}',
       linesTitle: 'Jede Quelle im Zeitverlauf',
       hhVsServices: 'Haushalte und Dienstleistungen',
+      hhSplit: 'Erneuerbare: Haushalte, andere Verbraucher und Gesamt',
       kpiTotal: {
         capacity: 'Installierte Kapazität',
         electricity: 'Erneuerbarer Strom',
@@ -2728,6 +2734,8 @@ export const STRINGS: Record<Lang, Strings> = {
         energySector: 'Secteur de l\'énergie et autres',
         households: 'Ménages',
         services: 'Services',
+        nonHouseholds: 'Hors ménages (industrie, transports, services et autres)',
+        total: 'Total, tous consommateurs',
       },
       stackTitle: {
         capacity: 'Capacité renouvelable installée par technologie, {unit}',
@@ -2742,6 +2750,7 @@ export const STRINGS: Record<Lang, Strings> = {
       pieTitle: 'Mix en {year}',
       linesTitle: 'Chaque source dans le temps',
       hhVsServices: 'Ménages et services',
+      hhSplit: 'Renouvelables : ménages, autres consommateurs et total',
       kpiTotal: {
         capacity: 'Capacité installée',
         electricity: 'Électricité renouvelable',

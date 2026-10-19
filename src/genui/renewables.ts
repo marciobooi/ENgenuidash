@@ -1,7 +1,7 @@
 import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
-import { RES_2020_TARGET } from './nationalTargets'
+import { NATIONAL_RES_2030, RES_2020_TARGET } from './nationalTargets'
 import { detectGeos, parse } from './planner/parse'
 import type { DashboardSpec, Insight, KpiSpec, Plan, RenewablesTab, Suggestion, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -325,11 +325,14 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     // The categories run to 2030 so the reference points have a place on the axis.
     const axis = Array.from({ length: 2030 - Number(years[0]) + 1 }, (_, i) => String(Number(years[0]) + i))
     // The path of each sector to its 2030 reference point, from the 2020 value of the place shown (EU level only).
+    // A country's own 2030 contribution (final energy and climate plan) replaces the EU level for the overall share.
+    const nat = NATIONAL_RES_2030[geo]
+    const natText = nat ? (nat.max ? `${pct(nat.value)} - ${pct(nat.max)}` : pct(nat.value)) : ''
     const path = (key: string, code: string): (number | null)[] | null => {
       const base = at(code, '2020')
       if (base == null || lastN < 2020) return null
       if (key === 'overall' || key === 'transport') {
-        const goal = key === 'overall' ? TARGET_OVERALL : TARGET_TRANSPORT
+        const goal = key === 'overall' ? (nat?.value ?? TARGET_OVERALL) : TARGET_TRANSPORT
         return axis.map((y) => (Number(y) >= 2020 ? Math.round((base + ((goal - base) * (Number(y) - 2020)) / 10) * 10) / 10 : null))
       }
       if (key === 'heating') {
@@ -354,7 +357,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
         title: t.sectors[sec.key],
         subtitle: `${geoName} · %`,
         categories: axis,
-        series: [{ name: t.sectors[sec.key], data }, ...(p ? [{ name: t.path[sec.key as 'overall' | 'heating' | 'transport'], data: p }] : []), ...(goal2020 != null && goal2020Shown ? [{ name: fill(t.target2020, { value: pct(goal2020) }), data: axis.map((y) => (Number(y) >= 2010 && Number(y) <= 2020 ? goal2020 : null)) }] : [])],
+        series: [{ name: t.sectors[sec.key], data }, ...(p ? [{ name: sec.key === 'overall' && nat ? fill(t.pathNational, { value: natText }) : t.path[sec.key as 'overall' | 'heating' | 'transport'], data: p }] : []), ...(goal2020 != null && goal2020Shown ? [{ name: fill(t.target2020, { value: pct(goal2020) }), data: axis.map((y) => (Number(y) >= 2010 && Number(y) <= 2020 ? goal2020 : null)) }] : [])],
         highlight: last,
         unit: '%',
         size: 'half',
@@ -364,7 +367,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     // Where each sector stands: gauges against the EU 2030 level.
     const overall = at('REN', last)
     const transport = latest('REN_TRA')?.v ?? null
-    if (overall != null) widgets.push({ type: 'gauge', title: t.gaugeOverall, subtitle: t.gaugeSub, value: Math.round(overall * 10) / 10, label: `${geoName}, ${last}`, max: 50, targets: [{ value: TARGET_OVERALL, label: pct(TARGET_OVERALL) }], goal: 'reach', unit: '%', size: 'half', role: 'headline' })
+    if (overall != null) widgets.push({ type: 'gauge', title: t.gaugeOverall, subtitle: t.gaugeSub, value: Math.round(overall * 10) / 10, label: `${geoName}, ${last}`, max: 50, targets: [...(nat ? [{ value: nat.value, label: natText }] : []), { value: TARGET_OVERALL, label: pct(TARGET_OVERALL) }], goal: 'reach', unit: '%', size: 'half', role: 'headline' })
     if (transport != null) widgets.push({ type: 'gauge', title: t.gaugeTransport, subtitle: t.gaugeSub, value: Math.round(transport * 10) / 10, label: `${geoName}, ${latest('REN_TRA')?.y ?? last}`, max: 40, targets: [{ value: TARGET_TRANSPORT, label: pct(TARGET_TRANSPORT) }], goal: 'reach', unit: '%', size: 'half', role: 'headline' })
     // The all-countries rankings: the overall share and each sector's, each in its latest year.
     const all = await ask(DATASET, { geo: [...EU27_LIST], unit: 'PC', nrg_bal: ['REN', 'REN_ELC', 'REN_HEAT_CL', 'REN_TRA'] }, String(lastN - 1))
@@ -391,6 +394,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     if (overall != null) {
       const need = (TARGET_OVERALL - overall) / Math.max(2030 - lastN, 1)
       summary.push(fill(t.sumShares, { geo: geoName, year: last, overall: `${pct(overall)}%`, elc: shown('REN_ELC'), hc: shown('REN_HEAT_CL'), tra: shown('REN_TRA'), target: `${pct(TARGET_OVERALL)}%` }))
+      if (nat) insights.push({ tone: overall >= nat.value ? 'up' : 'neutral', parts: [fill(t.insNational, { geo: geoName, value: `${natText}%`, gap: pct(Math.max(nat.value - overall, 0)), year: last })] })
       if (overall < TARGET_OVERALL) insights.push({ tone: 'down', parts: [fill(t.insNeed, { geo: geoName, pp: pct(need), year: last })] })
       else insights.push({ tone: 'up', parts: [fill(t.insReached, { geo: geoName, year: last })] })
       const first2020 = at('REN', '2020')
@@ -398,7 +402,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     }
     const fast = sectors.map((sec) => ({ sec, d: (at(sec.code, last) ?? 0) - (at(sec.code, String(lastN - 5)) ?? at(sec.code, years[0]) ?? 0) })).filter((x) => x.sec.key !== 'overall').sort((a, b) => b.d - a.d)[0]
     if (fast && fast.d > 0) insights.push({ tone: 'up', parts: [fill(t.insFastest, { sector: t.sectors[fast.sec.key].toLowerCase(), pp: pct(fast.d) })] })
-    notes.push(t.noteSeries, goal2020Shown ? t.note2020 : t.noteTargets, t.noteTransport29)
+    notes.push(t.noteSeries, goal2020Shown ? t.note2020 : t.noteTargets, ...(nat && !goal2020Shown ? [t.noteNationalRes] : []), t.noteTransport29)
     // The table: all values.
     widgets.push({
       type: 'table',

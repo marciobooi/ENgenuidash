@@ -77,3 +77,41 @@ export const RES_2020_TARGET: Record<string, number> = {
   ES: 20.0,
   SE: 49.0,
 }
+
+/**
+ * 2030 contribution to the EU renewable energy target (share in gross final energy consumption, %), as notified in the
+ * final updated national energy and climate plans (NECP) and assessed in the Commission staff working document
+ * SWD(2025) 140 of 27 May 2025, Table 1 of each country chapter. Belgium, Estonia, Poland and Slovakia are not in it.
+ * Where a plan gives a range, `value` is its lower end and `max` its upper end.
+ */
+export const NATIONAL_RES_2030: Record<string, { value: number; max?: number }> = {
+  BG: { value: 34.96 },
+  CZ: { value: 30.1 },
+  DK: { value: 58 },
+  DE: { value: 41 },
+  IE: { value: 43 },
+  EL: { value: 43 },
+  ES: { value: 48 },
+  FR: { value: 35, max: 41.4 },
+  HR: { value: 42.5 },
+  IT: { value: 39.4 },
+  CY: { value: 33.2 },
+  LV: { value: 61 },
+  LT: { value: 55 },
+  LU: { value: 37 },
+  HU: { value: 30 },
+  MT: { value: 24.5 },
+  NL: { value: 32, max: 42 },
+  AT: { value: 57 },
+  PT: { value: 51 },
+  RO: { value: 38.3 },
+  SI: { value: 33 },
+  FI: { value: 62 },
+  SE: { value: 67 },
+}
+
+/** 2030 primary energy consumption contributions (Mtoe) from the same final plans and assessment (Finland gave none). */
+export const NATIONAL_PEC_2030: Record<string, number> = {
+  BG: 13.19, CZ: 29.19, DK: 15.35, DE: 193.64, IE: 11.29, EL: 17.8, ES: 98.4, FR: 158.6, HR: 8.05, IT: 123.3, CY: 2.03,
+  LV: 3.85, LT: 5.4, LU: 3.28, HU: 24.1, MT: 0.964, NL: 46.22, AT: 25.92, PT: 16.71, RO: 28.7, SI: 5.98, SE: 41.19,
+}

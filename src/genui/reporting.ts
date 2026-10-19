@@ -2,7 +2,7 @@ import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type Eu
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
 import { detectGeos, parse } from './planner/parse'
-import { NATIONAL_FEC_2030 } from './nationalTargets'
+import { NATIONAL_FEC_2030, NATIONAL_PEC_2030 } from './nationalTargets'
 import { fill, labelOf, minus, sumSeries, valuesOf, yearsOf, type Ask, type Series } from './renewables'
 import type { DashboardSpec, Insight, KpiSpec, Plan, ReportingTab, Suggestion, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -129,7 +129,8 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     const euLevel = geo === EU
     // A ceiling for final energy: the EU's, or the country's indicative contribution (primary energy has the EU's only).
     const fecCeiling = euLevel ? CEILING.fec : NATIONAL_FEC_2030[geo]
-    const ceilings = { fec: fecCeiling, pec: euLevel ? CEILING.pec : undefined }
+    const pecCeiling = euLevel ? CEILING.pec : NATIONAL_PEC_2030[geo]
+    const ceilings = { fec: fecCeiling, pec: pecCeiling }
     const axis = fecCeiling != null ? Array.from({ length: 2030 - Number(years[0]) + 1 }, (_, i) => String(Number(years[0]) + i)) : years
     const path = (series: Series | undefined, ceiling: number) => {
       const base = series?.get('2020')
@@ -153,7 +154,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     one('fec', fec, t.chartFec, t.fec)
     one('pec', pec, t.chartPec, t.pec)
     if (fecCeiling != null && fec?.has(lastY)) widgets.push({ type: 'gauge', title: euLevel ? t.gaugeFec : t.gaugeFecNat, subtitle: t.gaugeSub, value: round(fec.get(lastY)!, euLevel ? 0 : 1), label: `${geoName}, ${lastY}`, max: Math.ceil(Math.max(fecCeiling, fec.get(lastY)!) * 1.3), targets: [{ value: fecCeiling, label: `${fecCeiling}` }], goal: 'stay-under', unit: 'Mtoe', size: 'half', role: 'headline' })
-    if (euLevel && pec?.has(lastY)) widgets.push({ type: 'gauge', title: t.gaugePec, subtitle: t.gaugeSub, value: round(pec.get(lastY)!, 0), label: `${geoName}, ${lastY}`, max: 1400, targets: [{ value: CEILING.pec, label: `${CEILING.pec}` }], goal: 'stay-under', unit: 'Mtoe', size: 'half', role: 'headline' })
+    if (pecCeiling != null && pec?.has(lastY)) widgets.push({ type: 'gauge', title: euLevel ? t.gaugePec : t.gaugePecNat, subtitle: t.gaugeSub, value: round(pec.get(lastY)!, euLevel ? 0 : 1), label: `${geoName}, ${lastY}`, max: Math.ceil(Math.max(pecCeiling, pec.get(lastY)!) * 1.3), targets: [{ value: pecCeiling, label: `${pecCeiling}` }], goal: 'stay-under', unit: 'Mtoe', size: 'half', role: 'headline' })
     // Final energy consumption by end-use sector.
     const sv = valuesOf(sec, (k) => k.nrg_bal)
     const g = (codes: string[]) => sumSeries(codes.map((c) => sv.get(c)), 1000)

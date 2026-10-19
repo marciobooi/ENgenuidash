@@ -2,6 +2,7 @@ import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type Eu
 import type { Strings } from '../i18n'
 import { compareChoice, placeNameOf, withVersus } from './compareControl'
 import { compareRequest } from './comparing'
+import { peerChips } from './peers'
 import { renewablesTabByWords } from './customWords'
 import { NoDataError } from './execute'
 import { NATIONAL_RES_2030, RES_2020_TARGET } from './nationalTargets'
@@ -299,6 +300,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
   const pct = (v: number) => nf(1).format(v)
   const widgets: WidgetSpec[] = []
   const kpis: KpiSpec[] = []
+  const peers: Suggestion[] = []
   const insights: Insight[] = []
   const summary: string[] = []
   const notes: string[] = []
@@ -385,6 +387,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
       const y = rows.map((o) => o.keys.time).sort().at(-1)
       const rank = rows.filter((o) => o.keys.time === y).map((o) => ({ code: o.keys.geo, name: labelOf(all, 'geo', o.keys.geo).replace(/\s*\(.*?\)\s*$/, ''), value: o.value as number })).sort((a, b) => b.value - a.value)
       if (rank.length < 10 || !y) continue
+      if (sec.key === 'overall' && !euLevel) peers.push(...peerChips(rank, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, renewables: { ...plan.renewables!, compare: c } })))
       widgets.push({ type: 'bar', title: fill(sec.key === 'overall' ? t.ranking : t.rankingSector, { year: y, sector: t.sectors[sec.key].toLowerCase() }), subtitle: `${t.sectors[sec.key]} · %`, categories: rank.map((x) => x.name), series: [{ name: t.sectors[sec.key], data: rank.map((x) => Math.round(x.value * 10) / 10) }], horizontal: true, unit: '%', decimals: 1, size: sec.key === 'overall' ? 'full' : 'half', role: 'ranking' })
       const place = rank.findIndex((x) => x.code === geo)
       if (place >= 0 && !euLevel) insights.push({ tone: 'neutral', parts: [fill(sec.key === 'overall' ? t.insRank : t.insRankSector, { geo: geoName, rank: String(place + 1), of: String(rank.length), year: y, sector: t.sectors[sec.key].toLowerCase() })] })
@@ -516,7 +519,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     presentation: { template: 'renewables', kpiStyle: 'cards', controls: ['geo', 'compare', 'period', 'goal', 'view'], primaryControls: 3, accent: 'teal' },
     source: { code: source.code, title: source.title || source.code, url: link(source.code) },
     ...(versusName ? { compareNames: [geoName, versusName] as [string, string] } : {}),
-    suggestions: suggestions(plan, s, tab),
+    suggestions: suggestions(plan, s, tab, peers),
     controls: await controls(plan, dict, lang, t, tab, from, percent, compareGeo),
     context: [title, tabName, ...summary, ...kpis.map((k) => `${k.label}: ${k.value} ${k.unit ?? ''}`)].join('\n'),
     plan,
@@ -546,9 +549,9 @@ async function controls(plan: Plan, dict: EnergyDictionary, lang: string, t: Ren
   }
 }
 
-function suggestions(plan: Plan, s: { renewables: RenewablesStrings; sugExplain: string }, tab: RenewablesTab): Suggestion[] {
+function suggestions(plan: Plan, s: { renewables: RenewablesStrings; sugExplain: string }, tab: RenewablesTab, peers: Suggestion[]): Suggestion[] {
   const t = s.renewables
-  const out: Suggestion[] = []
+  const out: Suggestion[] = [...peers]
   if (tab === 'shares') {
     out.push({ label: t.sugCapacity, plan: { ...plan, renewables: { tab: 'capacity' } } }, { label: t.sugElectricity, plan: { ...plan, renewables: { tab: 'electricity' } } })
   } else out.push({ label: t.sugShares, plan: { ...plan, renewables: { tab: 'shares' } } })

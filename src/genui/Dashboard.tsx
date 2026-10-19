@@ -1,4 +1,5 @@
-import { ArrowRightLeft, BookOpen, ChevronDown, Database, Download, ExternalLink, Info, Sparkles } from 'lucide-react'
+import { ArrowRightLeft, BookOpen, ChevronDown, Database, Download, ExternalLink, Info, Presentation as PresentIcon, Printer, Sparkles, X } from 'lucide-react'
+import { ROOT_ID, useReadingTools } from './useReadingTools'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { isCrowdedBar } from './crowded'
 import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, SeasonalChart, type ChartActionLabels } from '../components/charts'
@@ -78,7 +79,10 @@ export function Dashboard({
   /** Buttons next to the title (e.g. copy the link to this dashboard). */
   actions?: ReactNode
 }) {
-  const charts = spec.widgets.filter((w) => !['kpis', 'table', 'answer', 'text'].includes(w.type))
+  const tools = useReadingTools(spec)
+  const plain = tools.level === 'plain'
+  // (plain words: the headline figures and the first charts; the details have the rest)
+  const charts = spec.widgets.filter((w) => !['kpis', 'table', 'answer', 'text'].includes(w.type)).slice(0, plain ? 3 : undefined)
   const decimals = spec.widgets.find((w) => w.type === 'kpis')?.items[0]?.decimals ?? 1
 
   // Layout: 'full' charts span the width; 'half' charts pair up. A half chart without a partner
@@ -221,7 +225,7 @@ export function Dashboard({
       ),
     insights: () => <InsightsPanel title={labels.keyInsights} items={spec.insights} />,
     notes: () =>
-      spec.notes.filter(Boolean).map((n) => (
+      plain ? null : spec.notes.filter(Boolean).map((n) => (
         <p key={n} className="dash__note">
           <Info size={14} aria-hidden="true" />
           {n}
@@ -279,6 +283,7 @@ export function Dashboard({
       ),
     // The full data stays available, but collapsed: the charts are the main view.
     table: () =>
+      !plain &&
       table?.type === 'table' && (
         <details className="dash__table">
           <summary>
@@ -332,9 +337,11 @@ export function Dashboard({
 
   return (
     <article
-      className={`dash dash--${presentation.accent} dash--${presentation.template}`}
+      id={ROOT_ID}
+      className={`dash dash--${presentation.accent} dash--${presentation.template}${tools.present ? ' dash--present' : ''}${plain ? ' dash--plain' : ''}`}
       aria-labelledby="dash-title"
       aria-busy={busy}
+      onKeyDown={tools.onPresentKey}
     >
       {busy && (
         <div className="dash__loading" role="status">
@@ -358,11 +365,32 @@ export function Dashboard({
               ))}
             </p>
           )}
+          {spec.reading && (
+            <div className="dash__tools">
+              {tools.badgeDate && <span className="dash__badge">{spec.reading.tools.updated.replace('{date}', tools.badgeDate)}</span>}
+              <div className="segmented" role="group" aria-label={spec.reading.tools.level}>
+                <button type="button" aria-pressed={plain} onClick={() => tools.setLevel('plain')}>
+                  {spec.reading.tools.plain}
+                </button>
+                <button type="button" aria-pressed={!plain} onClick={() => tools.setLevel('details')}>
+                  {spec.reading.tools.details}
+                </button>
+              </div>
+              <button type="button" className="dash__tool" onClick={tools.togglePresent}>
+                {tools.present ? <X size={16} aria-hidden="true" /> : <PresentIcon size={16} aria-hidden="true" />}
+                {tools.present ? spec.reading.tools.exit : spec.reading.tools.present}
+              </button>
+              <button type="button" className="dash__tool" onClick={tools.print}>
+                <Printer size={16} aria-hidden="true" />
+                {spec.reading.tools.print}
+              </button>
+            </div>
+          )}
         </div>
         {actions && <div className="dash__actions">{actions}</div>}
       </header>
       {items}
-      {spec.about && <AboutPanel about={spec.about} />}
+      {spec.about && !plain && <AboutPanel about={spec.about} />}
     </article>
   )
 }

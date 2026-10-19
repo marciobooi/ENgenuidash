@@ -461,9 +461,9 @@ export interface DashboardControls {
 export interface DashboardSpec {
   title: string
   /** How the question was read: the view, places, comparison and period, as short phrases (see aboutData.ts). */
-  reading?: { label: string; parts: string[] }
+  reading?: { label: string; parts: string[]; tools: { level: string; plain: string; details: string; present: string; exit: string; print: string; updated: string } }
   /** What the data is, and the values behind the charts as a CSV file. */
-  about?: { title: string; rows: { label: string; value: string }[]; download: { label: string; filename: string; csv: string } }
+  about?: { title: string; /** The dataset's last update in Eurostat's catalogue, to tell a returning reader what is new. */ updated?: { code: string; date: string }; rows: { label: string; value: string }[]; download: { label: string; filename: string; csv: string } }
   /** The two places (or years) of a comparison, for the toggle of the charts: [shown, other]. */
   compareNames?: [string, string]
   subtitle: string

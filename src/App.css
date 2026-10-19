@@ -981,3 +981,35 @@ main:focus {
     display: none;
   }
 }
+
+.ideas--saved .ideas__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.saved {
+  position: relative;
+}
+.saved .idea {
+  padding-right: 2.5rem;
+}
+.saved__remove {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.saved__remove:hover {
+  background: var(--ecl-color-grey-25, #f0f0f0);
+}
+.saved__remove:focus-visible {
+  outline: 3px solid var(--ecl-color-focus, #fc0);
+}

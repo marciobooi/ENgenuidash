@@ -25,6 +25,13 @@ export interface AboutStrings {
   aboutFlagsText: string
   aboutDownload: string
   aboutUnit: string
+  level: string
+  plain: string
+  details: string
+  present: string
+  exitPresent: string
+  print: string
+  updatedSince: string
 }
 
 const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? '')
@@ -86,7 +93,7 @@ export function withAbout(spec: DashboardSpec, plan: Plan, dict: EnergyDictionar
   const slug = spec.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'dashboard'
   return {
     ...spec,
-    reading: { label: a.readLabel, parts },
-    about: { title: a.aboutTitle, rows, download: { label: a.aboutDownload, filename: `${slug}.csv`, csv: specToCsv(spec) } },
+    reading: { label: a.readLabel, parts, tools: { level: a.level, plain: a.plain, details: a.details, present: a.present, exit: a.exitPresent, print: a.print, updated: a.updatedSince } },
+    about: { title: a.aboutTitle, ...(ds?.lastUpdate ? { updated: { code: spec.source.code, date: ds.lastUpdate } } : {}), rows, download: { label: a.aboutDownload, filename: `${slug}.csv`, csv: specToCsv(spec) } },
   }
 }

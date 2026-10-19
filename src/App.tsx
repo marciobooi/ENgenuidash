@@ -14,6 +14,7 @@ import {
   Layers,
   Leaf,
   Link2,
+  Star,
   Ship,
   Snowflake,
   Thermometer,
@@ -30,6 +31,7 @@ import { ChatThread } from './app/ChatThread'
 import { Composer } from './app/Composer'
 import { HistoryDialog } from './app/HistoryDialog'
 import { clearShareLink, decodePlan, readShareLink, shareUrl } from './app/shareLink'
+import { useSavedDashboards } from './app/savedDashboards'
 import { useAssistant } from './app/useAssistant'
 import { useChatFlow } from './app/useChatFlow'
 import { useChatHistory } from './app/useChatHistory'
@@ -157,6 +159,7 @@ export default function App() {
   })
   const inConversation = llm.messages.length > 0
   const { current } = dash
+  const shelf = useSavedDashboards()
 
   useEffect(() => {
     chatOpenRef.current = chatOpen
@@ -352,10 +355,16 @@ export default function App() {
             onFilter={dash.onFilter}
             multiSelectLabels={t.multiSelect}
             actions={
-              <button type="button" className="dash__share" onClick={copyLink}>
-                <Link2 size={16} aria-hidden="true" />
-                {t.shareLink}
-              </button>
+              <>
+                <button type="button" className="dash__share" onClick={copyLink}>
+                  <Link2 size={16} aria-hidden="true" />
+                  {t.shareLink}
+                </button>
+                <button type="button" className="dash__share" aria-pressed={shelf.isSaved(current.plan)} onClick={() => shelf.toggle(current.plan, current.title)}>
+                  <Star size={16} aria-hidden="true" fill={shelf.isSaved(current.plan) ? 'currentColor' : 'none'} />
+                  {shelf.isSaved(current.plan) ? t.unsaveDashboard : t.saveDashboard}
+                </button>
+              </>
             }
           />
         </div>
@@ -370,7 +379,7 @@ export default function App() {
       </main>
     )
   } else {
-    page = <WelcomePage t={t} composer={composer} ideas={ideas} disabled={busy || !data.dict} onIdea={openIdea} />
+    page = <WelcomePage t={t} composer={composer} ideas={ideas} disabled={busy || !data.dict} onIdea={openIdea} saved={shelf.saved} onOpenSaved={(s) => !busy && void dash.runPlan(s.plan, s.title)} onRemoveSaved={(s) => shelf.remove(s.id)} />
   }
 
   return (

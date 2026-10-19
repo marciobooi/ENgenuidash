@@ -4,6 +4,7 @@ import { NoDataError } from './execute'
 import { detectGeos, parse } from './planner/parse'
 import { compareChoice, placeNameOf, withVersus } from './compareControl'
 import { compareRequest } from './comparing'
+import { peerChips } from './peers'
 import { reportingTabByWords } from './customWords'
 import { NATIONAL_FEC_2030, NATIONAL_PEC_2030 } from './nationalTargets'
 import { fill, labelOf, minus, sumSeries, valuesOf, yearsOf, type Ask, type Series } from './renewables'
@@ -115,6 +116,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
   const insights: Insight[] = []
   const summary: string[] = []
   const notes: string[] = []
+  const peers: Suggestion[] = []
   const geoLabel = async (r: EurostatResult | null) => (geo === EU ? t.eu : stripEu(labelOf(r, 'geo', geo) || geo))
   let geoName = geo === EU ? t.eu : geo
   let source: { code: string; title: string }
@@ -300,6 +302,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
       const rows = (rank?.observations ?? []).filter((o) => o.value != null && o.keys.time === y).map((o) => ({ code: o.keys.geo, name: stripEu(labelOf(rank, 'geo', o.keys.geo)), value: o.value as number })).sort((a, b) => b.value - a.value)
       if (rows.length >= 10) {
         widgets.push({ type: 'bar', title: fill(t.rankTitle, { year: y }), subtitle: '%', categories: rows.map((x) => x.name), series: [{ name: t.fuels.total, data: rows.map((x) => round(x.value, 1)) }], horizontal: true, unit: '%', decimals: 1, size: 'full', role: 'ranking' })
+        peers.push(...peerChips(rows, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, reporting: { ...plan.reporting!, compare: c } })))
         const at = rows.findIndex((x) => x.code === geo)
         if (at >= 0) insights.push({ tone: 'neutral', parts: [fill(t.insRank, { geo: geoName, rank: String(at + 1), of: String(rows.length), year: y })] })
       }
@@ -358,6 +361,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     const rows = (rank?.observations ?? []).filter((o) => o.value != null && o.keys.time === lastYear).map((o) => ({ code: o.keys.geo, name: stripEu(labelOf(rank, 'geo', o.keys.geo)), value: o.value as number })).sort((a, b) => b.value - a.value)
     if (rows.length >= 10 && lastYear) {
       widgets.push({ type: 'bar', title: fill(t.rankWarm, { year: lastYear }), subtitle: '%', categories: rows.map((x) => x.name), series: [{ name: t.indicators.warm, data: rows.map((x) => round(x.value, 1)) }], horizontal: true, unit: '%', decimals: 1, size: 'full', role: 'ranking' })
+      if (geo !== EU) peers.push(...peerChips(rows, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, reporting: { ...plan.reporting!, compare: c } })))
       const at = rows.findIndex((x) => x.code === geo)
       if (at >= 0 && geo !== EU) insights.push({ tone: 'neutral', parts: [fill(t.insRankWarm, { geo: geoName, rank: String(at + 1), of: String(rows.length), year: lastYear })] })
     }
@@ -434,7 +438,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     layout: ['summary', 'notes', 'toolbar', 'kpis', 'charts', 'insights', 'table', 'suggestions'],
     presentation: { template: 'reporting', kpiStyle: 'cards', controls: ['geo', 'compare', 'period'], primaryControls: 2, accent: tab === 'efficiency' ? 'blue' : tab === 'poverty' || tab === 'prices' ? 'violet' : 'orange' },
     source: { code: source.code, title: source.title || source.code, url: link(source.code) },
-    suggestions: suggestions(plan, s, tab),
+    suggestions: suggestions(plan, s, tab, peers),
     controls: {
       tabs: REPORTING_TABS.map((k) => ({ label: t.tabs[k], plan: { ...plan, dataset: DATASETS[k], reporting: { tab: k, ...cmp, ...(from !== 'all' ? { from } : {}) } }, active: k === tab })),
       periods: (['all', '2010', '2020'] as ReportingFrom[]).map((f) => ({ label: t.from[f], plan: { ...plan, reporting: { tab, ...cmp, ...(f !== 'all' ? { from: f } : {}) } }, active: f === from })),
@@ -447,10 +451,10 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
   return spec
 }
 
-function suggestions(plan: Plan, s: { reporting: ReportingStrings; sugExplain: string }, tab: ReportingTab): Suggestion[] {
+function suggestions(plan: Plan, s: { reporting: ReportingStrings; sugExplain: string }, tab: ReportingTab, peers: Suggestion[]): Suggestion[] {
   const t = s.reporting
   const at = (k: ReportingTab): Plan => ({ ...plan, dataset: DATASETS[k], reporting: { tab: k } })
-  const out: Suggestion[] = []
+  const out: Suggestion[] = [...peers]
   const next: ReportingTab[] = tab === 'efficiency' ? ['diversification', 'poverty'] : tab === 'diversification' || tab === 'dependence' ? ['efficiency', 'poverty'] : ['efficiency', 'dependence']
   for (const k of next) out.push({ label: t.tabs[k], plan: at(k) })
   if (plan.filters.geo !== EU) out.push({ label: t.eu, plan: { ...plan, filters: { ...plan.filters, geo: EU } } })

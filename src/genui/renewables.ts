@@ -33,7 +33,7 @@ const HC_STEPS: [number, number][] = [[2025, 0.8], [2030, 1.1]]
 // ---------- questions ----------
 
 const RENEW =
-  / (shares? (tool|database|data|methodology)|shares dashboard|renewables? (dashboard|overview|scorecard|breakdown|by technolog\w*|by source|by sector|sectors|contributions?|capacity|capacities|installed|technolog\w*|mix|supply)|renewable energy (dashboard|overview|breakdown|by technolog\w*|by source|by sector|sectors|technolog\w*|capacity|capacities|contributions?)|res ?e|res ?h ?c?|res ?t|installed (renewable|capacity)|renewable (electricity|heating( and cooling)?|cooling|transport) (by|from|generation|capacity|technolog\w*|breakdown)|biomass (supply|use|used|dashboard|for energy)|solid biomass|renewables? in (buildings?|heating|cooling|transport|electricity)|erneuerbare\w*( energie\w*)? (dashboard|ubersicht|technolog\w*|kapazitat\w*|beitrag|beitrage|nach technolog\w*|nach sektor\w*|im gebaude\w*|in gebaude\w*)|kapazitat\w* (erneuerbar\w*)|tableau de bord (des )?(energies? )?renouvelables?|energies? renouvelables? (tableau de bord|apercu|par technolog\w*|par secteur|capacite\w*|contributions?|dans les batiments)|renouvelables (par technolog\w*|par secteur|capacite\w*|tableau de bord)|biomasse (offre|solide|utilisation))(?= )/
+  / (shares? (tool|database|data|methodology)|(the )?shares (of|in|for|by|from)|show (me )?(the )?shares|res shares|renewable shares|anteile (von|in|fur)|parts (de|en|pour)|shares dashboard|renewables? (dashboard|overview|scorecard|breakdown|by technolog\w*|by source|by sector|sectors|contributions?|capacity|capacities|installed|technolog\w*|mix|supply)|renewable energy (dashboard|overview|breakdown|by technolog\w*|by source|by sector|sectors|technolog\w*|capacity|capacities|contributions?)|res ?e|res ?h ?c?|res ?t|installed (renewable|capacity)|renewable (electricity|heating( and cooling)?|cooling|transport) (by|from|generation|capacity|technolog\w*|breakdown)|biomass (supply|use|used|dashboard|for energy)|solid biomass|renewables? in (buildings?|heating|cooling|transport|electricity)|erneuerbare\w*( energie\w*)? (dashboard|ubersicht|technolog\w*|kapazitat\w*|beitrag|beitrage|nach technolog\w*|nach sektor\w*|im gebaude\w*|in gebaude\w*)|kapazitat\w* (erneuerbar\w*)|tableau de bord (des )?(energies? )?renouvelables?|energies? renouvelables? (tableau de bord|apercu|par technolog\w*|par secteur|capacite\w*|contributions?|dans les batiments)|renouvelables (par technolog\w*|par secteur|capacite\w*|tableau de bord)|biomasse (offre|solide|utilisation))(?= )/
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
 const TAB_WORDS: [RenewablesTab, RegExp][] = [
@@ -43,6 +43,7 @@ const TAB_WORDS: [RenewablesTab, RegExp][] = [
   ['capacity', / (capacity|capacities|installed|installierte\w*|kapazitat\w*|leistung|capacite\w*|puissance)\b/],
   ['transport', / (transport|verkehr|transports?|mobility)\b/],
   ['heating', / (heating|cooling|heat|warme|heizung|kalte|chaleur|chauffage|refroidissement|res ?h ?c?)\b/],
+  ['shares', / (shares|anteile|parts)\b/],
   ['electricity', / (electricity|power|generation|strom\w*|erzeugung|electricite|production d electricite|res ?e)\b/],
 ]
 const tabOf = (text: string): RenewablesTab | undefined => TAB_WORDS.find(([, re]) => re.test(text))?.[0]

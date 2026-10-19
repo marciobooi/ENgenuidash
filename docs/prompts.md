@@ -73,6 +73,19 @@ Enrenewables:
 	- SHARES database overview
 	- Erneuerbare Energien Dashboard Deutschland
 	- tableau de bord énergies renouvelables France
+	- show me the shares of Poland
+
+Enreporting:
+	- energy efficiency dashboard for Germany
+	- Energy security dashboard of Italy
+	- diversification of energy sources in Spain
+	- energy dependence on third countries in Poland
+	- Energy poverty indicators in Greece
+	- inability to keep home warm in Spain
+	- household electricity and gas prices in France
+	- Energieeffizienz Dashboard Deutschland
+	- Energiearmut Indikatoren Deutschland
+	- tableau de bord efficacité énergétique France
 
 Enoil:
 	- oil security dashboard for Germany

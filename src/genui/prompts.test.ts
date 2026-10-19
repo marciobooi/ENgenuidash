@@ -34,6 +34,7 @@ function view(r: Route): string {
   if (p.prices) return 'Enprices'
   if (p.oil) return 'Enoil'
   if (p.renewables) return 'Enrenewables'
+  if (p.reporting) return 'Enreporting'
   if (p.sankey) return p.sankey.scope === 'households' ? 'Ensankey households' : 'Ensankey'
   if (p.profile) return 'Endash profile'
   return isMonthlyDataset(p.dataset) ? `Enmonthly ${p.dataset}` : p.dataset
@@ -118,6 +119,17 @@ const EXPECTED: [string, string][] = [
   ['Enrenewables', 'SHARES database overview'],
   ['Enrenewables', 'Erneuerbare Energien Dashboard Deutschland'],
   ['Enrenewables', 'tableau de bord énergies renouvelables France'],
+  ['Enrenewables', 'show me the shares of Poland'],
+  ['Enreporting', 'energy efficiency dashboard for Germany'],
+  ['Enreporting', 'Energy security dashboard of Italy'],
+  ['Enreporting', 'diversification of energy sources in Spain'],
+  ['Enreporting', 'energy dependence on third countries in Poland'],
+  ['Enreporting', 'Energy poverty indicators in Greece'],
+  ['Enreporting', 'inability to keep home warm in Spain'],
+  ['Enreporting', 'household electricity and gas prices in France'],
+  ['Enreporting', 'Energieeffizienz Dashboard Deutschland'],
+  ['Enreporting', 'Energiearmut Indikatoren Deutschland'],
+  ['Enreporting', 'tableau de bord efficacité énergétique France'],
   // Geral
   ['nrg_ind_peh', 'Gross and net production of electricity and derived heat by type of plant and operator'],
   ['nrg_ind_ren', 'Renewable share vs the 2030 target in eu'],

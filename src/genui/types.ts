@@ -63,11 +63,14 @@ export interface Plan {
   oil?: { view?: 'all'; /** What the country is compared with: another country or the EU ("compare with France"). */ compare?: string }
   /** The renewables (SHARES) dashboard, one tab at a time (see renewables.ts). */
   renewables?: { tab: RenewablesTab; pct?: true; from?: 'all' | '2010' | '2020' }
+  /** The energy and climate plan progress dashboards: efficiency, security, poverty (see reporting.ts). */
+  reporting?: { tab: ReportingTab; from?: 'all' | '2010' | '2020' }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 
 export type TradeFlow = 'imp' | 'exp'
 export type RenewablesTab = 'shares' | 'capacity' | 'electricity' | 'heating' | 'transport' | 'biomass' | 'solid' | 'buildings'
+export type ReportingTab = 'efficiency' | 'diversification' | 'dependence' | 'poverty' | 'prices'
 export type TradeFuel = 'gas' | 'solid' | 'oil' | 'bio' | 'electricity'
 
 export type PriceProduct = 'gas' | 'electricity'

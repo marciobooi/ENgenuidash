@@ -59,3 +59,12 @@ test('the dashboard has tabs, key figures and a table of all values', async () =
   assert.equal(d.controls?.tabs?.filter((t) => t.active).length, 1)
   assert.ok(d.widgets.some((w) => w.type === 'table'))
 })
+
+test('"show me the shares of Poland" opens the shares tab, with or without a dashboard on screen', () => {
+  assert.equal(tab(' show me the shares of poland '), 'shares')
+  assert.equal(renewablesPlan(' show me the shares of poland ', dict, codelists)?.filters.geo, 'PL')
+  const on = renewablesPlan(' renewable capacity by technology in germany ', dict, codelists)!
+  const next = refineRenewables(on, 'show me the shares of poland', dict, codelists)
+  assert.equal(next?.renewables?.tab, 'shares')
+  assert.equal(next?.filters.geo, 'PL')
+})

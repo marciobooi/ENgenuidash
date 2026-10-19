@@ -31,6 +31,7 @@ test('questions only a document answers are answered from it, quoted with its pa
     ['how are heat pumps counted in the renewable share?', /SHARES manual/],
     ['how are monthly crude oil imports reported?', /Monthly crude oil imports/],
     ['how are energy cost compensation subsidies reported in prices?', /compensation/],
+    ['what annual energy savings obligation does the energy efficiency directive set for member states?', /Directive \(EU\) 2023\/1791/],
   ] as const) {
     const a = await documentAnswer(searchQuery(q))
     assert.equal(a.kind, 'quote', q)

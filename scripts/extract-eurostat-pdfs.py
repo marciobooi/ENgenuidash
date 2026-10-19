@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Extracts the text of Eurostat's energy methodology PDFs, page by page, into scripts/data/pdf-pages.json.
 
-  python3 scripts/extract-eurostat-pdfs.py <folder with the PDFs>      (needs: pip install pypdf)
+  python3 scripts/extract-eurostat-pdfs.py <folder with the PDFs> [--append]      (needs: pip install pypdf)
 
 `scripts/data/pdf-sources.json` lists each PDF: file name, title, the Eurostat URL it comes from and its
 kind of document. The knowledge builder (build-eurostat-knowledge.mjs) turns the pages into searchable
@@ -14,7 +14,14 @@ from pypdf import PdfReader
 HERE = os.path.dirname(os.path.abspath(__file__))
 sources = json.load(open(os.path.join(HERE, 'data', 'pdf-sources.json'), encoding='utf-8'))
 folder = sys.argv[1]
-out = []
+# --append: read only the PDFs in the folder and add them to the pages already extracted
+append = '--append' in sys.argv
+pages_file = os.path.join(HERE, 'data', 'pdf-pages.json')
+out = json.load(open(pages_file, encoding='utf-8')) if append else []
+if append:
+    present = {f for f in os.listdir(folder)}
+    sources = [x for x in sources if x['file'] in present]
+    out = [p for p in out if p['file'] not in present]
 for src in sources:
     path = os.path.join(folder, src['file'])
     if not os.path.exists(path):

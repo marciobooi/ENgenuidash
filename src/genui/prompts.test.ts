@@ -126,7 +126,7 @@ const EXPECTED: [string, string][] = [
   ['Enreporting', 'energy dependence on third countries in Poland'],
   ['Enreporting', 'Energy poverty indicators in Greece'],
   ['Enreporting', 'inability to keep home warm in Spain'],
-  ['Enreporting', 'household electricity and gas prices in France'],
+  ['Enreporting', 'energy poverty household prices in France'],
   ['Enreporting', 'Energieeffizienz Dashboard Deutschland'],
   ['Enreporting', 'Energiearmut Indikatoren Deutschland'],
   ['Enreporting', 'tableau de bord efficacité énergétique France'],

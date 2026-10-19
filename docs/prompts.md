@@ -82,7 +82,7 @@ Enreporting:
 	- energy dependence on third countries in Poland
 	- Energy poverty indicators in Greece
 	- inability to keep home warm in Spain
-	- household electricity and gas prices in France
+	- energy poverty household prices in France
 	- Energieeffizienz Dashboard Deutschland
 	- Energiearmut Indikatoren Deutschland
 	- tableau de bord efficacité énergétique France

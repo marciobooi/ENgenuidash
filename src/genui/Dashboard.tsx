@@ -1,4 +1,4 @@
-import { ArrowRightLeft, BookOpen, ChevronDown, Database, ExternalLink, Info, Sparkles } from 'lucide-react'
+import { ArrowRightLeft, BookOpen, ChevronDown, Database, Download, ExternalLink, Info, Sparkles } from 'lucide-react'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { isCrowdedBar } from './crowded'
 import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, SeasonalChart, type ChartActionLabels } from '../components/charts'
@@ -348,11 +348,56 @@ export function Dashboard({
             {spec.title}
           </h2>
           {spec.subtitle && <p className="dash__subtitle">{spec.subtitle}</p>}
+          {spec.reading && spec.reading.parts.length > 0 && (
+            <p className="dash__reading">
+              <span className="dash__reading-label">{spec.reading.label}:</span>
+              {spec.reading.parts.map((p) => (
+                <span key={p} className="dash__reading-chip">
+                  {p}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
         {actions && <div className="dash__actions">{actions}</div>}
       </header>
       {items}
+      {spec.about && <AboutPanel about={spec.about} />}
     </article>
+  )
+}
+
+/** What the data is, and the values behind the charts as a CSV file (see aboutData.ts). */
+function AboutPanel({ about }: { about: NonNullable<DashboardSpec['about']> }) {
+  const download = () => {
+    const url = URL.createObjectURL(new Blob(['\ufeff' + about.download.csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = about.download.filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  return (
+    <details className="dash__about">
+      <summary>
+        <Info size={16} aria-hidden="true" />
+        {about.title}
+      </summary>
+      <dl className="dash__about-list">
+        {about.rows.map((r) => (
+          <div key={r.label}>
+            <dt>{r.label}</dt>
+            <dd>{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <button type="button" className="dash__about-download" onClick={download}>
+        <Download size={16} aria-hidden="true" />
+        {about.download.label}
+      </button>
+    </details>
   )
 }
 

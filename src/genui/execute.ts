@@ -24,6 +24,7 @@ import { buildTradeDashboard, type TradeStrings } from './trade'
 import { buildMonthlyDashboard, isMonthlyDataset, type MonthlyStrings } from './monthly'
 import { buildPricesDashboard, type PricesStrings } from './prices'
 import { buildOilDashboard, type OilStrings } from './oil'
+import { withAbout, type AboutStrings } from './aboutData'
 import { buildRenewablesDashboard, type RenewablesStrings } from './renewables'
 import { buildReportingDashboard, type ReportingStrings } from './reporting'
 import { buildProfileDashboard, type ProfileStrings } from './profile'
@@ -35,6 +36,7 @@ import { buildSankeyDashboard, type SankeyStrings } from './sankey/sankeyDashboa
  */
 
 export interface DashStrings {
+  about: AboutStrings
   alsoNamed: Record<'shares' | 'renewBalance' | 'efficiency' | 'dependency' | 'warm' | 'capacity', string>
   alsoStandard: string
   alsoRenewables: string
@@ -227,7 +229,10 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
 }
 
 export async function buildDashboard(plan: Plan, dict: EnergyDictionary, lang: string, s: DashStrings, signal?: AbortSignal, chooseVariant?: ChooseVariant): Promise<DashboardSpec> {
-  const spec = await buildDashboardOne({ ...plan, also: undefined }, dict, lang, s, signal, chooseVariant)
+  const built = await buildDashboardOne({ ...plan, also: undefined }, dict, lang, s, signal, chooseVariant)
+  const geo = built.plan.filters.geo
+  const codes = (Array.isArray(geo) ? geo : geo ? [geo] : []).filter((c) => /^(EU27_2020|[A-Z]{2})$/.test(c))
+  const spec = withAbout(built, built.plan, dict, await Promise.all(codes.map((c) => placeName(dict, built.plan.dataset, c, lang))), lang, s.about)
   const other = plan.also
   if (!other) return spec
   const ds = dict.datasets[other.dataset]

@@ -74,6 +74,15 @@ export function withoutLeadIns(q: string): string {
 const PHRASES: [RegExp, string][] = [
   [/\b(pobreza energetica|poverta energetica|ubostwo energetyczne|energiearmoede|energie armoede)\b/g, 'energy poverty'],
   [/\b(energia elektryczna|energii elektrycznej)\b/g, 'electricity'],
+  [/\b(perfil|profilo|profil) (energetico|energetica|energetyczny|energetico)\b/g, 'energy profile'],
+  [/\b(pasaporte|passaporto|passaporte|paszport) (energetico|energetica|energetyczny)\b/g, 'energy passport'],
+  [/\b(balance|bilancio|balanco|bilans) (energetico|energetica|energetyczny|energetico)\b/g, 'energy balance'],
+  [/\b(diagrama|diagramma|diagram) (de |dei |di |del |of )?(flujos?|flussi|fluxos?|przeplywu) (de |di |del )?(energia|energetici|energetica|energii)\b/g, 'energy flow diagram'],
+  [/\b(flujos? de energia|flussi di energia|fluxos? de energia)\b/g, 'energy flows'],
+  [/\b(por|per) (mes|meses|mese|mesi)\b|\b(al mes|mensual\w*|mensile|mensili|mensal|mensais|miesieczn\w*)\b/g, 'monthly'],
+  [/\b(por|per) (pais|paese|paises|paesi) (de |di |d )?(origen|origine|origem)\b/g, 'by country of origin'],
+  [/\bde donde (importa|compra|obtiene|recibe|importan) (el |la )?(gas|petroleo|electricidad|carbon)\b/g, 'imports of $3 by partner'],
+  [/\b(quien|quién) (suministra|vende|abastece) (el |la )?(gas|petroleo|electricidad)\b/g, 'who supplies $4'],
   [/\b(cuadro de mando|tablero de control|cruscotto di controllo|painel de controlo|painel de controle|panel de control)\b/g, 'dashboard'],
   [/\b(eficiencia energetica|efficienza energetica|efektywnosc energetyczna|energie efficientie|energy efficientie)\b/g, 'energy efficiency'],
   [/\b(seguridad energetica|sicurezza energetica|seguranca energetica|bezpieczenstwo energetyczne|energiezekerheid|seguridad de suministro|seguridad del suministro|seguridad de abastecimiento|sicurezza dell approvvigionamento|seguranca de abastecimento)\b/g, 'energy security'],
@@ -91,8 +100,8 @@ const PHRASES: [RegExp, string][] = [
   [/\b(consumo de energia primaria|consumo di energia primaria|zuzycie energii pierwotnej)\b/g, 'primary energy consumption'],
   [/\b(facturas de (la )?(luz|electricidad|gas)|bollette (della luce|del gas)|faturas de (eletricidade|gas))\b/g, 'prices'],
   // (English as people who speak another language put it: "energetic poverty", "renewable energies", "poverty energetic")
-  [/\b(energetic|energetical) (poverty|dependence|dependency|security|efficiency|independence|situation|balance|consumption|transition)\b/g, 'energy $2'],
-  [/\b(poverty|dependence|dependency|security|efficiency|independence|situation|balance|consumption|transition) (energetic|energetical)\b/g, 'energy $1'],
+  [/\b(energetic|energetical) (poverty|dependence|dependency|security|efficiency|independence|situation|balance|consumption|transition|profile|passport)\b/g, 'energy $2'],
+  [/\b(poverty|dependence|dependency|security|efficiency|independence|situation|balance|consumption|transition|profile|passport) (energetic|energetical)\b/g, 'energy $1'],
   [/\b(renewables?) energies\b/g, 'renewable energy'],
   [/\b(renewable|clean|green|solar|wind) energies\b/g, '$1 energy'],
   [/\b(gas natural|gas naturale|gas naturais|gaz ziemny|gazu ziemnego)\b/g, 'natural gas'],
@@ -107,6 +116,10 @@ const add = (english: string, words: string) => words.split(' ').forEach((w) => 
 add('technology', 'tecnologia tecnologias tecnologie technologia technologie technologii')
 add('sector', 'sectores settore settori sektory sektorze')
 add('by', 'por door przez')
+add('origin', 'origen origine origem pochodzenia')
+add('taxes', 'impuestos imposte impostos podatki belastingen')
+add('breakdown', 'desglose scomposizione decomposicao rozbicie uitsplitsing')
+add('', 'dell dello dall nell sull')
 add('capacity', 'capacidad capacita capacidade capacidades pojemnosc moc capaciteit vermogen')
 add('installed', 'instalada instalado installata installato zainstalowana geinstalleerd')
 add('dashboard', 'panel cuadro tablero cruscotto painel pulpit dashboard')

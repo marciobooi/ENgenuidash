@@ -40,6 +40,8 @@ export interface Plan {
    * over the starter plan (see route.ts).
    */
   fallback?: Plan
+  /** The other dashboard that reads the same question, offered as a chip under this one (see alsoOffer.ts). */
+  also?: Plan
   /**
    * An energy balance sheet (as Eurostat's enbal visualisation): every balance line of nrg_bal_c
    * for one country, year (focusPeriod; latest if unset) and unit, with one group of fuels as

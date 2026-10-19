@@ -2,6 +2,7 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 import type { ScopeVerdict } from '../llm/energyScope'
 import { normalize } from '../llm/energyScope'
 import { isExplainRequest } from './actions'
+import { alsoOf } from './alsoOffer'
 import { COMPARE, yearsBack } from './comparing'
 import { planQuestion, refinePlan } from './planner'
 import { prepareQuestion } from './prepare'
@@ -72,6 +73,15 @@ function oneCountryViews(plan: Plan | null, current: Plan): Plan | null {
 }
 
 export function routeMessage(typed: string, ctx: RouteContext): Route {
+  const route = routeCore(typed, ctx)
+  if (route.kind !== 'plan' || !ctx.dict || !ctx.codelists) return route
+  // (the other way to read the question, when there is one: shown as a chip under the dashboard)
+  const text = prepareQuestion(typed, { unknownWords: ctx.unknownWords, correct: ctx.correct })
+  const also = alsoOf(text, route.plan, ctx.dict, ctx.codelists)
+  return also ? { kind: 'plan', plan: { ...route.plan, also } } : route
+}
+
+function routeCore(typed: string, ctx: RouteContext): Route {
   const { current, dict, codelists } = ctx
   // Lead-ins dropped, other EU languages as English keywords, typing slips corrected (prepare.ts).
   const text = prepareQuestion(typed, { unknownWords: ctx.unknownWords, correct: ctx.correct })

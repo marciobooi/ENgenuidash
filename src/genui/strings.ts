@@ -4,6 +4,13 @@ import type { DashStrings } from './execute'
 /** The dashboard builder's strings, from the UI strings of one language (app, scripts, tests). */
 export function dashStrings(t: Strings): DashStrings {
   return {
+    alsoStandard: t.dAlsoStandard,
+    alsoRenewables: t.dAlsoRenewables,
+    alsoEfficiency: t.dAlsoEfficiency,
+    alsoSecurity: t.dAlsoSecurity,
+    alsoPoverty: t.dAlsoPoverty,
+    alsoBalance: t.dAlsoBalance,
+    alsoFlow: t.dAlsoFlow,
     latest: t.dLatest,
     highest: t.dHighest,
     lowest: t.dLowest,

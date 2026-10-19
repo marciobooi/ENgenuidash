@@ -35,6 +35,13 @@ import { buildSankeyDashboard, type SankeyStrings } from './sankey/sankeyDashboa
  */
 
 export interface DashStrings {
+  alsoStandard: string
+  alsoRenewables: string
+  alsoEfficiency: string
+  alsoSecurity: string
+  alsoPoverty: string
+  alsoBalance: string
+  alsoFlow: string
   latest: string
   highest: string
   lowest: string
@@ -216,7 +223,29 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
   return { ...spec, widgets }
 }
 
-export async function buildDashboard(
+export async function buildDashboard(plan: Plan, dict: EnergyDictionary, lang: string, s: DashStrings, signal?: AbortSignal, chooseVariant?: ChooseVariant): Promise<DashboardSpec> {
+  const spec = await buildDashboardOne({ ...plan, also: undefined }, dict, lang, s, signal, chooseVariant)
+  const other = plan.also
+  if (!other) return spec
+  const ds = dict.datasets[other.dataset]
+  const label = other.renewables
+    ? s.alsoRenewables
+    : other.reporting
+      ? other.reporting.tab === 'efficiency'
+        ? s.alsoEfficiency
+        : other.reporting.tab === 'poverty' || other.reporting.tab === 'prices'
+          ? s.alsoPoverty
+          : s.alsoSecurity
+      : other.balance
+        ? s.alsoBalance
+        : other.sankey
+          ? s.alsoFlow
+          : fill(s.alsoStandard, { name: (ds?.title as Record<string, string> | undefined)?.[lang] ?? ds?.title?.en ?? other.dataset })
+  if (spec.suggestions.some((x) => x.label === label)) return spec
+  return { ...spec, suggestions: [{ label, plan: { ...other, also: undefined } }, ...spec.suggestions] }
+}
+
+async function buildDashboardOne(
   plan: Plan,
   dict: EnergyDictionary,
   lang: string,

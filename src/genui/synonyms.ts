@@ -79,6 +79,18 @@ const RULES: [RegExp, string][] = [
   [/\b(?:importations?|exportations?) (?:de|du|d) (charbon|gaz|petrole|electricite)\b/g, 'imports of $1 by partner'],
   [/\bbalance of energy\b/g, 'energy balance'],
   [/\b(?:energy|power) (?:losses|loss|waste|wasted)\b|\bhow much (?:energy|power) is (?:lost|wasted)\b|\benergy transformation\b|\bfrom (?:production|sources?) to (?:consumption|use|end use)\b|\bwhere does (?:the )?(?:energy|power) (?:of )?(?:\w+ )?go\b/g, 'energy flow diagram'],
+  // ---- who supplies whom ----
+  [/\bfrom where (?:does |do )?(.+?) (?:gets?|imports?|buys?|receives?|takes?) (?:its |their |the )?(gas|oil|coal|electricity|petroleum)\b/g, 'imports of $2 by partner of $1'],
+  [/\bto whom (?:does |do )?(.+?) (?:exports?|sells?|sends?) (?:its |their |the )?(gas|oil|coal|electricity|petroleum)\b/g, 'exports of $2 by partner of $1'],
+  [/\bexports? of (\w+) from (.+?) to (?:its |the )?(?:neighbou?rs?|neighbou?ring countries|other countries)\b/g, 'exports of $1 by partner $2'],
+  [/\bfrom where (?:the )?energy comes?\b|\bwhere (?:the )?energy (?:comes from|goes)\b|\bdiagram of energy\b/g, 'energy flow diagram'],
+  // ---- price structure: how much of a price is tax ----
+  [/\bprices? (?:of )?(electricity|gas|energy) (?:breakdown|taxes)(?: breakdown)?\b/g, '$1 price breakdown'],
+  [/\bprice (electricity|gas) (?:house|home|family)\b/g, 'household $1 prices'],
+  [/\bhow much of (?:the |my |our )?(?:[\w ]{0,20}?)(?:price|bill)s? (?:is|are|goes? to|comes? from) (?:tax\w*|vat|levies|charges|network\w*)\b/g, '$& price breakdown'],
+  [/\b(?:share of )?(?:taxes|tax|vat|levies|network (?:costs?|charges?|fees?)) (?:in|of|on) (?:the |my )?(?:household |industrial |business )?(?:electricity|gas|energy) (?:prices?|bills?)\b|\b(?:electricity|gas|energy) (?:prices?|bills?) (?:taxes|tax|vat|breakdown|taxes breakdown)\b/g, '$& price breakdown'],
+  [/\b(?:cost|price|prices) of (electricity|gas|energy) for (?:a |one )?(?:famil(?:y|ies)|homes?|houses?)\b/g, 'household $1 prices'],
+  [/\b(electricity|gas|energy) (?:price|cost) (?:house|home|family)\b/g, 'household $1 prices'],
   // ---- prices ----
   [/\b(?:getting|becoming|gets|becomes|become|going|growing) (?=(?:more |less )?(?:expensive|cheap|cheaper|costly|pricey|pricier))/g, ''],
   [/\b(?:more|less|most|least) (?:expensive|costly|cheap|pricey)\b/g, 'prices'],

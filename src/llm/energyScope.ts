@@ -19,6 +19,7 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 const COMPOUND_STEMS = [
   'gasliefer', 'gasimport', 'gasexport', 'gaspreis', 'gasverbrauch', 'gasversorg', 'gasspeicher', 'gaskrise', 'gasabhang', 'gasproduktion', 'gasnetz', 'gaskraftwerk',
   'olimport', 'olexport', 'olpreis', 'olabhang', 'olkrise', 'olvorrat', 'olversorg', 'olliefer', 'olknapp', 'olembargo', 'olverbrauch', 'olproduktion', 'olfeld', 'olsorte',
+  'heizkost', 'heizung', 'heizol', 'heizen', 'stromkost', 'stromverbrauch', 'stromerzeug', 'stromnetz', 'energiekost', 'warmepump', 'fernwarm', 'kraftwerk',
   'windkraft', 'windrad', 'windpark', 'windstrom', 'windenergie', 'winddaten',
 ]
 

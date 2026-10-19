@@ -1,3 +1,4 @@
+import { blockedBy } from './safetyRules'
 import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 
 /**
@@ -19,6 +20,7 @@ import type { EnergyCodelists, EnergyDictionary } from '../data/eurostat'
 const COMPOUND_STEMS = [
   'gasliefer', 'gasimport', 'gasexport', 'gaspreis', 'gasverbrauch', 'gasversorg', 'gasspeicher', 'gaskrise', 'gasabhang', 'gasproduktion', 'gasnetz', 'gaskraftwerk',
   'olimport', 'olexport', 'olpreis', 'olabhang', 'olkrise', 'olvorrat', 'olversorg', 'olliefer', 'olknapp', 'olembargo', 'olverbrauch', 'olproduktion', 'olfeld', 'olsorte',
+  'blackout', 'reactor', 'reaktor', 'stromausfall', 'panne de courant', 'power cut', 'power outage',
   'heizkost', 'heizung', 'heizol', 'heizen', 'stromkost', 'stromverbrauch', 'stromerzeug', 'stromnetz', 'energiekost', 'warmepump', 'fernwarm', 'kraftwerk',
   'windkraft', 'windrad', 'windpark', 'windstrom', 'windenergie', 'winddaten',
 ]
@@ -149,34 +151,13 @@ const FIGURATIVE =
   /\b(i (have|has|feel|felt|am|m) (no|low|lots of|so much|too much|little) (energy|power)|my (battery|phone|laptop|car battery)|(lose|losing|gain|gaining) weight|(coffee|tea|sleep|food|diet|exercise|workout|gym|calories|vitamins?|sugar) (and|or|gives|give|for)?.*\benergy\b|(gives|give|giving|got|get|getting) (me|you|us) (more |less |some )?(energy|power)|energy (drink|drinks|boost|level|levels of the crowd)|energy of (the|a|my) (crowd|room|team|music|song|city)|power of attorney|fuel for (my|your|the) (creativity|motivation|soul|mind|body|passion)|gas station|petrol station|tankstelle|station.service|(no|low|lots of) energie? (today|heute|aujourd))\b/
 const DATA_WORD = /\b(consumption|production|price|prices|imports?|exports?|eurostat|statistics|statistik|share|generation|capacity|emissions|tariff|supply|dependency|renewable|eu|europe|european|germany|france|spain|italy|poland|country|countries|households?)\b/
 
-/**
- * Harmful requests, refused before anything else and with no exceptions (the model is never called):
- * weapons and explosives, and sabotage, attack, hacking, shutting down or stealing from energy
- * infrastructure. Statistics about the same subjects ("how many nuclear plants", "plant closures") are not blocked.
- */
-const INFRA = '(power ?plants?|power ?stations?|nuclear (plants?|reactors?|facilit\\w*)|reactors?|(power |electric(ity)? |energy )?grids?|pipelines?|refiner(y|ies)|substations?|transformers?|dams?|wind ?farms?|solar (farms?|plants?)|gas (networks?|storage|terminals?)|lng terminals?|oil (rigs?|depots?|tankers?)|electric(ity)? meters?|meters?|kraftwerk\\w*|stromnetz\\w*|pipelines?|raffinerie\\w*|centrales?|reseau\\w*|gazoducs?|oleoducs?)'
-const HARMFUL = new RegExp(
-  [
-    '\\b(build|make|making|create|construct|assemble|manufactur\\w*|enrich\\w*|produce|synthesi[sz]e)\\b.{0,40}\\b(bombs?|atomic|nuclear (weapons?|bombs?|warheads?)|warheads?|weapons?|explosives?|detonators?|molotov|dirty bomb|grenades?)',
-    '\\b(bombs?|nuclear weapons?|atomic weapons?|explosives?|molotov|dirty bomb)\\b.{0,30}\\b(build|make|recipe|instructions?|how to|from)',
-    '\\b(enrich\\w*|weaponi[sz]e)\\b.{0,30}\\buranium',
-    `\\b(sabotag\\w*|blow up|blowing up|bomb|attack\\w*|destroy\\w*|hack\\w*|disrupt\\w*|disable\\w*|cripple\\w*|poison\\w*|infiltrat\\w*|cyber ?attack\\w*|take down|knock out)\\b.{0,40}\\b${INFRA}\\b`,
-    `\\bhow (to|do i|can i|could i|would i|can you|do you|can one) (shut ?down|shut off|switch off|turn off|cut off|cause a|trigger a|start a)\\b.{0,30}\\b(${INFRA}|blackouts?|meltdowns?|fires?|explosions?)`,
-    '\\b(cause|trigger|create|start)\\b.{0,15}\\b(blackouts?|meltdowns?|power outages?|a nuclear (accident|disaster))',
-    '\\b(steal|stealing|tamper\\w*|bypass\\w*|cheat\\w*|rig|rigging|hack\\w*|illegally (connect|tap))\\b.{0,30}\\b(electric\\w*|power|gas|energy|meters?|stromz\\w*)',
-    '\\b(atombombe\\w*|kernwaffe\\w*|sprengstoff\\w*|bombe\\w*\\s+(bauen|basteln|herstellen)|bombe bauen|waffe\\w* bauen|sabotier\\w*|anschlag|anschlage)\\b',
-    '\\b(fabriquer|construire|fabrication|creer|faire)\\b.{0,30}\\b(bombe|arme nucleaire|explosifs?|engin explosif)',
-    '\\b(saboter|sabotage|pirater|attaquer|detruire|faire sauter)\\b.{0,30}\\b(centrale|reseau|gazoduc|oleoduc|raffinerie|barrage)',
-  ].join('|'),
-)
-
 export function classifyScope(
   text: string,
   previousUserMessages: string[],
   lexicon?: EnergyLexicon,
   placeNames?: Set<string>,
 ): ScopeVerdict {
-  if (HARMFUL.test(normalize(text)) || OUT_OF_SCOPE_TASK.test(normalize(text))) return 'off-topic'
+  if (blockedBy(text) !== null || OUT_OF_SCOPE_TASK.test(normalize(text))) return 'off-topic'
   if (FIGURATIVE.test(normalize(text)) && !DATA_WORD.test(normalize(text))) return 'off-topic'
   if (hasEnergySignal(text, lexicon)) return 'energy'
   if (SMALL_TALK.test(text.trim()) || THANKS_LEAD.test(text.trim())) return 'small-talk'

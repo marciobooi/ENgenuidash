@@ -1,0 +1,177 @@
+[
+ {
+  "file": "energy-balance-guide.pdf",
+  "id": "energy-balance-guide",
+  "title": "Energy balance guide",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/4956218/ENERGY-BALANCE-GUIDE.pdf/de76d0d2-8b17-b47c-f6f5-415bd09b7750?t=1632139948586",
+  "topic": "how energy balances are compiled"
+ },
+ {
+  "file": "shares-manual.pdf",
+  "id": "shares-manual",
+  "title": "SHARES manual: share of energy from renewable sources",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/shares-manual",
+  "topic": "how the renewable shares are calculated"
+ },
+ {
+  "file": "method-co2.pdf",
+  "id": "method-co2",
+  "title": "Method for estimating CO2 emissions from energy use",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/43500/MethodCO2.pdf/1a4da156-c65b-4c3a-b2fd-c80061d2aec8",
+  "topic": "how CO2 from energy is estimated"
+ },
+ {
+  "file": "co2-estimates-2018.pdf",
+  "id": "co2-estimates-2018",
+  "title": "CO2 emissions from energy use: estimates report (reference year 2018)",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/4956233/CO2-estimates-report-2020-reference-year-2018.pdf/41fdf83d-587c-42cb-d8ec-15767b68a958",
+  "topic": "CO2 estimates"
+ },
+ {
+  "file": "emission-estimates-note.pdf",
+  "id": "emission-estimates-note",
+  "title": "Note on different emission estimates by EU institutions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/4956233/Note-on-different-emission-estimates-by-EU-institutions.pdf/31b4a075-621a-4fb1-afb6-6a4207675935",
+  "topic": "why emission estimates differ"
+ },
+ {
+  "file": "user-manual-faq-2025.pdf",
+  "id": "user-manual-faq-2025",
+  "title": "User manual and FAQ for the annual energy questionnaires",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/User+manual+FAQ+2025.pdf/",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "biomass-instructions.pdf",
+  "id": "biomass-instructions",
+  "title": "Biomass questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/biomass_questionnaire_instructions",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "coal-instructions.pdf",
+  "id": "coal-instructions",
+  "title": "Coal questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/Coal_Questionnaire_Instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "chp-instructions.pdf",
+  "id": "chp-instructions",
+  "title": "Combined heat and power (CHP) questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/chp_reporting_instructions",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "dh-dc-instructions.pdf",
+  "id": "dh-dc-instructions",
+  "title": "District heating and cooling questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/Reporting-instructions-DH-DC.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "electricity-heat-instructions.pdf",
+  "id": "electricity-heat-instructions",
+  "title": "Electricity and heat questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/electricity_heat-questionnaire_instructions",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "households-instructions.pdf",
+  "id": "households-instructions",
+  "title": "Energy consumption in households questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/energy-consumption-households-reporting-instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "industry-instructions.pdf",
+  "id": "industry-instructions",
+  "title": "Energy consumption in industry questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/energy-consumption-industry-reporting-instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "services-instructions.pdf",
+  "id": "services-instructions",
+  "title": "Energy consumption in services questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/energy-consumption-services-reporting-instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "transport-instructions.pdf",
+  "id": "transport-instructions",
+  "title": "Energy consumption in transport questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/energy-consumption-transport-reporting-instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "hydrogen-instructions.pdf",
+  "id": "hydrogen-instructions",
+  "title": "Hydrogen questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/Hydrogen+-+Reporting+instructions.pdf/",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "gas-instructions.pdf",
+  "id": "gas-instructions",
+  "title": "Natural gas questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/Natural_Gas_Questionnaire_Instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "nuclear-instructions.pdf",
+  "id": "nuclear-instructions",
+  "title": "Nuclear questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/Nuclear+Reporting+instructions.pdf/69911ad8-dea7-f7da-92ae-ec91fa12a197?t=1737981593787",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "oil-instructions.pdf",
+  "id": "oil-instructions",
+  "title": "Oil questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/Oil_Questionnaire_Instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "renewables-instructions.pdf",
+  "id": "renewables-instructions",
+  "title": "Renewables and wastes questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/16135593/Renewables_Questionnaire_Instructions.pdf",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "monthly-coal-instructions.pdf",
+  "id": "monthly-coal-instructions",
+  "title": "Monthly coal questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/monthly_coal_questionnaire_instructions",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "monthly-crude-imports-instructions.pdf",
+  "id": "monthly-crude-imports-instructions",
+  "title": "Monthly crude oil imports questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/monthly_coir_questionnaire_instructions",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "monthly-electricity-instructions.pdf",
+  "id": "monthly-electricity-instructions",
+  "title": "Monthly electricity questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/monthly_electricity_questionnaire_instructions",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "monthly-oil-gas-instructions.pdf",
+  "id": "monthly-oil-gas-instructions",
+  "title": "Monthly oil and natural gas questionnaire: reporting instructions",
+  "url": "https://ec.europa.eu/eurostat/documents/d/energy/monthly_oil_gas_questionnaire_instructions",
+  "topic": "how countries report this data to Eurostat"
+ },
+ {
+  "file": "price-compensation-reporting.pdf",
+  "id": "price-compensation-reporting",
+  "title": "Reporting energy cost compensation (subsidies) in the price statistics",
+  "url": "https://ec.europa.eu/eurostat/documents/38154/42201/Reporting-compensation-subsidies.pdf/3514d0e6-20c4-468f-7f4c-0fad45fba489?t=1676480347489",
+  "topic": "how countries report this data to Eurostat"
+ }
+]

@@ -8,7 +8,7 @@ import { normalize } from './energyScope'
 
 export interface Passage {
   id: string
-  kind: 'metadata' | 'article' | 'glossary'
+  kind: 'metadata' | 'article' | 'glossary' | 'document'
   title: string
   section?: string
   url?: string
@@ -27,6 +27,8 @@ interface Index {
   termFreq: Map<string, number>
   /** Number of passages each word appears in, as written (for the vocabulary check). */
   docFreq: Map<string, number>
+  /** Passages that are not methodology documents (the base of the idf). */
+  coreCount: number
 }
 
 const STOPWORDS = new Set(
@@ -106,12 +108,16 @@ export function buildKnowledgeIndex(passages: Passage[]): Index {
     const text = `${p.title} ${p.section ?? ''} ${p.text}`
     const tf = new Map<string, number>()
     for (const t of tokens(text)) tf.set(t, (tf.get(t) ?? 0) + 1)
-    for (const t of tf.keys()) termFreq.set(t, (termFreq.get(t) ?? 0) + 1)
-    for (const w of new Set(words(text))) docFreq.set(w, (docFreq.get(w) ?? 0) + 1)
+    // The word statistics (idf) come from the articles, metadata and glossary only, as they were tuned (CONFIDENT_SCORE, MODEL_MIN_SCORE):
+    // the methodology documents are scored against them and do not shift them.
+    if (p.kind !== 'document') for (const t of tf.keys()) termFreq.set(t, (termFreq.get(t) ?? 0) + 1)
+    // (the methodology documents are long and full of everyday words: they do not make a word "known" for the vocabulary check)
+    if (p.kind !== 'document') for (const w of new Set(words(text))) docFreq.set(w, (docFreq.get(w) ?? 0) + 1)
     return tf
   })
   const lengths = terms.map((tf) => [...tf.values()].reduce((a, b) => a + b, 0))
-  return { passages, terms, lengths, avgLength: lengths.reduce((a, b) => a + b, 0) / lengths.length, termFreq, docFreq }
+  const core = lengths.filter((_, i) => passages[i].kind !== 'document')
+  return { passages, terms, lengths, avgLength: core.reduce((a, b) => a + b, 0) / core.length, termFreq, docFreq, coreCount: core.length }
 }
 
 /** Uses already loaded passages (Node tests and scripts, which cannot fetch). */
@@ -141,6 +147,9 @@ export interface Hit extends Passage {
   matched: number
 }
 
+/** How much a methodology-document passage counts against an article or metadata passage with the same match. */
+const DOCUMENT_WEIGHT = 0.6
+
 // Metadata sections about the publication process, not the statistics: they never answer a
 // question ("Data are comparable between all EU Member States").
 const BOILERPLATE =
@@ -160,7 +169,7 @@ export async function searchKnowledge(
   const index = await loadKnowledge()
   const query = queryTokens(question)
   if (!query.length) return []
-  const n = index.passages.length
+  const n = index.coreCount
 
   const scored = index.passages.map((p, i) => {
     let score = 0
@@ -174,6 +183,9 @@ export async function searchKnowledge(
       score += idf * ((f * (K1 + 1)) / (f + K1 * (1 - B + (B * index.lengths[i]) / index.avgLength)))
     }
     if (score && p.datasets?.some((d) => datasets.includes(d))) score *= 1.5
+    // The methodology documents (reporting instructions, manuals) back up the articles and the metadata: they
+    // answer when those do not, and rank below them when both match.
+    if (p.kind === 'document') score *= DOCUMENT_WEIGHT
     return { p, score, matched }
   })
   // A passage must share at least two key words with the question (or all, for one-word questions).
@@ -240,7 +252,7 @@ export async function searchExcerpts(
   const index = await loadKnowledge()
   const top = await searchKnowledge(question, { limit: docs, datasets })
   const query = queryTokens(question)
-  const n = index.passages.length
+  const n = index.coreCount
   const idf = (t: string) => {
     const df = index.termFreq.get(t) ?? 0
     return Math.log(1 + (n - df + 0.5) / (df + 0.5))
@@ -248,7 +260,8 @@ export async function searchExcerpts(
   const years = question.match(/\b(19|20)\d{2}\b/g) ?? []
   return top.map((hit) => {
     const doc = hit.url ?? hit.title
-    const parts = index.passages.filter((p) => (p.url ?? p.title) === doc && !BOILERPLATE.test(p.section ?? ''))
+    // (a page of a methodology PDF is its own unit: the whole document would be a hundred pages)
+    const parts = index.passages.filter((p) => (p.url ?? p.title) === doc && (hit.kind !== 'document' || p.section === hit.section) && !BOILERPLATE.test(p.section ?? ''))
     const all = parts.flatMap((p, pi) => sentencesOf(p.text).map((s, si) => ({ s, order: pi * 1000 + si })))
     const scored = all
       .map((x) => {

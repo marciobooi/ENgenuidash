@@ -43,7 +43,7 @@ function datasetInfo(dict: EnergyDictionary, codelists: EnergyCodelists, code: s
 
 const join = (...parts: (string | null)[]) => parts.filter(Boolean).join('\n\n') || null
 
-const KIND_LABEL: Record<Passage['kind'], string> = { metadata: 'Metadata', article: 'Article', glossary: 'Glossary' }
+const KIND_LABEL: Record<Passage['kind'], string> = { metadata: 'Metadata', article: 'Article', glossary: 'Glossary', document: 'Document' }
 
 /** Passages from our Eurostat knowledge base, formatted for the model (with source and date). */
 function background(passages: Passage[]): string | null {

@@ -23,7 +23,10 @@ const CONCURRENCY = 4
 const dictionary = JSON.parse(readFileSync(join(DIR, 'dictionary.json'), 'utf8'))
 const glossary = JSON.parse(readFileSync(join(DIR, 'glossary.json'), 'utf8'))
 
-const passages = []
+// `--documents-only`: keep the passages already in knowledge.json (articles, metadata, glossary) and only
+// replace the methodology documents (no network needed).
+const DOCUMENTS_ONLY = process.argv.includes('--documents-only')
+const passages = DOCUMENTS_ONLY ? JSON.parse(readFileSync(join(DIR, 'knowledge.json'), 'utf8')).passages.filter((p) => p.kind !== 'document') : []
 const add = (source, section, text) => {
   for (const [i, t] of chunk(text).entries()) {
     passages.push({ id: `${source.id}#${passages.length}`, ...source, section: section || undefined, part: i, text: t })
@@ -39,6 +42,7 @@ async function pool(items, worker) {
   )
 }
 
+if (!DOCUMENTS_ONLY) {
 // ---------- 1. Dataset reference metadata (ESMS) ----------
 // Sections worth answering questions from; contacts, update dates, etc. are skipped.
 const USEFUL_SECTION =
@@ -100,6 +104,34 @@ for (const e of glossary.entries) {
   add({ id: `glossary:${e.term}`, kind: 'glossary', title: e.term, url: e.url }, '', e.text || e.summary)
 }
 
+}
+
+// ---------- 4. Methodology documents (PDFs) ----------
+// Text extracted page by page by scripts/extract-eurostat-pdfs.py (Eurostat's reporting instructions,
+// manuals and guides). Chunks that are mostly codes and numbers (tables) say little in words and only
+// add noise to the search: they are skipped.
+const wordy = (t) => {
+  const words = t.split(/\s+/).filter(Boolean)
+  const plain = words.filter((w) => /^[a-z][a-z'’-]{2,}[.,;:]?$/.test(w)).length
+  return words.length > 0 && plain / words.length >= 0.55
+}
+try {
+  const pages = JSON.parse(readFileSync(join(process.cwd(), 'scripts/data/pdf-pages.json'), 'utf8'))
+  let skipped = 0
+  for (const pg of pages) {
+    for (const [i, t] of chunk(pg.text).entries()) {
+      if (!wordy(t)) {
+        skipped++
+        continue
+      }
+      passages.push({ id: `doc:${pg.id}#${passages.length}`, kind: 'document', title: pg.title, url: pg.url, section: `p. ${pg.page}`, part: i, text: t })
+    }
+  }
+  console.log(`Documents: ${pages.length} pages, ${skipped} table-like chunks skipped`)
+} catch (err) {
+  console.log(`No document pages (${err.message})`)
+}
+
 // ---------- write ----------
 const byKind = passages.reduce((n, p) => ({ ...n, [p.kind]: (n[p.kind] ?? 0) + 1 }), {})
 writeFileSync(
@@ -107,7 +139,7 @@ writeFileSync(
   JSON.stringify({
     generatedAt: new Date().toISOString(),
     source: {
-      name: 'Eurostat – dataset reference metadata, Statistics Explained articles and glossary',
+      name: 'Eurostat – dataset reference metadata, Statistics Explained articles, glossary and methodology documents',
       licence: 'https://ec.europa.eu/eurostat/about-us/policies/copyright',
     },
     language: 'en',

@@ -61,10 +61,13 @@ export interface Plan {
   sankey?: { fuel?: string; byFuel?: true; /** The households view (products into the uses of households) instead of the whole balance. */ scope?: 'households'; /** What to compare with: "y1", "y5", "y10" (years earlier) or a country code. */ compare?: string; /** The nodes opened up, by name (sankey/state.ts); the first picture when absent. */ nodes?: string }
   /** The oil security dashboard (see oil.ts). */
   oil?: { view?: 'all'; /** What the country is compared with: another country or the EU ("compare with France"). */ compare?: string }
+  /** The renewables (SHARES) dashboard, one tab at a time (see renewables.ts). */
+  renewables?: { tab: RenewablesTab; pct?: true; from?: '2010' | '2020' }
   profile?: { perCapita?: true; focus?: 'households' | 'industry'; /** Another country to compare with, instead of the EU. */ compare?: string }
 }
 
 export type TradeFlow = 'imp' | 'exp'
+export type RenewablesTab = 'shares' | 'capacity' | 'electricity' | 'heating' | 'transport' | 'biomass' | 'solid' | 'buildings'
 export type TradeFuel = 'gas' | 'solid' | 'oil' | 'bio' | 'electricity'
 
 export type PriceProduct = 'gas' | 'electricity'
@@ -431,6 +434,8 @@ export interface Suggestion {
 
 /** Dashboard toolbar: each option carries the plan it switches to. */
 export interface DashboardControls {
+  /** Tabs of a multi-view dashboard (renewables): each a plan, one active. */
+  tabs?: { label: string; plan: Plan; active: boolean }[]
   periods?: { label: string; plan: Plan; active: boolean }[]
   /** Year the period buttons count back from (a year or range end was asked for). */
   periodsTo?: string

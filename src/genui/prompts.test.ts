@@ -33,6 +33,7 @@ function view(r: Route): string {
   if (p.trade) return p.trade.monthly ? 'Entrade monthly' : 'Entrade'
   if (p.prices) return 'Enprices'
   if (p.oil) return 'Enoil'
+  if (p.renewables) return 'Enrenewables'
   if (p.sankey) return p.sankey.scope === 'households' ? 'Ensankey households' : 'Ensankey'
   if (p.profile) return 'Endash profile'
   return isMonthlyDataset(p.dataset) ? `Enmonthly ${p.dataset}` : p.dataset
@@ -104,6 +105,19 @@ const EXPECTED: [string, string][] = [
   ['Enoil', 'sécurité pétrolière France'],
   ['Enoil', 'how many days of oil stocks does Germany have'],
   ['Enoil', 'how much oil does Europe import from Russia'],
+  // Enrenewables
+  ['Enrenewables', 'renewable energy dashboard for Germany'],
+  ['Enrenewables', 'Renewable capacity by technology in Spain'],
+  ['Enrenewables', 'installed renewable capacity in France'],
+  ['Enrenewables', 'renewable electricity by technology in Italy'],
+  ['Enrenewables', 'Renewable heating and cooling by technology in Sweden'],
+  ['Enrenewables', 'renewables in transport in the EU'],
+  ['Enrenewables', 'biomass supply for energy in Finland'],
+  ['Enrenewables', 'solid biomass use in Austria'],
+  ['Enrenewables', 'renewables in buildings in Poland'],
+  ['Enrenewables', 'SHARES database overview'],
+  ['Enrenewables', 'Erneuerbare Energien Dashboard Deutschland'],
+  ['Enrenewables', 'tableau de bord énergies renouvelables France'],
   // Geral
   ['nrg_ind_peh', 'Gross and net production of electricity and derived heat by type of plant and operator'],
   ['nrg_ind_ren', 'Renewable share vs the 2030 target in eu'],

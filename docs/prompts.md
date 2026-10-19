@@ -60,6 +60,20 @@ Enmonthly:
 	- monthly imports of natural gas by partner Germany
 	- monthly oil stocks in the EU
 
+Enrenewables:
+	- renewable energy dashboard for Germany
+	- Renewable capacity by technology in Spain
+	- installed renewable capacity in France
+	- renewable electricity by technology in Italy
+	- Renewable heating and cooling by technology in Sweden
+	- renewables in transport in the EU
+	- biomass supply for energy in Finland
+	- solid biomass use in Austria
+	- renewables in buildings in Poland
+	- SHARES database overview
+	- Erneuerbare Energien Dashboard Deutschland
+	- tableau de bord énergies renouvelables France
+
 Enoil:
 	- oil security dashboard for Germany
 	- How dependent is Italy on Russian oil?

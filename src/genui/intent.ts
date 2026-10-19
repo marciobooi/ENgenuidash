@@ -150,6 +150,7 @@ export function intentOfPlan(p: Plan): IntentId | 'other' {
   if (p.profile) return 'profile'
   if (p.sankey) return p.sankey.scope === 'households' ? 'households' : 'flow'
   if (p.oil) return 'oil'
+  if (p.renewables) return 'renewables'
   if (p.trade) return 'trade'
   if (p.prices || /^nrg_pc_/.test(p.dataset)) return 'prices'
   if (p.balance) return 'balance'

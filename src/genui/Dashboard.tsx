@@ -229,6 +229,8 @@ export function Dashboard({
       )),
     toolbar: () =>
       (spec.controls || filters.length > 0) && (
+        <>
+        {spec.controls?.tabs && <TabBar tabs={spec.controls.tabs} label={spec.title} busy={busy} onSelect={onSuggestion} />}
         <Toolbar
           controls={spec.controls ?? {}}
           labels={labels}
@@ -239,6 +241,7 @@ export function Dashboard({
           multiSelectLabels={multiSelectLabels}
           presentation={presentation}
         />
+        </>
       ),
     suggestions: () =>
       spec.suggestions.length > 0 && (
@@ -447,6 +450,27 @@ function Explainer({ widget, labels }: { widget: Extract<WidgetSpec, { type: 'te
  * "More filters", so the toolbar stays short and differs from one question to another.
  * Choosing an option runs its plan, like a chat request.
  */
+/** Tabs of a multi-view dashboard (renewables): arrow keys move between them, Home and End jump. */
+function TabBar({ tabs, label, busy, onSelect }: { tabs: NonNullable<DashboardControls['tabs']>; label: string; busy?: boolean; onSelect: (s: Suggestion) => void }) {
+  const move = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const keys = ['ArrowRight', 'ArrowLeft', 'Home', 'End']
+    if (!keys.includes(e.key)) return
+    const at = tabs.findIndex((t) => t.active)
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length
+    e.preventDefault()
+    onSelect({ label: tabs[next].label, plan: tabs[next].plan })
+  }
+  return (
+    <div className="dash__tabs" role="tablist" aria-label={label} onKeyDown={move}>
+      {tabs.map((t) => (
+        <button key={t.label} type="button" role="tab" aria-selected={t.active} tabIndex={t.active ? 0 : -1} disabled={busy} onClick={() => !t.active && onSelect({ label: t.label, plan: t.plan })}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function Toolbar({
   controls,
   labels,

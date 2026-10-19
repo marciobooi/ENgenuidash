@@ -9,6 +9,7 @@ import { presetPlan } from './presets'
 import { balancePlan, refineBalance } from './balance'
 import { pricesPlan, refinePrices, toComponentsPlan } from './prices'
 import { oilPlan, refineOil } from './oil'
+import { refineRenewables, renewablesPlan } from './renewables'
 import { profilePlan, refineProfile } from './profile'
 import { refineSankey, sankeyPlan } from './sankey/sankeyDashboard'
 import { refineTrade, tradePlan } from './trade'
@@ -63,7 +64,7 @@ export interface RouteContext {
  * country; the views that can compare (trade, energy flow, profile) have their own follow-up rules.
  */
 function oneCountryViews(plan: Plan | null, current: Plan): Plan | null {
-  if (!plan || !(current.oil || current.balance || current.sankey || current.profile) || !Array.isArray(plan.filters.geo)) return plan
+  if (!plan || !(current.oil || current.renewables || current.balance || current.sankey || current.profile) || !Array.isArray(plan.filters.geo)) return plan
   const before = ([] as string[]).concat(current.filters.geo ?? [])
   const geo = plan.filters.geo.filter((g) => !before.includes(g)).at(-1) ?? plan.filters.geo.at(-1)
   return geo ? { ...plan, filters: { ...plan.filters, geo } } : plan
@@ -106,6 +107,11 @@ export function routeMessage(typed: string, ctx: RouteContext): Route {
     if (oiled) return { kind: 'refine', plan: oiled }
     const oil = oilPlan(text, dict, codelists)
     if (oil) return { kind: 'plan', plan: oil }
+    // Renewables (SHARES): a new dashboard, or another tab, country or period for the one on screen.
+    const renewed = current?.renewables ? refineRenewables(current, text, dict, codelists) : null
+    if (renewed) return { kind: 'refine', plan: renewed }
+    const renewables = renewablesPlan(text, dict, codelists)
+    if (renewables) return { kind: 'plan', plan: renewables }
     // Energy flow diagram (ENSANKEY): a new diagram, or another country, year, unit or product for the one on screen.
     const flowed = current?.sankey ? refineSankey(current, text, dict, codelists) : null
     if (flowed) return { kind: 'refine', plan: flowed }

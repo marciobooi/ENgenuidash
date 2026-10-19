@@ -47,6 +47,19 @@ const WORDS: Record<string, string> = {
   produite: 'production', produit: 'production', produziert: 'production', erzeugt: 'production',
   heizung: 'heating', raumwarme: 'space heating', chauffage: 'heating', haushalte: 'households', menages: 'households',
   ziel: 'target', objectif: 'target', stocks: 'stocks', notvorrate: 'emergency stocks', urgence: 'emergency',
+  // Methodology and reporting (the Eurostat documents): balance, revision, law, accounts, reporting, collecting
+  energiebilanz: 'energy balance', energiebilanzen: 'energy balance', bilan: 'balance', bilans: 'balance', bilanz: 'balance', energetique: 'energy', energetiques: 'energy',
+  revidiert: 'revised revision', revision: 'revision revised', revisions: 'revision revised', revisees: 'revised revision', revise: 'revised revision', revisee: 'revised revision', ueberarbeitet: 'revised revision', aktualisiert: 'updated',
+  verordnung: 'regulation law', gesetz: 'law regulation', richtlinie: 'directive', reglement: 'regulation law', loi: 'law', directive: 'directive', verpflichtet: 'requires obligation', verpflichtung: 'obligation', oblige: 'requires obligation', obligation: 'obligation',
+  energiekonten: 'energy accounts', energiekonto: 'energy accounts', comptes: 'accounts', compte: 'accounts', wirtschaftszweige: 'economic activities', branches: 'economic activities',
+  melden: 'report reporting', meldet: 'report reporting', gemeldet: 'reported', meldung: 'reporting', berichten: 'report', declarent: 'report reported', declarer: 'report', declarees: 'reported', declaration: 'reporting', transmettent: 'transmit report',
+  erhoben: 'collected', erhoben_: 'collected', erhebung: 'collection survey', collectes: 'collected', collecte: 'collected', collectees: 'collected', recueillies: 'collected', questionnaire: 'questionnaire', fragebogen: 'questionnaire',
+  unterschied: 'difference', difference: 'difference', differences: 'difference', unterschiede: 'difference',
+  primarenergie: 'primary energy', endenergie: 'final energy', primaire: 'primary', finale: 'final', endenergieverbrauch: 'final energy consumption', primarenergieverbrauch: 'primary energy consumption',
+  haufig: 'often frequency', oft: 'often frequency', frequence: 'frequency', frequenz: 'frequency', ofters: 'often',
+  daten: 'data', donnees: 'data', statistik: 'statistics', statistiken: 'statistics', statistiques: 'statistics', energiestatistik: 'energy statistics', energiestatistiken: 'energy statistics',
+  strompreise: 'electricity prices', strompreis: 'electricity price', erdgasdaten: 'natural gas data', gasdaten: 'gas data', schatzt: 'estimated', geschatzt: 'estimated', estimees: 'estimated', estimee: 'estimated', estimer: 'estimate',
+  emissionsschatzung: 'emission estimates', unterschiedlichen: 'different', verschiedenen: 'different', institutionen: 'institutions', institutions: 'institutions',
   uberholt: 'overtook', uberholen: 'overtake', depasse: 'overtook', solarstrom: 'solar electricity', kohle_: 'coal',
 }
 

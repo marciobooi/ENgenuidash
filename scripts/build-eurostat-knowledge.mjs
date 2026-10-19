@@ -42,6 +42,26 @@ async function pool(items, worker) {
   )
 }
 
+const SKIP_SECTION = /source data for tables|other articles|database|dedicated section|publications|external links|legislation|visuali[sz]ation|see also|notes|further eurostat information|methodology \/ metadata/i
+
+// Energy-related articles filed in other Statistics Explained categories (Environment and energy).
+const EXTRA_ARTICLES = ['Energy statistics - an overview', 'Greenhouse gas emission accounts', 'Quarterly greenhouse gas emissions in the EU', 'Statistics on climate change mitigation', 'Climate-related taxes']
+let articleKind = 'article'
+const fetchArticle = async (title) => {
+  const d = await get(`${SE_API}?action=parse&page=${encodeURIComponent(title)}&prop=wikitext|revid&redirects=1&format=json`, { json: true })
+  if (!d.parse) return
+  const rev = await get(`${SE_API}?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=timestamp&format=json`, { json: true })
+  const date = Object.values(rev.query?.pages ?? {})[0]?.revisions?.[0]?.timestamp?.slice(0, 10)
+  const url = SE_PAGE + encodeURIComponent(title.replace(/ /g, '_'))
+  for (const [heading, body] of wikiSections(d.parse.wikitext['*'])) {
+    if (heading && SKIP_SECTION.test(heading)) continue
+    const text = wikitextToText(body)
+    if (text.length < 80) continue
+    add({ id: `article:${title}`, kind: articleKind, title, url, date }, heading, text)
+  }
+}
+
+
 if (!DOCUMENTS_ONLY) {
 // ---------- 1. Dataset reference metadata (ESMS) ----------
 // Sections worth answering questions from; contacts, update dates, etc. are skipped.
@@ -77,33 +97,28 @@ await pool([...byMetadata.entries()], async ([url, codes]) => {
 })
 
 // ---------- 2. Statistics Explained energy articles ----------
-const SKIP_SECTION = /source data for tables|other articles|database|dedicated section|publications|external links|legislation|visuali[sz]ation|see also|notes|further eurostat information|methodology \/ metadata/i
-
 const members = await get(
   `${SE_API}?action=query&list=categorymembers&cmtitle=Category:Energy&cmnamespace=0&cmlimit=500&format=json`,
   { json: true },
 )
-const articles = members.query.categorymembers.map((m) => m.title)
+const articles = [...new Set([...members.query.categorymembers.map((m) => m.title), ...EXTRA_ARTICLES])]
 console.log(`Downloading ${articles.length} Statistics Explained articles…`)
-await pool(articles, async (title) => {
-  const d = await get(`${SE_API}?action=parse&page=${encodeURIComponent(title)}&prop=wikitext|revid&redirects=1&format=json`, { json: true })
-  if (!d.parse) return
-  const rev = await get(`${SE_API}?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=timestamp&format=json`, { json: true })
-  const date = Object.values(rev.query?.pages ?? {})[0]?.revisions?.[0]?.timestamp?.slice(0, 10)
-  const url = SE_PAGE + encodeURIComponent(title.replace(/ /g, '_'))
-  for (const [heading, body] of wikiSections(d.parse.wikitext['*'])) {
-    if (heading && SKIP_SECTION.test(heading)) continue
-    const text = wikitextToText(body)
-    if (text.length < 80) continue
-    add({ id: `article:${title}`, kind: 'article', title, url, date }, heading, text)
-  }
-})
+await pool(articles, fetchArticle)
 
 // ---------- 3. Glossary ----------
 for (const e of glossary.entries) {
   add({ id: `glossary:${e.term}`, kind: 'glossary', title: e.term, url: e.url }, '', e.text || e.summary)
 }
 
+}
+
+// With `--documents-only`: the energy articles filed in other categories (EXTRA_ARTICLES) are fetched too and join the
+// methodology documents as supplementary sources (kind "document": ranked below the main articles, and outside the
+// word statistics, so the tuned scores of the original sources stay as they are). Needs the network.
+if (DOCUMENTS_ONLY) {
+  articleKind = 'document'
+  console.log(`Downloading ${EXTRA_ARTICLES.length} extra articles…`)
+  await pool(EXTRA_ARTICLES, fetchArticle)
 }
 
 // ---------- 4. Methodology documents (PDFs) ----------

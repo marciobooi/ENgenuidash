@@ -19,7 +19,7 @@ test('the documents are in the knowledge base, each passage with its title, sour
   assert.ok(docs.length > 1000)
   assert.ok(new Set(docs.map((p: { title: string }) => p.title)).size >= 25)
   for (const p of docs) {
-    assert.match(p.url, /^https:\/\/(ec\.europa\.eu\/eurostat|eur-lex\.europa\.eu)\//)
+    assert.match(p.url, /^https:\/\/(ec\.europa\.eu\/eurostat|eur-lex\.europa\.eu|energy\.ec\.europa\.eu)\//)
     // (a page of a PDF, or a section heading of a supplementary article)
     assert.ok(p.section == null || typeof p.section === 'string')
     if (/\.pdf|documents\//.test(p.url)) assert.match(p.section, /^p\. \d+$/)

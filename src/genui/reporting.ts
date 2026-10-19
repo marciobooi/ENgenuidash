@@ -2,6 +2,7 @@ import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type Eu
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
 import { detectGeos, parse } from './planner/parse'
+import { NATIONAL_FEC_2030 } from './nationalTargets'
 import { fill, labelOf, minus, sumSeries, valuesOf, yearsOf, type Ask, type Series } from './renewables'
 import type { DashboardSpec, Insight, KpiSpec, Plan, ReportingTab, Suggestion, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -126,14 +127,17 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     const years = yearsOf([...(fec ? [fec] : []), ...(pec ? [pec] : [])])
     const lastY = years.at(-1)!
     const euLevel = geo === EU
-    const axis = euLevel ? Array.from({ length: 2030 - Number(years[0]) + 1 }, (_, i) => String(Number(years[0]) + i)) : years
+    // A ceiling for final energy: the EU's, or the country's indicative contribution (primary energy has the EU's only).
+    const fecCeiling = euLevel ? CEILING.fec : NATIONAL_FEC_2030[geo]
+    const ceilings = { fec: fecCeiling, pec: euLevel ? CEILING.pec : undefined }
+    const axis = fecCeiling != null ? Array.from({ length: 2030 - Number(years[0]) + 1 }, (_, i) => String(Number(years[0]) + i)) : years
     const path = (series: Series | undefined, ceiling: number) => {
       const base = series?.get('2020')
       return base == null ? null : axis.map((y) => (Number(y) >= 2020 ? round(base + ((ceiling - base) * (Number(y) - 2020)) / 10) : null))
     }
     const one = (key: 'fec' | 'pec', series: Series | undefined, title: string, name: string) => {
       if (!series?.size) return
-      const p = euLevel ? path(series, CEILING[key]) : null
+      const p = ceilings[key] != null ? path(series, ceilings[key]!) : null
       widgets.push({
         type: 'line',
         title,
@@ -148,7 +152,7 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     }
     one('fec', fec, t.chartFec, t.fec)
     one('pec', pec, t.chartPec, t.pec)
-    if (euLevel && fec?.has(lastY)) widgets.push({ type: 'gauge', title: t.gaugeFec, subtitle: t.gaugeSub, value: round(fec.get(lastY)!, 0), label: `${geoName}, ${lastY}`, max: 1000, targets: [{ value: CEILING.fec, label: `${CEILING.fec}` }], goal: 'stay-under', unit: 'Mtoe', size: 'half', role: 'headline' })
+    if (fecCeiling != null && fec?.has(lastY)) widgets.push({ type: 'gauge', title: euLevel ? t.gaugeFec : t.gaugeFecNat, subtitle: t.gaugeSub, value: round(fec.get(lastY)!, euLevel ? 0 : 1), label: `${geoName}, ${lastY}`, max: Math.ceil(Math.max(fecCeiling, fec.get(lastY)!) * 1.3), targets: [{ value: fecCeiling, label: `${fecCeiling}` }], goal: 'stay-under', unit: 'Mtoe', size: 'half', role: 'headline' })
     if (euLevel && pec?.has(lastY)) widgets.push({ type: 'gauge', title: t.gaugePec, subtitle: t.gaugeSub, value: round(pec.get(lastY)!, 0), label: `${geoName}, ${lastY}`, max: 1400, targets: [{ value: CEILING.pec, label: `${CEILING.pec}` }], goal: 'stay-under', unit: 'Mtoe', size: 'half', role: 'headline' })
     // Final energy consumption by end-use sector.
     const sv = valuesOf(sec, (k) => k.nrg_bal)
@@ -181,16 +185,17 @@ export async function buildReportingDashboard(plan: Plan, dict: EnergyDictionary
     }
     stat(fec, t.fec, v.get('FEC_DT2030'))
     stat(pec, t.pec, v.get('PEC_DT2030'))
+    if (!euLevel && fecCeiling != null && last(fec)) kpis.push({ label: fill(t.kpiGap, { label: t.fec.toLowerCase() }), value: round(last(fec)!.v - fecCeiling, 1), unit: 'Mtoe', decimals: 1, caption: last(fec)!.y, goodDirection: 'down' })
     const fl = last(fec)
     const pl = last(pec)
     if (fl && pl) summary.push(fill(t.sumEff, { geo: geoName, year: fl.y, fec: `${num(fl.v, 0)} Mtoe`, pec: `${num(pl.v, 0)} Mtoe` }))
-    if (euLevel && fl) {
-      const gap = fl.v - CEILING.fec
-      insights.push({ tone: gap > 0 ? 'down' : 'up', parts: [fill(gap > 0 ? t.insAbove : t.insBelow, { label: t.fec.toLowerCase(), gap: `${num(Math.abs(gap), 0)} Mtoe`, ceiling: `${CEILING.fec} Mtoe` })] })
+    if (fecCeiling != null && fl) {
+      const gap = fl.v - fecCeiling
+      insights.push({ tone: gap > 0 ? 'down' : 'up', parts: [fill(gap > 0 ? t.insAbove : t.insBelow, { label: t.fec.toLowerCase(), gap: `${num(Math.abs(gap), euLevel ? 0 : 1)} Mtoe`, ceiling: `${num(fecCeiling, euLevel ? 1 : 2)} Mtoe`, who: euLevel ? t.whoEu : geoName })] })
       const b = fec?.get('2020')
-      if (b != null && Number(fl.y) > 2020) insights.push({ tone: fl.v < b ? 'up' : 'down', parts: [fill(t.insNeedCut, { pct: `${num(Math.max(((fl.v - CEILING.fec) / (Number(2030) - Number(fl.y))) / fl.v * 100, 0), 1)}%`, year: fl.y })] })
+      if (b != null && Number(fl.y) > 2020) insights.push({ tone: fl.v < b ? 'up' : 'down', parts: [fill(t.insNeedCut, { pct: `${num(Math.max(((fl.v - fecCeiling) / (Number(2030) - Number(fl.y))) / fl.v * 100, 0), 1)}%`, year: fl.y })] })
     }
-    notes.push(t.noteEff, euLevel ? t.noteCeiling : t.noteNoCeiling)
+    notes.push(t.noteEff, euLevel ? t.noteCeiling : fecCeiling != null ? t.noteNational : t.noteNoCeiling)
     widgets.push({
       type: 'table',
       title: t.tableAll,

@@ -471,6 +471,8 @@ const en = {
     sumShares: 'In {year}, renewables were {overall} of {geo}\'s gross final energy consumption: {elc} in electricity, {hc} in heating and cooling and {tra} in transport. The EU level for 2030 is {target}.',
     noteSeries: 'Shares follow the Renewable Energy Directive method (SHARES). From 2020 the numbers use an updated methodology, so a small break may show between 2019 and 2020.',
     noteTargets: 'The 2030 lines are EU-level reference points of the revised directive (42.5 % overall, 29 % in transport, heating and cooling rising each year). National reference points are not in Eurostat\'s data.',
+    target2020: 'Binding target for 2020: {value} %',
+    note2020: 'The 2020 targets are the binding national targets of Directive 2009/28/EC (10 % in transport for every country).',
     tableAll: 'All values',
     groups: {
       hydro: 'Hydropower',
@@ -1701,6 +1703,8 @@ export const STRINGS: Record<Lang, Strings> = {
       sumShares: '{year} machten erneuerbare Energien {overall} des Bruttoendenergieverbrauchs in {geo} aus: {elc} beim Strom, {hc} bei Wärme und Kälte und {tra} im Verkehr. Der EU-Wert für 2030 liegt bei {target}.',
       noteSeries: 'Die Anteile folgen der Methode der Erneuerbare-Energien-Richtlinie (SHARES). Ab 2020 gilt eine aktualisierte Methodik, daher kann zwischen 2019 und 2020 ein kleiner Bruch auftreten.',
       noteTargets: 'Die Linien für 2030 sind Referenzwerte der EU aus der überarbeiteten Richtlinie (42,5 % insgesamt, 29 % im Verkehr, bei Wärme und Kälte jährlich steigend). Nationale Referenzwerte enthalten die Eurostat-Daten nicht.',
+      target2020: 'Verbindliches Ziel für 2020: {value} %',
+      note2020: 'Die Ziele für 2020 sind die verbindlichen nationalen Ziele der Richtlinie 2009/28/EG (10 % im Verkehr für jedes Land).',
       tableAll: 'Alle Werte',
       groups: {
         hydro: 'Wasserkraft',
@@ -2926,6 +2930,8 @@ export const STRINGS: Record<Lang, Strings> = {
       sumShares: 'En {year}, les renouvelables représentaient {overall} de la consommation finale brute d\'énergie de {geo} : {elc} pour l\'électricité, {hc} pour la chaleur et le froid et {tra} pour les transports. Le niveau UE pour 2030 est de {target}.',
       noteSeries: 'Les parts suivent la méthode de la directive sur les énergies renouvelables (SHARES). À partir de 2020, une méthodologie mise à jour s\'applique : une petite rupture peut apparaître entre 2019 et 2020.',
       noteTargets: 'Les lignes 2030 sont des repères de l\'UE de la directive révisée (42,5 % au total, 29 % dans les transports, chaleur et froid en hausse chaque année). Les repères nationaux ne figurent pas dans les données d\'Eurostat.',
+      target2020: 'Objectif contraignant pour 2020 : {value} %',
+      note2020: 'Les objectifs 2020 sont les objectifs nationaux contraignants de la directive 2009/28/CE (10 % dans les transports pour chaque pays).',
       tableAll: 'Toutes les valeurs',
       groups: {
         hydro: 'Hydroélectricité',

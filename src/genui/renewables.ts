@@ -1,6 +1,7 @@
 import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
+import { RES_2020_TARGET } from './nationalTargets'
 import { detectGeos, parse } from './planner/parse'
 import type { DashboardSpec, Insight, KpiSpec, Plan, RenewablesTab, Suggestion, WidgetSpec } from './types'
 import { sanitizeSpec } from './validate'
@@ -345,12 +346,14 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
       if (!data.some((x) => x != null)) continue
       const reference = !euLevel ? (sec.key === 'overall' ? { value: TARGET_OVERALL, label: fill(t.euTarget, { value: pct(TARGET_OVERALL) }) } : sec.key === 'transport' ? { value: TARGET_TRANSPORT, label: fill(t.euTarget, { value: pct(TARGET_TRANSPORT) }) } : undefined) : undefined
       const p = path(sec.key, sec.code)
+      // The binding 2020 target (overall: the country's own; transport: 10 % for everyone; the EU: 20 % and 10 %).
+      const goal2020 = sec.key === 'overall' ? (euLevel ? 20 : RES_2020_TARGET[geo]) : sec.key === 'transport' && (euLevel || RES_2020_TARGET[geo] != null) ? 10 : undefined
       widgets.push({
         type: 'line',
         title: t.sectors[sec.key],
         subtitle: `${geoName} · %`,
         categories: axis,
-        series: [{ name: t.sectors[sec.key], data }, ...(p ? [{ name: t.path[sec.key as 'overall' | 'heating' | 'transport'], data: p }] : [])],
+        series: [{ name: t.sectors[sec.key], data }, ...(p ? [{ name: t.path[sec.key as 'overall' | 'heating' | 'transport'], data: p }] : []), ...(goal2020 != null ? [{ name: fill(t.target2020, { value: pct(goal2020) }), data: axis.map((y) => (Number(y) >= 2010 && Number(y) <= 2020 ? goal2020 : null)) }] : [])],
         ...(reference ? { reference } : {}),
         highlight: last,
         unit: '%',
@@ -392,7 +395,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     }
     const fast = sectors.map((sec) => ({ sec, d: (at(sec.code, last) ?? 0) - (at(sec.code, String(lastN - 5)) ?? at(sec.code, years[0]) ?? 0) })).filter((x) => x.sec.key !== 'overall').sort((a, b) => b.d - a.d)[0]
     if (fast && fast.d > 0) insights.push({ tone: 'up', parts: [fill(t.insFastest, { sector: t.sectors[fast.sec.key].toLowerCase(), pp: pct(fast.d) })] })
-    notes.push(t.noteSeries, t.noteTargets)
+    notes.push(t.noteSeries, t.noteTargets, t.note2020)
     // The table: all values.
     widgets.push({
       type: 'table',

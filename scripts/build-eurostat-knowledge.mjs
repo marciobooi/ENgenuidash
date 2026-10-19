@@ -139,7 +139,7 @@ try {
         skipped++
         continue
       }
-      passages.push({ id: `doc:${pg.id}#${passages.length}`, kind: 'document', title: pg.title, url: pg.url, section: `p. ${pg.page}`, part: i, text: t })
+      passages.push({ id: `doc:${pg.id}#${passages.length}`, kind: 'document', title: pg.title, url: pg.url, section: pg.section ?? `p. ${pg.page}`, part: i, text: t })
     }
   }
   console.log(`Documents: ${pages.length} pages, ${skipped} table-like chunks skipped`)

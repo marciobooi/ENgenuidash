@@ -229,5 +229,54 @@
     "title": "Contractors' report on good practices related to the EED-Recast (Fraunhofer ISI, April 2024)",
     "url": "https://energy.ec.europa.eu/topics/energy-efficiency/energy-efficiency-targets-directive-and-rules/energy-efficiency-directive_en",
     "topic": "good practices for the energy efficiency directive"
+  },
+  {
+    "file": "climate-target-plan-communication.txt",
+    "id": "ctp-communication",
+    "title": "Stepping up Europe's 2030 climate ambition: the 2030 Climate Target Plan (Commission Communication COM(2020) 562)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020DC0562",
+    "topic": "the 55% greenhouse gas target for 2030 and what it means for energy"
+  },
+  {
+    "file": "climate-law-amendment-proposal.txt",
+    "id": "ctp-climate-law",
+    "title": "Proposal to amend the European Climate Law for the 2030 target (COM(2020) 563)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020PC0563",
+    "topic": "the legal proposal for the 2030 climate target"
+  },
+  {
+    "file": "climate-target-plan-impact-summary.txt",
+    "id": "ctp-impact-summary",
+    "title": "Impact assessment of the 2030 Climate Target Plan: executive summary (SWD(2020) 177)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020SC0177",
+    "topic": "the impact of the 2030 climate target"
+  },
+  {
+    "file": "climate-target-plan-impact-assessment.txt",
+    "id": "ctp-impact-assessment",
+    "title": "Impact assessment of the 2030 Climate Target Plan: main report (SWD(2020) 176)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020SC0176",
+    "topic": "energy, renewables and efficiency under the 2030 climate target"
+  },
+  {
+    "file": "climate-target-plan-consultation-synopsis.pdf",
+    "id": "ctp-consultation",
+    "title": "2030 Climate Target Plan: stakeholder consultation synopsis report (SWD(2020) 178)",
+    "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020SC0178",
+    "topic": "what stakeholders said about the 2030 climate target"
+  },
+  {
+    "file": "climate-target-plan-factsheet-building.pdf",
+    "id": "ctp-factsheet-building",
+    "title": "EU Climate Target Plan 2030: building a modern, sustainable and resilient Europe (Commission factsheet)",
+    "url": "https://ec.europa.eu/commission/presscorner/detail/en/ip_20_1599",
+    "topic": "the 2030 Climate Target Plan in brief"
+  },
+  {
+    "file": "climate-target-plan-factsheet-tools.pdf",
+    "id": "ctp-factsheet-tools",
+    "title": "EU Climate Target Plan 2030: key contributors and policy tools (Commission factsheet)",
+    "url": "https://ec.europa.eu/commission/presscorner/detail/en/ip_20_1599",
+    "topic": "the sectors and policies behind the 2030 climate target"
   }
 ]

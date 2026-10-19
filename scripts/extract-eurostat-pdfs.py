@@ -27,6 +27,21 @@ for src in sources:
     if not os.path.exists(path):
         print('missing', src['file'], file=sys.stderr)
         continue
+    if path.endswith('.txt'):
+        # a text conversion of a Word document: parts of about 3,000 characters, split at paragraph ends
+        paras = [x.strip() for x in open(path, encoding='utf-8', errors='ignore').read().split('\n') if x.strip()]
+        parts, cur = [], ''
+        for x in paras:
+            if len(cur) + len(x) > 3000 and cur:
+                parts.append(cur)
+                cur = ''
+            cur += ' ' + x
+        parts.append(cur)
+        for i, text in enumerate(parts, 1):
+            text = re.sub(r'\s+', ' ', text).strip()
+            if len(text) > 120:
+                out.append({'file': src['file'], 'id': src['id'], 'title': src['title'], 'url': src['url'], 'topic': src.get('topic', ''), 'page': i, 'section': f'part {i}', 'text': text})
+        continue
     if path.endswith('.html'):
         # a web page (a news item): the text between its date line and "For more information"
         raw = open(path, encoding='utf-8', errors='ignore').read()

@@ -5,6 +5,7 @@ import type { DashStrings } from './execute'
 export function dashStrings(t: Strings): DashStrings {
   return {
     alsoStandard: t.dAlsoStandard,
+    alsoNamed: { shares: t.dAlsoShares, renewBalance: t.dAlsoRenewBalance, efficiency: t.dAlsoEff, dependency: t.dAlsoDep, warm: t.dAlsoWarm, capacity: t.dAlsoCapacity },
     alsoRenewables: t.dAlsoRenewables,
     alsoEfficiency: t.dAlsoEfficiency,
     alsoSecurity: t.dAlsoSecurity,

@@ -35,6 +35,7 @@ import { buildSankeyDashboard, type SankeyStrings } from './sankey/sankeyDashboa
  */
 
 export interface DashStrings {
+  alsoNamed: Record<'shares' | 'renewBalance' | 'efficiency' | 'dependency' | 'warm' | 'capacity', string>
   alsoStandard: string
   alsoRenewables: string
   alsoEfficiency: string
@@ -240,9 +241,21 @@ export async function buildDashboard(plan: Plan, dict: EnergyDictionary, lang: s
         ? s.alsoBalance
         : other.sankey
           ? s.alsoFlow
-          : fill(s.alsoStandard, { name: (ds?.title as Record<string, string> | undefined)?.[lang] ?? ds?.title?.en ?? other.dataset })
+          : (s.alsoNamed as Record<string, string>)[plainKind(other, dict)] ?? fill(s.alsoStandard, { name: (ds?.title as Record<string, string> | undefined)?.[lang] ?? ds?.title?.en ?? other.dataset })
   if (spec.suggestions.some((x) => x.label === label)) return spec
   return { ...spec, suggestions: [{ label, plan: { ...other, also: undefined } }, ...spec.suggestions] }
+}
+
+/** A friendly name for the plain view a custom dashboard offers, by what it shows. */
+function plainKind(p: Plan, dict: EnergyDictionary): 'shares' | 'renewBalance' | 'efficiency' | 'dependency' | 'warm' | 'capacity' | 'other' {
+  if (/^(nrg_ind_ren|nrg_ind_share)/.test(p.dataset)) return 'shares'
+  if (/^(nrg_ind_eff|sdg_07_10|sdg_07_11|nrg_ind_cotd)/.test(p.dataset)) return 'efficiency'
+  if (/^(nrg_ind_id|sdg_07_50)/.test(p.dataset)) return 'dependency'
+  if (/^(ilc_mdes01|sdg_07_60)/.test(p.dataset)) return 'warm'
+  if (/^nrg_inf_epc/.test(p.dataset)) return 'capacity'
+  const siec = p.filters.siec
+  if (p.dataset === 'nrg_bal_c' && dict.datasets[p.dataset] && (Array.isArray(siec) ? siec : [siec]).some((x) => typeof x === 'string' && /^(RA000|R\d|BIOE)/.test(x))) return 'renewBalance'
+  return 'other'
 }
 
 async function buildDashboardOne(

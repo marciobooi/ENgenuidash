@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
+import { FLAGS } from './flags'
 
 /**
  * The outline of a country, drawn from the map data the app already has (public/data/geo/europe.geojson, Eurostat GISCO
- * boundaries, overseas parts removed). Fetched once and kept; the id is "shape-" and the lower-case country code.
+ * boundaries, overseas parts removed), filled with its own flag. Fetched once and kept; the id is "shape-" and the
+ * lower-case country code. A country the map does not have is shown as its flag.
  */
 type Position = [number, number]
 interface Feature {
@@ -34,7 +36,9 @@ function outline(f: Feature, size = 100): string {
 }
 
 export function CountryShape({ code, className, label }: { code: string; className?: string; label?: string }) {
-  const [d, setD] = useState<string | null>(null)
+  const clip = useId()
+  // (undefined: not loaded yet; null: the map does not have it)
+  const [d, setD] = useState<string | null | undefined>(undefined)
   useEffect(() => {
     let live = true
     void features().then((list) => {
@@ -45,10 +49,25 @@ export function CountryShape({ code, className, label }: { code: string; classNa
       live = false
     }
   }, [code])
-  if (!d) return null
+  const flag = FLAGS[code.toLowerCase()]
+  if (d === undefined) return null
+  const name = label ?? flag?.name ?? code.toUpperCase()
+  // The flag covers the whole square (30 x 20 scaled by 5, centred), clipped to the country; without the outline it is the flag.
+  const cover = flag ? <g transform="translate(-25 0) scale(5)">{flag.node()}</g> : null
+  if (!d) {
+    return flag ? (
+      <svg className={className ?? 'art-shape'} viewBox="0 0 30 20" role="img" aria-label={name} focusable="false">
+        {flag.node()}
+      </svg>
+    ) : null
+  }
   return (
-    <svg className={className ?? 'art-shape'} viewBox="0 0 100 100" role="img" aria-label={label ?? code.toUpperCase()} focusable="false">
-      <path d={d} fill="currentColor" fillRule="evenodd" />
+    <svg className={className ?? 'art-shape'} viewBox="0 0 100 100" role="img" aria-label={name} focusable="false">
+      <clipPath id={clip}>
+        <path d={d} fillRule="evenodd" />
+      </clipPath>
+      {cover ? <g clipPath={`url(#${clip})`}>{cover}</g> : <path d={d} fill="currentColor" fillRule="evenodd" />}
+      <path d={d} fill="none" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" fillRule="evenodd" />
     </svg>
   )
 }

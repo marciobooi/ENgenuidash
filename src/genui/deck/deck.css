@@ -680,10 +680,23 @@
   height: auto;
 }
 .deck__shape {
-  width: 7rem;
-  height: 7rem;
-  color: #0b2a7a;
-  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.2));
+  width: 8rem;
+  height: 8rem;
+  filter: drop-shadow(0 4px 8px rgb(5 30 92 / 0.3));
+}
+.deck__place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+.art-shape {
+  display: block;
+}
+.art-shape--small {
+  width: 3.4rem;
+  height: 3.4rem;
 }
 
 /* The illustrated scene: objects and ground without a backdrop, standing on the bottom edge of the title and closing slides. Only where there is room (a wide, tall window); elsewhere the pictograms and flags carry the slide. */

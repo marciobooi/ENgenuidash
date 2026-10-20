@@ -1,6 +1,7 @@
-import { ArrowRightLeft, BookOpen, ChevronDown, Database, Download, ExternalLink, Info, Presentation as PresentIcon, Printer, Sparkles, X } from 'lucide-react'
+import { ArrowRightLeft, BookOpen, ChevronDown, Database, Download, ExternalLink, Info, Image as PosterIcon, Presentation as PresentIcon, Printer, Sparkles, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Deck } from './deck/Deck'
+import { Poster } from './deck/Poster'
 import { ROOT_ID, useReadingTools } from './useReadingTools'
 import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { isCrowdedBar } from './crowded'
@@ -381,6 +382,10 @@ export function Dashboard({
                 {tools.present ? <X size={16} aria-hidden="true" /> : <PresentIcon size={16} aria-hidden="true" />}
                 {tools.present ? spec.reading.tools.exit : spec.reading.tools.present}
               </button>
+              <button type="button" className="dash__tool" onClick={() => tools.setPoster(true)}>
+                <PosterIcon size={16} aria-hidden="true" />
+                {spec.reading.tools.poster}
+              </button>
               <button type="button" className="dash__tool" onClick={tools.print}>
                 <Printer size={16} aria-hidden="true" />
                 {spec.reading.tools.print}
@@ -392,6 +397,21 @@ export function Dashboard({
       </header>
       {items}
       {spec.about && !plain && <AboutPanel about={spec.about} />}
+      {tools.poster &&
+        createPortal(
+          <Poster
+            spec={spec}
+            lang={lang}
+            charts={charts}
+            renderChart={(w) => renderChart({ ...w, alt: undefined } as WidgetSpec)}
+            onClose={() => tools.setPoster(false)}
+            printLabel={spec.reading?.tools.print ?? 'Print'}
+            keyLabel={labels.keyIndicators}
+            insightsLabel={labels.keyInsights}
+            sourceLabel={labels.source}
+          />,
+          document.body,
+        )}
       {tools.present &&
         createPortal(
           <Deck

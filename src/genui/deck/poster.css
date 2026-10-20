@@ -1,0 +1,341 @@
+/* The infographic: one tall poster, on screen and on paper. */
+.posterview {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  overflow-y: auto;
+  background: #c4d4f5;
+}
+.posterview__bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem clamp(1rem, 4vw, 3rem);
+  background: rgb(196 212 245 / 0.92);
+  backdrop-filter: blur(6px);
+}
+.posterview__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #0b2a7a;
+  border-radius: 999px;
+  background: #fff;
+  color: #0b2a7a;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.posterview__btn:focus-visible {
+  outline: 3px solid var(--ecl-color-focus, #fc0);
+  outline-offset: 2px;
+}
+.poster {
+  width: min(1000px, 100%);
+  margin: 0 auto 3rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #e8eefb 0%, #fff 30%);
+  color: #14213d;
+  box-shadow: 0 20px 60px rgb(5 30 92 / 0.25);
+}
+.poster h1,
+.poster h2 {
+  margin: 0;
+}
+.poster__head {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 340px;
+  padding: 2.5rem 2.5rem 0;
+  overflow: hidden;
+  background: radial-gradient(600px 400px at 90% 0, #2a63e0 0, transparent 60%), linear-gradient(135deg, #0b3fb8 0%, #082f87 60%, #051e5c 100%);
+  color: #fff;
+}
+.poster__headtext {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  max-width: 52%;
+  padding-bottom: 3rem;
+}
+.poster__eyebrow {
+  margin: 0 0 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffd617;
+}
+.poster__head h1 {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+.poster__sub {
+  margin: 0.6rem 0 0;
+  font-size: 1.25rem;
+  opacity: 0.9;
+}
+.poster__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.2rem 0 0;
+}
+.poster__chip {
+  padding: 0.25rem 0.8rem;
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+}
+.poster__scene {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 58%;
+  aspect-ratio: 4 / 3;
+  z-index: 1;
+}
+.poster__scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.poster__head .starring {
+  position: absolute;
+  right: -60px;
+  top: -40px;
+  width: 300px;
+  height: 300px;
+  opacity: 0.18;
+  fill: #ffd617;
+}
+.poster__lead {
+  margin: 2rem 2.5rem;
+  padding: 1.5rem 1.75rem;
+  border-radius: 22px;
+  background: #0b2a7a;
+  color: #fff;
+  font-size: 1.55rem;
+  line-height: 1.4;
+}
+.poster__lead .deck__num {
+  color: #ffd617;
+}
+.poster__figures {
+  padding: 0.5rem 2.5rem 0;
+}
+.poster__figures h2,
+.poster__did h2 {
+  display: inline-block;
+  margin-bottom: 1.2rem;
+  padding: 0.35rem 1rem;
+  background: #0b2a7a;
+  color: #fff;
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.poster__rings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1.5rem 1rem;
+  align-items: start;
+}
+.fig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+.fig__label {
+  margin: 0;
+  min-height: 2.6em;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.fig .ring__track {
+  stroke: #cfdcf7;
+}
+.fig .ring__fill {
+  stroke: #0b2a7a;
+}
+.fig .ring__target {
+  stroke: #f08c00;
+}
+.fig__icon {
+  display: inline-block;
+  width: 5.2rem;
+  height: 5.2rem;
+  color: #0e47cb;
+}
+.fig__disc {
+  display: grid;
+  place-items: center;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: #e3ebfb;
+}
+.fig__value {
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.fig__unit {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #b85c00;
+}
+.fig__delta {
+  margin: 0;
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  background: #eef0f5;
+  font-weight: 700;
+}
+.fig__versus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-weight: 700;
+}
+.fig__versus i {
+  width: 0.6rem;
+}
+.fig__versus .art-flag {
+  width: 1.8rem;
+}
+.poster__skyline {
+  display: block;
+  width: calc(100% + 5rem);
+  margin: 1.5rem -2.5rem 0;
+  height: auto;
+}
+.poster__chart {
+  position: relative;
+  margin: 2rem 2.5rem 0;
+}
+.poster__badge {
+  position: absolute;
+  z-index: 2;
+  top: -1.1rem;
+  right: 1.2rem;
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  padding: 0.6rem;
+  border-radius: 50%;
+  background: #ffd617;
+  color: #0b2a7a;
+  box-shadow: 0 4px 10px rgb(5 30 92 / 0.25);
+}
+.poster__did {
+  margin: 2.5rem 2.5rem 0;
+}
+.poster__bubbles {
+  padding: 1.2rem;
+  border-radius: 28px;
+  background: #e3ebfb;
+  font-size: 1.1rem;
+}
+.poster__closing {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  margin: 2.5rem 2.5rem 0;
+}
+.poster__block {
+  margin: 0;
+  padding: 0.35rem 1rem;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: #fff;
+}
+.poster__block--dark {
+  background: #0b2a7a;
+}
+.poster__block--blue {
+  background: #1b5ae8;
+}
+.poster__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding: 1rem 2.5rem;
+  border-top: 6px solid #ffd617;
+  background: #fff;
+  font-size: 0.9rem;
+}
+.poster__foot img {
+  height: 1.8rem;
+}
+@media (max-width: 720px) {
+  .poster__headtext {
+    max-width: 100%;
+  }
+  .poster__scene {
+    display: none;
+  }
+  .poster__figures,
+  .poster__chart,
+  .poster__did,
+  .poster__closing {
+    margin-left: 1rem;
+    margin-right: 1rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .poster__lead {
+    margin: 1.5rem 1rem;
+  }
+}
+@media print {
+  .posterview {
+    position: static;
+    overflow: visible;
+    background: #fff;
+  }
+  .posterview__bar {
+    display: none !important;
+  }
+  .poster {
+    width: 100%;
+    margin: 0;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .poster__chart,
+  .fig,
+  .poster__lead,
+  .poster__closing,
+  .poster__bubbles {
+    break-inside: avoid;
+  }
+}
+
+@media print {
+  body.poster-open #root {
+    display: none !important;
+  }
+  body.poster-open .posterview {
+    display: block !important;
+  }
+}

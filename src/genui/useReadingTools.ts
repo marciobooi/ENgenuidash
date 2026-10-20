@@ -29,6 +29,7 @@ const write = (key: string, value: string) => {
 export function useReadingTools(spec: DashboardSpec) {
   const [level, setLevelState] = useState<'plain' | 'details'>(() => (read(LEVEL_KEY) === 'plain' ? 'plain' : 'details'))
   const [present, setPresent] = useState(false)
+  const [poster, setPoster] = useState(false)
   const updated = spec.about?.updated
   const [badgeDate] = useState<string | null>(() => {
     if (!updated) return null
@@ -65,6 +66,12 @@ export function useReadingTools(spec: DashboardSpec) {
     }
   }, [])
 
+  // (printing the poster prints the poster only)
+  useEffect(() => {
+    document.body.classList.toggle('poster-open', poster)
+    return () => document.body.classList.remove('poster-open')
+  }, [poster])
+
   const setLevel = (next: 'plain' | 'details') => {
     setLevelState(next)
     write(LEVEL_KEY, next)
@@ -96,5 +103,5 @@ export function useReadingTools(spec: DashboardSpec) {
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
     }
   }
-  return { level, setLevel, present, togglePresent, slide, setSlide, keyOnPresent, badgeDate, print: () => window.print() }
+  return { level, setLevel, present, togglePresent, poster, setPoster, slide, setSlide, keyOnPresent, badgeDate, print: () => window.print() }
 }

@@ -4,6 +4,7 @@ import estatLogo from '../../assets/estat-logo-horizontal.svg'
 import { InsightsPanel } from '../../components/insights'
 import type { DashboardSpec, KpiSpec, WidgetSpec } from '../types'
 import { Art, flagsOf, knownArt, matchArt } from './art/registry'
+import { Highlight } from './Highlight'
 import { BigSpark, Ring, StarRing } from './Svg'
 import './deck.css'
 
@@ -25,17 +26,6 @@ export interface DeckProps {
   sourceLabel: string
   renderChart: (w: WidgetSpec) => ReactNode
   charts: WidgetSpec[]
-}
-
-const NUMBER = /(\d+(?:[.,]\d+)*\s?(?:%|pp|Mtoe|ktoe|TWh|GWh|GW|PJ|EUR\/kWh|days|Tage|jours)?)/g
-
-/** The sentence with its numbers in bold, so the eye lands on them. */
-function Highlight({ text }: { text: string }) {
-  return (
-    <>
-      {text.split(NUMBER).map((part, i) => (i % 2 === 1 ? <strong key={i} className="deck__num">{part}</strong> : part))}
-    </>
-  )
 }
 
 function Tile({ k, lang, names, flags }: { k: KpiSpec; lang: string; names?: [string, string]; flags?: (string | undefined)[] }) {

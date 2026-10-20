@@ -613,3 +613,43 @@
 .deck--hero .deck__foot img {
   filter: none;
 }
+
+/* Art: pictograms and flags. */
+.art-pictogram {
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+}
+.tile__icon .art-pictogram {
+  width: 70%;
+  height: 70%;
+}
+.art-flag {
+  width: 2.6rem;
+  height: auto;
+  border-radius: 3px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+}
+.art-flag--big {
+  width: 5rem;
+}
+.pair__col .art-flag {
+  width: 2.2rem;
+}
+.deck__art {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.deck__pict {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  padding: 0.7rem;
+  border-radius: 50%;
+  background: #0b2a7a;
+  color: #ffd617;
+}

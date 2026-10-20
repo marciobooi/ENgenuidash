@@ -418,6 +418,8 @@ export interface KpiSpec {
   trend?: (number | null)[]
   /** The same figure for the place this one is compared with ("France 22.4 %"). */
   versus?: { name: string; value: number }
+  /** The id of the pictogram that goes with this figure in a presentation (see genui/deck/art); when absent, chosen from the label. */
+  art?: string
 }
 
 import type { InsightItem, InsightPart } from '../components/insights'
@@ -463,6 +465,8 @@ export interface DashboardControls {
 export interface DashboardSpec {
   title: string
   /** How the question was read: the view, places, comparison and period, as short phrases (see aboutData.ts). */
+  /** Ids of the art of a presentation's title slide (pictograms, flags), set by the builder or chosen by a model; when absent, chosen from the data. */
+  art?: string[]
   reading?: { label: string; parts: string[]; tools: { level: string; plain: string; details: string; present: string; exit: string; print: string; updated: string } }
   /** What the data is, and the values behind the charts as a CSV file. */
   about?: { title: string; /** The dataset's last update in Eurostat's catalogue, to tell a returning reader what is new. */ updated?: { code: string; date: string }; rows: { label: string; value: string }[]; download: { label: string; filename: string; csv: string } }

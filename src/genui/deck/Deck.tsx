@@ -1,8 +1,9 @@
-import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Car, Droplets, Euro, Flame, Fuel, Gauge, Leaf, Sparkles, Sun, Wind, X, Zap } from 'lucide-react'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 import estatLogo from '../../assets/estat-logo-horizontal.svg'
 import { InsightsPanel } from '../../components/insights'
 import type { DashboardSpec, KpiSpec, WidgetSpec } from '../types'
+import { Art, flagsOf, knownArt, matchArt } from './art/registry'
 import { BigSpark, Ring, StarRing } from './Svg'
 import './deck.css'
 
@@ -37,23 +38,8 @@ function Highlight({ text }: { text: string }) {
   )
 }
 
-/** A pictogram for a figure, by what it measures. */
-function iconFor(label: string): ReactNode {
-  const t = label.toLowerCase()
-  if (/electric|strom|électric|elektr/.test(t)) return <Zap size={26} aria-hidden="true" />
-  if (/heat|cool|wärme|warme|chaleur|froid|kälte/.test(t)) return <Flame size={26} aria-hidden="true" />
-  if (/transport|verkehr|biofuel|mobility/.test(t)) return <Car size={26} aria-hidden="true" />
-  if (/solar/.test(t)) return <Sun size={26} aria-hidden="true" />
-  if (/wind|éolien|eolien/.test(t)) return <Wind size={26} aria-hidden="true" />
-  if (/hydro/.test(t)) return <Droplets size={26} aria-hidden="true" />
-  if (/price|prix|preis|eur\/|cost|kosten/.test(t)) return <Euro size={26} aria-hidden="true" />
-  if (/dependen|import|abhäng|dépend|oil|gas|öl/.test(t)) return <Fuel size={26} aria-hidden="true" />
-  if (/renew|erneuer|renouv|share|anteil|part|overall|gesamt|global/.test(t)) return <Leaf size={26} aria-hidden="true" />
-  return <Gauge size={26} aria-hidden="true" />
-}
-
-function Tile({ k, lang, names }: { k: KpiSpec; lang: string; names?: [string, string] }) {
-  const icon = iconFor(k.label)
+function Tile({ k, lang, names, flags }: { k: KpiSpec; lang: string; names?: [string, string]; flags?: (string | undefined)[] }) {
+  const art = knownArt([k.art])[0] ?? matchArt(k.label)
   const d = k.decimals ?? 1
   const fmt = new Intl.NumberFormat(lang, { minimumFractionDigits: d, maximumFractionDigits: d })
   const asRing = k.unit === '%' && k.value >= 0 && k.value <= 100
@@ -71,7 +57,11 @@ function Tile({ k, lang, names }: { k: KpiSpec; lang: string; names?: [string, s
     <div className="tile">
       <p className="tile__head">{k.label}</p>
       <div className="tile__panel">
-        <span className="tile__icon">{icon}</span>
+        {art && (
+          <span className="tile__icon">
+            <Art id={art} />
+          </span>
+        )}
         {asRing ? (
           <Ring value={k.value} max={100} size={190} stroke={18} label={`${k.label}: ${fmt.format(k.value)} %`}>
             {value}
@@ -82,11 +72,13 @@ function Tile({ k, lang, names }: { k: KpiSpec; lang: string; names?: [string, s
         {k.versus && (
           <div className="pair" aria-label={`${names?.[0] ?? ''} ${fmt.format(k.value)}, ${k.versus.name} ${fmt.format(k.versus.value)}`}>
             <div className="pair__col">
+              {flags?.[0] && <Art id={flags[0]} />}
               <strong>{fmt.format(k.value)}</strong>
               <i className="pair__bar pair__bar--a" style={{ height: `${Math.max((k.value / top) * 90, 8)}px` }} />
               <span>{names?.[0]}</span>
             </div>
             <div className="pair__col">
+              {flags?.[1] && <Art id={flags[1]} />}
               <strong>{fmt.format(k.versus.value)}</strong>
               <i className="pair__bar pair__bar--b" style={{ height: `${Math.max((k.versus.value / top) * 90, 8)}px` }} />
               <span>{k.versus.name}</span>
@@ -107,6 +99,13 @@ function Tile({ k, lang, names }: { k: KpiSpec; lang: string; names?: [string, s
 
 export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, keyLabel, insightsLabel, sourceLabel, renderChart, charts }: DeckProps) {
   const kpis = spec.widgets.find((w) => w.type === 'kpis')
+  // The art of the data: the flags of the places, and pictograms for what the figures measure (named by the spec, or chosen from its words).
+  const p = spec.plan
+  const places = flagsOf([p.filters.geo, p.renewables?.compare, p.reporting?.compare, p.oil?.compare, p.trade?.compare, p.balance?.compare, p.profile?.compare])
+  const pairFlags = spec.compareNames ? places.slice(0, 2) : undefined
+  const topics = knownArt(spec.art ?? []).filter((id) => !id.startsWith('flag-'))
+  const derived = [...new Set([spec.title, spec.subtitle, ...(kpis?.type === 'kpis' ? kpis.items.map((k) => k.label) : [])].map((x) => matchArt(x ?? '')).filter((x): x is string => !!x))]
+  const titleArt = (topics.length ? topics : derived).slice(0, 4)
   const slides: { key: string; kind: string; node: ReactNode }[] = []
   slides.push({
     key: 'title',
@@ -123,6 +122,18 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
           </p>
           <h2>{spec.title}</h2>
           {spec.subtitle && <p className="deck__subtitle">{spec.subtitle}</p>}
+          {(titleArt.length > 0 || places.length > 0) && (
+            <div className="deck__art">
+              {titleArt.map((id) => (
+                <span key={id} className="deck__pict">
+                  <Art id={id} />
+                </span>
+              ))}
+              {places.map((id) => (
+                <Art key={id} id={id} className="art-flag art-flag--big" />
+              ))}
+            </div>
+          )}
           {spec.reading && (
             <p className="deck__chips">
               {spec.reading.parts.map((p) => (
@@ -160,7 +171,7 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
             <h2 className="deck__heading">{keyLabel}</h2>
             <div className="tiles">
               {kpis.items.slice(i, i + 4).map((k) => (
-                <Tile key={`${k.label}-${k.caption}`} k={k} lang={lang} names={spec.compareNames} />
+                <Tile key={`${k.label}-${k.caption}`} k={k} lang={lang} names={spec.compareNames} flags={pairFlags} />
               ))}
             </div>
           </>

@@ -69,27 +69,32 @@ export function useReadingTools(spec: DashboardSpec) {
     setLevelState(next)
     write(LEVEL_KEY, next)
   }
-  const togglePresent = async () => {
+  const [slide, setSlide] = useState(0)
+  const togglePresent = () => {
     if (present) {
       setPresent(false)
-      if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined)
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
       return
     }
+    setSlide(0)
     setPresent(true)
-    await document.getElementById(ROOT_ID)?.requestFullscreen?.().catch(() => undefined)
+    // (full screen where the browser allows it; the presentation covers the window either way)
+    void document.documentElement.requestFullscreen?.().catch(() => undefined)
   }
-  /** Arrow keys and page keys move between the sections of a presentation. */
-  const onPresentKey = (e: React.KeyboardEvent) => {
-    if (!present) return
-    const next = ['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key) ? -1 : 0
-    if (!next) return
-    const sections = [...(document.getElementById(ROOT_ID)?.querySelectorAll<HTMLElement>('.dash__section') ?? [])]
-    const here = sections.findIndex((s) => s.getBoundingClientRect().top >= -4)
-    const target = sections[Math.min(Math.max((here < 0 ? sections.length - 1 : here) + next, 0), sections.length - 1)]
-    if (target) {
+  /** Arrow keys, space and the page keys move between the slides; Escape closes. */
+  const keyOnPresent = (e: KeyboardEvent, last: number) => {
+    const to = (n: number) => {
       e.preventDefault()
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setSlide(Math.min(Math.max(n, 0), last))
+    }
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) to(slide + 1)
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) to(slide - 1)
+    else if (e.key === 'Home') to(0)
+    else if (e.key === 'End') to(last)
+    else if (e.key === 'Escape') {
+      setPresent(false)
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
     }
   }
-  return { level, setLevel, present, togglePresent, onPresentKey, badgeDate, print: () => window.print() }
+  return { level, setLevel, present, togglePresent, slide, setSlide, keyOnPresent, badgeDate, print: () => window.print() }
 }

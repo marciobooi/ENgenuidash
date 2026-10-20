@@ -219,6 +219,16 @@ export default function App() {
     chat.send(text)
   }
 
+  // Back to the first screen: the conversation stays in the history.
+  const goHome = () => {
+    track('home')
+    if (busy) return
+    if (window.location.hash) window.location.hash = ''
+    resetScreen()
+    history.startNew()
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }
+
   const newChat = () => {
     track('newchat')
     if (busy || !inConversation) return
@@ -390,6 +400,7 @@ export default function App() {
       <Header
         lang={lang}
         t={t}
+        onHome={onWelcome ? undefined : goHome}
         onLangChange={(l) => {
           track('lang', l)
           setLang(l)

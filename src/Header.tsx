@@ -1,4 +1,4 @@
-import { Globe, X } from 'lucide-react'
+import { Globe, House, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import ribbon from './assets/banner-graphical-element.svg'
 import estatLogo from './assets/estat-logo-horizontal.svg'
@@ -6,7 +6,7 @@ import { Tooltip } from './components/tooltip'
 import { APP_ABBR, LANGUAGES, type Lang, type Strings } from './i18n'
 import './Header.css'
 
-export function Header({ lang, t, onLangChange }: { lang: Lang; t: Strings; onLangChange: (l: Lang) => void }) {
+export function Header({ lang, t, onLangChange, onHome }: { lang: Lang; t: Strings; onLangChange: (l: Lang) => void; /** Back to the first screen (not given on the first screen itself). */ onHome?: () => void }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -47,6 +47,12 @@ export function Header({ lang, t, onLangChange }: { lang: Lang; t: Strings; onLa
         </h1>
 
         <div className="es-header__lang" ref={rootRef}>
+          {onHome && (
+            <button type="button" className="ecl-button ecl-button--secondary es-header__home" onClick={onHome}>
+              <House size={20} aria-hidden="true" focusable="false" />
+              <span className="es-header__lang-text">{t.backHome}</span>
+            </button>
+          )}
           <Tooltip content={t.selectLanguage} placement="bottom">
             <button
               ref={buttonRef}

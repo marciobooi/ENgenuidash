@@ -1013,3 +1013,26 @@ main:focus {
 .saved__remove:focus-visible {
   outline: 3px solid var(--ecl-color-focus, #fc0);
 }
+
+/* Print and PDF: the dashboard only, without the page's chrome and the chat button. */
+@page {
+  margin: 0;
+}
+@media print {
+  .chat-fab,
+  .es-header,
+  .skip-link,
+  .toaster,
+  [class*='toast'],
+  .chat-modal,
+  .download-notice {
+    display: none !important;
+  }
+  .dash-page {
+    padding: 14mm !important;
+  }
+  body,
+  .app {
+    background: #fff !important;
+  }
+}

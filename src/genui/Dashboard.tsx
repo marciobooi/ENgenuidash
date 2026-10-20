@@ -1,7 +1,8 @@
 import { ArrowRightLeft, BookOpen, ChevronDown, Database, Download, ExternalLink, Info, Presentation as PresentIcon, Printer, Sparkles, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { Deck } from './deck/Deck'
 import { ROOT_ID, useReadingTools } from './useReadingTools'
-import { useEffect, useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
+import { useId, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { isCrowdedBar } from './crowded'
 import { AreaChart, BarChart, BubbleChart, DumbbellChart, GaugeChart, HeatmapChart, HeroChart, LineChart, MapChart, PieChart, ProgressChart, SeasonalChart, type ChartActionLabels } from '../components/charts'
 import { InsightsPanel } from '../components/insights'
@@ -406,7 +407,6 @@ export function Dashboard({
             sourceLabel={labels.source}
             renderChart={(w) => renderChart({ ...w, alt: undefined } as WidgetSpec)}
             charts={charts}
-            kpiVariant={presentation.kpiStyle}
           />,
           document.body,
         )}
@@ -414,160 +414,6 @@ export function Dashboard({
   )
 }
 
-
-/**
- * A presentation: a title slide, the summary, the key figures, one slide for each chart, the insights, what the data is
- * and the source, one at a time over the whole window (arrow keys, space or the buttons move; Escape closes).
- */
-function Deck({
-  spec,
-  lang,
-  slide,
-  setSlide,
-  onKey,
-  onClose,
-  exitLabel,
-  keyLabel,
-  insightsLabel,
-  sourceLabel,
-  renderChart,
-  charts,
-  kpiVariant,
-}: {
-  spec: DashboardSpec
-  lang: string
-  slide: number
-  setSlide: (n: number) => void
-  onKey: (e: KeyboardEvent, last: number) => void
-  onClose: () => void
-  exitLabel: string
-  keyLabel: string
-  insightsLabel: string
-  sourceLabel: string
-  renderChart: (w: WidgetSpec) => ReactNode
-  charts: WidgetSpec[]
-  kpiVariant: 'cards' | 'big'
-}) {
-  const kpis = spec.widgets.find((w) => w.type === 'kpis')
-  const slides: { key: string; node: ReactNode }[] = []
-  slides.push({
-    key: 'title',
-    node: (
-      <div className="deck__title">
-        <p className="deck__eyebrow">ENgenuidash · Eurostat</p>
-        <h2>{spec.title}</h2>
-        {spec.subtitle && <p className="deck__subtitle">{spec.subtitle}</p>}
-        {spec.reading && (
-          <p className="deck__chips">
-            {spec.reading.parts.map((p) => (
-              <span key={p} className="dash__reading-chip">
-                {p}
-              </span>
-            ))}
-          </p>
-        )}
-      </div>
-    ),
-  })
-  if (spec.summary.length) slides.push({ key: 'summary', node: <p className="deck__big">{spec.summary.join(' ')}</p> })
-  if (kpis?.type === 'kpis' && kpis.items.length) {
-    for (let i = 0; i < kpis.items.length; i += 4) {
-      slides.push({
-        key: `kpis-${i}`,
-        node: (
-          <>
-            <h2 className="deck__heading">{keyLabel}</h2>
-            <KpiGrid label={keyLabel} variant={kpiVariant}>
-              {kpis.items.slice(i, i + 4).map((k) => (
-                <KpiCard key={`${k.label}-${k.caption}`} {...k} locale={lang} variant={kpiVariant} />
-              ))}
-            </KpiGrid>
-          </>
-        ),
-      })
-    }
-  }
-  charts.forEach((w, i) => slides.push({ key: `chart-${i}`, node: <div className="deck__chart">{renderChart(w)}</div> }))
-  if (spec.insights.length) {
-    slides.push({
-      key: 'insights',
-      node: (
-        <>
-          <h2 className="deck__heading">{insightsLabel}</h2>
-          <InsightsPanel title={insightsLabel} items={spec.insights} />
-        </>
-      ),
-    })
-  }
-  const notes = spec.notes.filter(Boolean)
-  if (notes.length || spec.about) {
-    slides.push({
-      key: 'about',
-      node: (
-        <>
-          <h2 className="deck__heading">{spec.about?.title ?? ''}</h2>
-          <ul className="deck__list">
-            {notes.map((n) => (
-              <li key={n}>{n}</li>
-            ))}
-            {spec.about?.rows.map((r) => (
-              <li key={r.label}>
-                <strong>{r.label}:</strong> {r.value}
-              </li>
-            ))}
-          </ul>
-        </>
-      ),
-    })
-  }
-  slides.push({
-    key: 'source',
-    node: (
-      <div className="deck__title">
-        <h2 className="deck__heading">{sourceLabel}</h2>
-        <p className="deck__big">
-          <a href={spec.source.url} target="_blank" rel="noreferrer">
-            Eurostat · {spec.source.code}
-          </a>
-        </p>
-        <p className="deck__subtitle">{spec.source.title}</p>
-      </div>
-    ),
-  })
-  const last = slides.length - 1
-  const current = Math.min(slide, last)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => onKey(e, last)
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onKey, last])
-  return (
-    <div className="deck" role="dialog" aria-modal="true" aria-label={spec.title}>
-      <div className="deck__bar">
-        <span className="deck__count" aria-live="polite">
-          {current + 1} / {slides.length}
-        </span>
-        <button type="button" className="deck__btn" onClick={onClose}>
-          <X size={18} aria-hidden="true" /> {exitLabel}
-        </button>
-      </div>
-      <div className="deck__slide" key={slides[current].key}>
-        {slides[current].node}
-      </div>
-      <div className="deck__nav">
-        <button type="button" className="deck__btn" onClick={() => setSlide(Math.max(current - 1, 0))} disabled={current === 0} aria-label="←">
-          ←
-        </button>
-        <div className="deck__progress" aria-hidden="true">
-          <span style={{ width: `${((current + 1) / slides.length) * 100}%` }} />
-        </div>
-        <button type="button" className="deck__btn" onClick={() => setSlide(Math.min(current + 1, last))} disabled={current === last} aria-label="→">
-          →
-        </button>
-      </div>
-    </div>
-  )
-}
 
 /** What the data is, and the values behind the charts as a CSV file (see aboutData.ts). */
 function AboutPanel({ about }: { about: NonNullable<DashboardSpec['about']> }) {

@@ -34,6 +34,8 @@ export type RenewablesFrom = 'all' | '2010' | '2020'
 const TARGET_OVERALL = 42.5
 const TARGET_TRANSPORT = 29
 const HC_STEPS: [number, number][] = [[2025, 0.8], [2030, 1.1]]
+/** The rise RED III asks of every country in heating and cooling from its 2020 share to 2030: 5 x 0.8 + 5 x 1.1 points. */
+const HC_TOTAL_RISE = 5 * 0.8 + 5 * 1.1
 
 // ---------- questions ----------
 
@@ -383,13 +385,16 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     if (transport != null) widgets.push({ type: 'gauge', title: t.gaugeTransport, subtitle: t.gaugeSub, value: Math.round(transport * 10) / 10, label: `${geoName}, ${latest('REN_TRA')?.y ?? last}`, max: 40, targets: [{ value: TARGET_TRANSPORT, label: pct(TARGET_TRANSPORT) }], goal: 'reach', unit: '%', size: 'half', role: 'headline' })
     // The all-countries rankings: the overall share and each sector's, each in its latest year.
     const all = await ask(DATASET, { geo: [...EU27_LIST], unit: 'PC', nrg_bal: ['REN', 'REN_ELC', 'REN_HEAT_CL', 'REN_TRA'] }, String(lastN - 1))
+    // Each country's own 2020 share of heating and cooling: the base of its path to 2030.
+    const heat2020 = await ask(DATASET, { geo: [...EU27_LIST], unit: 'PC', nrg_bal: 'REN_HEAT_CL' }, '2020')
+    const base2020 = new Map((heat2020?.observations ?? []).filter((o) => o.value != null && o.keys.time === '2020').map((o) => [o.keys.geo, o.value as number]))
     for (const sec of sectors) {
       const rows = (all?.observations ?? []).filter((o) => o.value != null && o.keys.nrg_bal === sec.code)
       const y = rows.map((o) => o.keys.time).sort().at(-1)
       const rank = rows.filter((o) => o.keys.time === y).map((o) => ({ code: o.keys.geo, name: labelOf(all, 'geo', o.keys.geo).replace(/\s*\(.*?\)\s*$/, ''), value: o.value as number })).sort((a, b) => b.value - a.value)
       if (rank.length < 10 || !y) continue
       if (sec.key === 'overall' && !euLevel) peers.push(...peerChips(rank, geo, (n, v) => fill(t.peer, { name: n, value: v }), (c) => ({ ...plan, renewables: { ...plan.renewables!, compare: c } }), lang))
-      widgets.push({ type: 'bar', title: fill(sec.key === 'overall' ? t.ranking : t.rankingSector, { year: y, sector: lc(t.sectors[sec.key]) }), subtitle: `${t.sectors[sec.key]} · %`, categories: rank.map((x) => x.name), series: [{ name: t.sectors[sec.key], data: rank.map((x) => Math.round(x.value * 10) / 10) }, ...(sec.key === 'overall' ? [{ name: t.ranking2030, data: rank.map((x) => NATIONAL_RES_2030[x.code]?.value ?? null) }] : [])], horizontal: true, unit: '%', decimals: 1, size: sec.key === 'overall' ? 'full' : 'half', role: 'ranking' })
+      widgets.push({ type: 'bar', title: fill(sec.key === 'overall' ? t.ranking : t.rankingSector, { year: y, sector: lc(t.sectors[sec.key]) }), subtitle: `${t.sectors[sec.key]} · %`, categories: rank.map((x) => x.name), series: [{ name: t.sectors[sec.key], data: rank.map((x) => Math.round(x.value * 10) / 10) }, ...(sec.key === 'overall' ? [{ name: t.ranking2030, data: rank.map((x) => NATIONAL_RES_2030[x.code]?.value ?? null) }] : []), ...(sec.key === 'heating' ? [{ name: t.rankingHeat, data: rank.map((x) => (base2020.has(x.code) ? Math.round((base2020.get(x.code)! + HC_TOTAL_RISE) * 10) / 10 : null)) }] : [])], horizontal: true, ...(sec.key === 'transport' ? { reference: { value: TARGET_TRANSPORT, label: fill(t.euTarget, { value: pct(TARGET_TRANSPORT) }) } } : {}), unit: '%', decimals: 1, size: sec.key === 'overall' ? 'full' : 'half', role: 'ranking' })
       const place = rank.findIndex((x) => x.code === geo)
       if (place >= 0 && !euLevel) insights.push({ tone: 'neutral', parts: [fill(sec.key === 'overall' ? t.insRank : t.insRankSector, { geo: geoName, rank: String(place + 1), of: String(rank.length), year: y, sector: lc(t.sectors[sec.key]) })] })
     }
@@ -415,7 +420,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     }
     const fast = sectors.map((sec) => ({ sec, d: (at(sec.code, last) ?? 0) - (at(sec.code, String(lastN - 5)) ?? at(sec.code, years[0]) ?? 0) })).filter((x) => x.sec.key !== 'overall').sort((a, b) => b.d - a.d)[0]
     if (fast && fast.d > 0) insights.push({ tone: 'up', parts: [fill(t.insFastest, { sector: lc(t.sectors[fast.sec.key]), pp: pct(fast.d) })] })
-    notes.push(t.noteSeries, goal2020Shown ? t.note2020 : t.noteTargets, ...(nat && !goal2020Shown ? [t.noteNationalRes] : []), t.noteTransport29)
+    notes.push(t.noteSeries, goal2020Shown ? t.note2020 : t.noteTargets, t.noteRankRefs, ...(nat && !goal2020Shown ? [t.noteNationalRes] : []), t.noteTransport29)
     // The table: all values.
     widgets.push({
       type: 'table',

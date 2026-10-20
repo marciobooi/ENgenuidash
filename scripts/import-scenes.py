@@ -33,6 +33,7 @@ def clean(svg: str, sid: str) -> str:
     ids = re.findall(r'\bid="([^"]+)"', svg)
     for i in ids:
         svg = svg.replace(f'id="{i}"', f'id="{sid}-{i}"').replace(f'url(#{i})', f'url(#{sid}-{i})').replace(f'href="#{i}"', f'href="#{sid}-{i}"')
+    svg = svg.replace('<svg ', '<svg preserveAspectRatio="xMidYMid slice" ', 1) if 'preserveAspectRatio' not in svg[:300] else svg
     svg = re.sub(r'>\s+<', '><', svg)
     svg = re.sub(r'\s+', ' ', svg).strip()
     return svg

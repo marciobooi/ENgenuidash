@@ -113,7 +113,8 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
     kind: 'hero',
     node: (
       <>
-        {sceneId ? <Art id={sceneId} className="deck__scene" /> : <StarRing />}
+        {sceneId && <Art id={sceneId} className="deck__scene" />}
+        <StarRing />
         <div className={`deck__title${sceneId ? ' deck__title--scene' : ''}`}>
           <p className="deck__eyebrow">
             <span className="deck__badge">
@@ -257,6 +258,7 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
     node: (
       <>
         <Art id="scene-energy-mix" className="deck__scene" />
+        <StarRing />
         <div className="deck__title deck__title--scene">
           <p className="deck__eyebrow">{sourceLabel}</p>
           <h2>

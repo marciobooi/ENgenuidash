@@ -60,22 +60,23 @@ Outlines of the 27 Member States taken from the geographic data the app already 
 | `blob-yellow.svg` | Yellow rounded shape | quote and ring slides |
 | `ribbon.svg` | Blue and yellow ribbon (as in the Eurostat banner) | closing slide (`have`: `src/assets/banner-graphical-element.svg`) |
 
-## 5. Illustrations (6, status: supply, optional)
+## 5. Illustrated scenes (9, status: have)
 
-The illustrated style of the examples (people, objects, scenes). Flat, colours from the palette, no outlines needed.
+Supplied as nine SVG scenes (800 x 600, Eurostat palette) and imported with `python3 scripts/import-scenes.py <folder>`: the labels are removed (the presentation writes its own words in the reader's language) and the ids made unique. The result is `src/genui/deck/art/scenes.ts`.
 
-| # | File | Scene | Used for |
-|---|---|---|---|
-| 1 | `scene-wind-farm.svg` | Wind turbines on a hill, a small village | renewables title slide |
-| 2 | `scene-solar-roof.svg` | House with solar panels, person on a ladder | solar, buildings |
-| 3 | `scene-household.svg` | Family at home, thermostat or meter | households, energy poverty |
-| 4 | `scene-city-industry.svg` | Chimneys, offices, a train | efficiency, industry |
-| 5 | `scene-tanker-pipeline.svg` | Tanker and pipeline across the sea | trade, energy security |
-| 6 | `scene-energy-mix.svg` | Plug at the centre with icons of sources around it | closing slide |
+| Id | Scene | Chosen for |
+|---|---|---|
+| `scene-wind-farm` | Wind farm | renewables, wind |
+| `scene-solar-roof` | Solar roof | solar, capacity, buildings |
+| `scene-household` | Household with meter and lamp | households, poverty, prices |
+| `scene-city-industry` | City and industry | efficiency, consumption, industry |
+| `scene-tanker-pipeline` | Tanker and pipeline | trade, imports, dependence, security |
+| `scene-energy-mix` | Ring chart with source icons | closing slide, mix, diversification |
+| `scene-biomass-geothermal` | Biogas dome and geothermal well | biomass, biogas, geothermal |
+| `scene-hydro-dam` | Hydroelectric dam | hydro |
+| `scene-oil-pumps` | Oil pumps and tank | oil |
 
 ## Totals
 
 - To draw: 25 pictograms, 32 flags, 3 backgrounds (one exists) and 27 country shapes from existing data.
-- To supply, optional: 6 illustrations. Check that the licence of any Eurostat artwork allows reuse in this tool.
-
-Delivery: drop SVG files in `scripts/temp/` (not in `public/`). I will clean them (remove metadata and fixed sizes), recolour where needed, move them to `src/genui/deck/art/illustrations/` so they are bundled with the app, give each an id (`scene-wind-farm`, …) and add them to the catalogue.
+- Supplied: 9 illustrated scenes (done).

@@ -106,14 +106,15 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
   const topics = knownArt(spec.art ?? []).filter((id) => !id.startsWith('flag-'))
   const derived = [...new Set([spec.title, spec.subtitle, ...(kpis?.type === 'kpis' ? kpis.items.map((k) => k.label) : [])].map((x) => matchArt(x ?? '')).filter((x): x is string => !!x))]
   const titleArt = (topics.length ? topics : derived).slice(0, 4)
+  const sceneId = knownArt(spec.art ?? []).find((id) => id.startsWith('scene-')) ?? matchArt([spec.title, spec.subtitle, spec.source.title].join(' '), 'scene')
   const slides: { key: string; kind: string; node: ReactNode }[] = []
   slides.push({
     key: 'title',
     kind: 'hero',
     node: (
       <>
-        <StarRing />
-        <div className="deck__title">
+        {sceneId ? <Art id={sceneId} className="deck__scene" /> : <StarRing />}
+        <div className={`deck__title${sceneId ? ' deck__title--scene' : ''}`}>
           <p className="deck__eyebrow">
             <span className="deck__badge">
               <StarRing size={44} flat />
@@ -255,8 +256,8 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
     kind: 'hero',
     node: (
       <>
-        <StarRing />
-        <div className="deck__title">
+        <Art id="scene-energy-mix" className="deck__scene" />
+        <div className="deck__title deck__title--scene">
           <p className="deck__eyebrow">{sourceLabel}</p>
           <h2>
             <a href={spec.source.url} target="_blank" rel="noreferrer">

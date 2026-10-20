@@ -685,3 +685,34 @@
   color: #0b2a7a;
   filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.2));
 }
+
+/* The illustrated scene beside the title. */
+.deck__scene {
+  position: absolute;
+  right: clamp(1rem, 4vw, 4rem);
+  top: 50%;
+  width: min(46vw, 62vh * 1.333);
+  aspect-ratio: 4 / 3;
+  transform: translateY(-50%);
+  overflow: hidden;
+  border-radius: 28px;
+  box-shadow: 0 18px 50px rgb(5 30 92 / 0.35);
+}
+.deck__scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.deck__title--scene {
+  max-width: 46%;
+}
+@media (max-width: 800px) {
+  .deck__scene {
+    position: static;
+    width: 100%;
+    transform: none;
+  }
+  .deck__title--scene {
+    max-width: 100%;
+  }
+}

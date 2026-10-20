@@ -25,6 +25,16 @@ const RULES: [RegExp, string][] = [
   [/\bhow much (?:crude )?(?:oil|petroleum) (?:does|do) (?:the )?(.+?) import\b/g, 'oil security of $1'],
   [/\b(?:crude )?oil supply\b/g, 'oil security'],
   // ---- renewables (SHARES): capacity, technologies, sectors ----
+  // (one word or two that name a dashboard)
+  [/^(?:the )?capacit(?:y|ies)$/g, 'renewable capacity by technology'],
+  [/^(?:the )?(?:energy )?security$/g, 'energy security dashboard'],
+  [/^(?:the )?(?:energy )?poverty$/g, 'energy poverty indicators'],
+  [/^(?:the )?dependence$|^(?:the )?dependency$/g, 'energy import dependency'],
+  [/^(?:the )?diversification$/g, 'diversification of energy sources'],
+  [/^(?:the )?(?:buildings?|dwellings?) renewables?$/g, 'renewables in buildings'],
+  [/^(?:the )?transport renewables?$/g, 'renewables in transport'],
+  // ("shares" alone, or "shares Poland": the SHARES renewables dashboard)
+  [/^(?:the )?shares\b(?! (?:of|in|for|by|from|tool|database|data|methodology|dashboard|results|statistics|figures|numbers))/g, 'renewable energy dashboard'],
   [/\b(?:installed|how much) (?:(?:solar|wind|hydro\w*|geothermal|biomass|ocean|tidal)(?: power| energy)?) (?:capacity|capacities|power)?(?: does \w+ have)?(?: installed)?\b/g, 'renewable capacity by technology'],
   [/\b(?:solar|wind|hydro\w*|hydroelectric|geothermal|tidal|ocean|renewable|green)(?: power| energy)? (?:capacity|capacities)\b/g, 'renewable capacity by technology'],
   [/\b(?:gigawatts?|gw|megawatts?|mw) of (?:solar|wind|hydro\w*|geothermal|renewable)(?: power| energy| capacity)?\b/g, 'renewable capacity by technology'],

@@ -3,10 +3,10 @@ import { test } from 'node:test'
 import { ART, artCatalog, artPrompt, flagsOf, knownArt, matchArt } from './registry'
 
 // The art of the presentation has ids; slides name them, or they are chosen from the words and places of the data.
-test('the catalogue has 25 pictograms, 32 flags, 27 country outlines, 3 backgrounds and 9 scenes, each id once', () => {
+test('the catalogue has 25 pictograms, 32 flags, 31 country outlines, 3 backgrounds and 9 scenes, each id once', () => {
   assert.equal(ART.filter((a) => a.kind === 'pictogram').length, 25)
   assert.equal(ART.filter((a) => a.kind === 'flag').length, 32)
-  assert.equal(ART.filter((a) => a.kind === 'shape').length, 27)
+  assert.equal(ART.filter((a) => a.kind === 'shape').length, 31)
   assert.equal(ART.filter((a) => a.kind === 'background').length, 3)
   assert.equal(ART.filter((a) => a.kind === 'scene').length, 9)
   assert.equal(new Set(ART.map((a) => a.id)).size, ART.length)

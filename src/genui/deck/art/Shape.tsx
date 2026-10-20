@@ -20,7 +20,7 @@ const features = () =>
     .catch(() => []))
 
 /** The SVG path of a feature, fitted to a size x size square (equirectangular, corrected for latitude). */
-function outline(f: Feature, size = 100): string {
+function outline(f: Feature, size = 100): { d: string; box: { x: number; y: number; w: number; h: number } } {
   const polygons = (f.geometry.type === 'Polygon' ? [f.geometry.coordinates as Position[][]] : (f.geometry.coordinates as Position[][][])) as Position[][][]
   const pts = polygons.flatMap((poly) => poly[0])
   const lons = pts.map((p) => p[0])
@@ -30,31 +30,33 @@ function outline(f: Feature, size = 100): string {
   const w = (Math.max(...lons) - Math.min(...lons)) * k
   const h = Math.max(...lats) - Math.min(...lats)
   const scale = (size - 6) / Math.max(w, h)
-  const x = (lon: number) => (3 + ((lon - Math.min(...lons)) * k * scale + (size - 6 - w * scale) / 2)).toFixed(1)
-  const y = (lat: number) => (3 + ((Math.max(...lats) - lat) * scale + (size - 6 - h * scale) / 2)).toFixed(1)
-  return polygons.map((poly) => poly.map((ring) => `M${ring.map((p) => `${x(p[0])},${y(p[1])}`).join('L')}Z`).join('')).join('')
+  const x = (lon: number) => 3 + ((lon - Math.min(...lons)) * k * scale + (size - 6 - w * scale) / 2)
+  const y = (lat: number) => 3 + ((Math.max(...lats) - lat) * scale + (size - 6 - h * scale) / 2)
+  const d = polygons.map((poly) => poly.map((ring) => `M${ring.map((p) => `${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join('L')}Z`).join('')).join('')
+  const box = { x: x(Math.min(...lons)), y: y(Math.max(...lats)), w: w * scale, h: h * scale }
+  return { d, box }
 }
 
 export function CountryShape({ code, className, label }: { code: string; className?: string; label?: string }) {
   const clip = useId()
   // (undefined: not loaded yet; null: the map does not have it)
-  const [d, setD] = useState<string | null | undefined>(undefined)
+  const [shape, setShape] = useState<ReturnType<typeof outline> | null | undefined>(undefined)
   useEffect(() => {
     let live = true
     void features().then((list) => {
       const f = list.find((x) => x.properties.id?.toLowerCase() === code.toLowerCase())
-      if (live) setD(f ? outline(f) : null)
+      if (live) setShape(f ? outline(f) : null)
     })
     return () => {
       live = false
     }
   }, [code])
   const flag = FLAGS[code.toLowerCase()]
-  if (d === undefined) return null
+  if (shape === undefined) return null
   const name = label ?? flag?.name ?? code.toUpperCase()
-  // The flag covers the whole square (30 x 20 scaled by 5, centred), clipped to the country; without the outline it is the flag.
-  const cover = flag ? <g transform="translate(-25 0) scale(5)">{flag.node()}</g> : null
-  if (!d) {
+  // The whole flag is stretched over the country's box (a narrow country gets a narrow flag, so none of its design is cut off), clipped to the outline.
+  const cover = flag && shape ? <g transform={`translate(${shape.box.x.toFixed(2)} ${shape.box.y.toFixed(2)}) scale(${(shape.box.w / 30).toFixed(4)} ${(shape.box.h / 20).toFixed(4)})`}>{flag.node()}</g> : null
+  if (!shape) {
     return flag ? (
       <svg className={className ?? 'art-shape'} viewBox="0 0 30 20" role="img" aria-label={name} focusable="false">
         {flag.node()}
@@ -64,10 +66,10 @@ export function CountryShape({ code, className, label }: { code: string; classNa
   return (
     <svg className={className ?? 'art-shape'} viewBox="0 0 100 100" role="img" aria-label={name} focusable="false">
       <clipPath id={clip}>
-        <path d={d} fillRule="evenodd" />
+        <path d={shape.d} fillRule="evenodd" />
       </clipPath>
-      {cover ? <g clipPath={`url(#${clip})`}>{cover}</g> : <path d={d} fill="currentColor" fillRule="evenodd" />}
-      <path d={d} fill="none" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" fillRule="evenodd" />
+      {cover ? <g clipPath={`url(#${clip})`}>{cover}</g> : <path d={shape.d} fill="currentColor" fillRule="evenodd" />}
+      <path d={shape.d} fill="none" stroke="#fff" strokeWidth="1.6" strokeLinejoin="round" fillRule="evenodd" />
     </svg>
   )
 }

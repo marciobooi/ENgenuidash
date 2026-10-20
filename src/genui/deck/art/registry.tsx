@@ -52,6 +52,8 @@ const META: [string, string, string][] = [
 ]
 
 const EU27 = 'at be bg hr cy cz dk ee fi fr de el hu ie it lv lt lu mt nl pl pt ro sk si es se'.split(' ')
+/** The outlines: the 27 Member States and the neighbours that have a flag here. */
+const OUTLINED = [...EU27, 'no', 'is', 'tr', 'uk']
 /** The illustrated scenes (scenes.ts, made by scripts/import-scenes.py), the first that matches a slide's words wins a tie. */
 const SCENE_META: [string, string, string][] = [
   ['scene-oil-pumps', 'Oil pumps and wells', 'oil petroleum crude petrol diesel öl pétrole erdöl'],
@@ -70,7 +72,7 @@ const BG: [string, string][] = [['bg-wave', 'Soft waves'], ['bg-blob', 'Yellow s
 export const ART: ArtMeta[] = [
   ...META.map(([id, label, tags]) => ({ id, kind: 'pictogram' as const, label, tags: tags.split(' ') })),
   ...Object.entries(FLAGS).map(([id, f]) => ({ id: `flag-${id}`, kind: 'flag' as const, label: f.name, tags: [f.name.toLowerCase(), id] })),
-  ...EU27.map((id) => ({ id: `shape-${id}`, kind: 'shape' as const, label: `${FLAGS[id].name} (outline)`, tags: [FLAGS[id].name.toLowerCase(), id] })),
+  ...OUTLINED.map((id) => ({ id: `shape-${id}`, kind: 'shape' as const, label: `${FLAGS[id].name} (outline)`, tags: [FLAGS[id].name.toLowerCase(), id] })),
   ...BG.map(([id, label]) => ({ id, kind: 'background' as const, label, tags: [] })),
   ...SCENE_META.map(([id, label, tags]) => ({ id, kind: 'scene' as const, label, tags: tags.split(' ') })),
 ]
@@ -84,7 +86,7 @@ export const artPrompt = (): string =>
     'Pictograms (id: what it shows; words that call for it):',
     ...ART.filter((a) => a.kind === 'pictogram').map((a) => `${a.id}: ${a.label} (${a.tags.slice(0, 4).join(', ')})`),
     `Flags (id "flag-" + the lower-case country code): ${ART.filter((a) => a.kind === 'flag').map((a) => a.id).join(', ')}`,
-    `Country outlines ("shape-" + the lower-case code, the 27 Member States): ${ART.filter((a) => a.kind === 'shape').map((a) => a.id).join(', ')}`,
+    `Country outlines filled with their flag ("shape-" + the lower-case code, the 27 Member States, no, is, tr, uk): ${ART.filter((a) => a.kind === 'shape').map((a) => a.id).join(', ')}`,
     `Backgrounds: ${ART.filter((a) => a.kind === 'background').map((a) => a.id).join(', ')}`,
     'Scenes (id: what it shows; words that call for it):',
     ...ART.filter((a) => a.kind === 'scene').map((a) => `${a.id}: ${a.label} (${a.tags.slice(0, 4).join(', ')})`),

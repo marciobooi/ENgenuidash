@@ -3,8 +3,8 @@ import { FLAGS } from './flags'
 
 /**
  * The outline of a country, drawn from the map data the app already has (public/data/geo/europe.geojson, Eurostat GISCO
- * boundaries, overseas parts removed), filled with its own flag. Fetched once and kept; the id is "shape-" and the
- * lower-case country code. A country the map does not have is shown as its flag.
+ * boundaries, overseas parts removed), in one colour (currentColor); `withFlag` fills it with the country's flag instead.
+ * Fetched once and kept; the id is "shape-" and the lower-case country code.
  */
 type Position = [number, number]
 interface Feature {
@@ -37,7 +37,7 @@ function outline(f: Feature, size = 100): { d: string; box: { x: number; y: numb
   return { d, box }
 }
 
-export function CountryShape({ code, className, label }: { code: string; className?: string; label?: string }) {
+export function CountryShape({ code, className, label, withFlag = false }: { code: string; className?: string; label?: string; withFlag?: boolean }) {
   const clip = useId()
   // (undefined: not loaded yet; null: the map does not have it)
   const [shape, setShape] = useState<ReturnType<typeof outline> | null | undefined>(undefined)
@@ -55,9 +55,9 @@ export function CountryShape({ code, className, label }: { code: string; classNa
   if (shape === undefined) return null
   const name = label ?? flag?.name ?? code.toUpperCase()
   // The whole flag is stretched over the country's box (a narrow country gets a narrow flag, so none of its design is cut off), clipped to the outline.
-  const cover = flag && shape ? <g transform={`translate(${shape.box.x.toFixed(2)} ${shape.box.y.toFixed(2)}) scale(${(shape.box.w / 30).toFixed(4)} ${(shape.box.h / 20).toFixed(4)})`}>{flag.node()}</g> : null
+  const cover = withFlag && flag && shape ? <g transform={`translate(${shape.box.x.toFixed(2)} ${shape.box.y.toFixed(2)}) scale(${(shape.box.w / 30).toFixed(4)} ${(shape.box.h / 20).toFixed(4)})`}>{flag.node()}</g> : null
   if (!shape) {
-    return flag ? (
+    return withFlag && flag ? (
       <svg className={className ?? 'art-shape'} viewBox="0 0 30 20" role="img" aria-label={name} focusable="false">
         {flag.node()}
       </svg>

@@ -680,8 +680,9 @@
   height: auto;
 }
 .deck__shape {
-  width: 5.5rem;
-  height: 5.5rem;
+  width: 6rem;
+  height: 6rem;
+  color: #0b2a7a;
   filter: drop-shadow(0 4px 8px rgb(5 30 92 / 0.3));
 }
 .deck__place {

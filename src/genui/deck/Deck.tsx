@@ -134,6 +134,7 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
               {places.map((id) => (
                 <Art key={id} id={id} className="art-flag art-flag--big" />
               ))}
+              {places.length === 1 && places[0] !== 'flag-eu' && <Art id={places[0].replace('flag-', 'shape-')} className="deck__shape" />}
             </div>
           )}
           {spec.reading && (

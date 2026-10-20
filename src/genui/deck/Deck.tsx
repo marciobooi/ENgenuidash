@@ -3,7 +3,7 @@ import { useEffect, type ReactNode } from 'react'
 import estatLogo from '../../assets/estat-logo-horizontal.svg'
 import { InsightsPanel } from '../../components/insights'
 import type { DashboardSpec, KpiSpec, WidgetSpec } from '../types'
-import { ART, Art, flagsOf, knownArt, matchArt } from './art/registry'
+import { Art, flagsOf, knownArt, matchArt } from './art/registry'
 import { BigSpark, Ring, StarRing } from './Svg'
 import './deck.css'
 
@@ -72,13 +72,13 @@ function Tile({ k, lang, names, flags }: { k: KpiSpec; lang: string; names?: [st
         {k.versus && (
           <div className="pair" aria-label={`${names?.[0] ?? ''} ${fmt.format(k.value)}, ${k.versus.name} ${fmt.format(k.versus.value)}`}>
             <div className="pair__col">
-              {flags?.[0] && <Art id={flags[0] === 'flag-eu' ? flags[0] : flags[0].replace('flag-', 'shape-')} className={flags[0] === 'flag-eu' ? 'art-flag' : 'art-shape art-shape--small'} />}
+              {flags?.[0] && <Art id={flags[0]} />}
               <strong>{fmt.format(k.value)}</strong>
               <i className="pair__bar pair__bar--a" style={{ height: `${Math.max((k.value / top) * 90, 8)}px` }} />
               <span>{names?.[0]}</span>
             </div>
             <div className="pair__col">
-              {flags?.[1] && <Art id={flags[1] === 'flag-eu' ? flags[1] : flags[1].replace('flag-', 'shape-')} className={flags[1] === 'flag-eu' ? 'art-flag' : 'art-shape art-shape--small'} />}
+              {flags?.[1] && <Art id={flags[1]} />}
               <strong>{fmt.format(k.versus.value)}</strong>
               <i className="pair__bar pair__bar--b" style={{ height: `${Math.max((k.versus.value / top) * 90, 8)}px` }} />
               <span>{k.versus.name}</span>
@@ -132,10 +132,7 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
                 </span>
               ))}
               {places.map((id) => (
-                <span key={id} className="deck__place">
-                  {id === 'flag-eu' ? <Art id={id} className="art-flag art-flag--big" /> : <Art id={id.replace('flag-', 'shape-')} className="deck__shape" />}
-                  <span>{ART.find((a) => a.id === id)?.label}</span>
-                </span>
+                <Art key={id} id={id} className="art-flag art-flag--big" />
               ))}
             </div>
           )}

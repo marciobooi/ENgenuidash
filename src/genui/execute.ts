@@ -220,6 +220,12 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
     if (mentions(text, mainName) && mentions(text, otherName)) return w
     const twin = others.get(w.type)?.[k]
     if (!twin || twin.role !== w.role || onPage.has(JSON.stringify({ ...twin, alt: undefined }))) return w
+    // A line chart of a comparison on the renewables and progress dashboards shows both places at once, not one with a toggle.
+    if ((w.type === 'line' || w.type === 'area') && twin.type === w.type && (spec.plan.renewables?.compare || spec.plan.reporting?.compare)) {
+      const cats = [...new Set([...w.categories, ...twin.categories])].sort()
+      const column = (x: typeof w, series: (typeof w)['series'][number], who: string) => ({ name: `${series.name} (${who})`, data: cats.map((c) => (x.categories.includes(c) ? (series.data[x.categories.indexOf(c)] ?? null) : null)) })
+      return { ...w, subtitle: w.subtitle ? w.subtitle.replace(mainName, `${mainName} / ${otherName}`) : w.subtitle, categories: cats, series: [...w.series.map((x) => column(w, x, mainName)), ...twin.series.map((x) => column(twin, x, otherName))], cmp: true as const }
+    }
     // (a chart that shows the other place of the pair first is named after it)
     const all = JSON.stringify(w).toLowerCase()
     const swapped = mentions(all, otherName) && !mentions(all, mainName)

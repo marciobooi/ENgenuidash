@@ -35,5 +35,6 @@ export const PICTOGRAMS: Record<string, () => ReactNode> = {
   'euro-coin': () => P(<><circle cx="32" cy="32" r="26" /><path d="M42 22a12 12 0 1 0 0 20" /><path d="M16 28h20M16 36h20" /></>),
   shield: () => P(<><path d="M32 4l22 8v18c0 14-9 24-22 30C19 54 10 44 10 30V12z" /><path d="M22 32l7 7 13-14" /></>),
   'light-bulb': () => P(<><path d="M22 44c0-4-8-8-8-18a18 18 0 0 1 36 0c0 10-8 14-8 18z" /><path d="M24 52h16M27 58h10" /><path d="M32 2v-0M6 14l4 3M58 14l-4 3M4 28h4M56 28h4" /></>),
+  leaf: () => P(<><path d="M10 54C10 28 26 10 54 10c0 28-16 44-44 44z" /><path d="M10 54l26-26M24 40l-2-12M32 32l-2-12" /></>),
   family: () => P(<><circle cx="20" cy="12" r="6" /><path d="M10 58V32a10 10 0 0 1 20 0v26" /><circle cx="46" cy="26" r="5" /><path d="M38 58V42a8 8 0 0 1 16 0v16" /></>),
 }

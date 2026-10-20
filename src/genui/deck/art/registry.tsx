@@ -1,7 +1,12 @@
 /* eslint-disable react-refresh/only-export-components -- data modules: the art and its catalogue, not components for fast refresh */
 import type { ReactNode } from 'react'
+import { BACKGROUNDS } from './Backgrounds'
 import { FLAGS, flagId } from './flags'
 import { PICTOGRAMS } from './pictograms'
+import { CountryShape } from './Shape'
+
+/** The Eurostat ribbon (a file of the project; resolved by the bundler, and by node in the tests). */
+const ribbon = new URL('../../../assets/banner-graphical-element.svg', import.meta.url).href
 
 /**
  * The art of the presentation, each piece with an id: 24 energy pictograms and 31 flags. A slide names the art it wants
@@ -11,7 +16,7 @@ import { PICTOGRAMS } from './pictograms'
  */
 export interface ArtMeta {
   id: string
-  kind: 'pictogram' | 'flag'
+  kind: 'pictogram' | 'flag' | 'shape' | 'background'
   label: string
   /** Words (English, German, French) that call for this piece. */
   tags: string[]
@@ -42,11 +47,17 @@ const META: [string, string, string][] = [
   ['shield', 'Shield', 'security secure resilience dependence independence sicherheit sécurité abhängigkeit dépendance'],
   ['light-bulb', 'Light bulb', 'efficiency saving savings intensity effizienz efficacité'],
   ['family', 'Family', 'people population family person capita'],
+  ['leaf', 'Leaf', 'renewable renewables erneuerbare erneuerbarer renouvelables renouvelable share shares green overall anteil part'],
 ]
+
+const EU27 = 'at be bg hr cy cz dk ee fi fr de el hu ie it lv lt lu mt nl pl pt ro sk si es se'.split(' ')
+const BG: [string, string][] = [['bg-wave', 'Soft waves'], ['bg-blob', 'Yellow shape'], ['bg-ribbon', 'Eurostat ribbon']]
 
 export const ART: ArtMeta[] = [
   ...META.map(([id, label, tags]) => ({ id, kind: 'pictogram' as const, label, tags: tags.split(' ') })),
   ...Object.entries(FLAGS).map(([id, f]) => ({ id: `flag-${id}`, kind: 'flag' as const, label: f.name, tags: [f.name.toLowerCase(), id] })),
+  ...EU27.map((id) => ({ id: `shape-${id}`, kind: 'shape' as const, label: `${FLAGS[id].name} (outline)`, tags: [FLAGS[id].name.toLowerCase(), id] })),
+  ...BG.map(([id, label]) => ({ id, kind: 'background' as const, label, tags: [] })),
 ]
 
 /** The catalogue as data: what a model may choose from. */
@@ -58,6 +69,8 @@ export const artPrompt = (): string =>
     'Pictograms (id: what it shows; words that call for it):',
     ...ART.filter((a) => a.kind === 'pictogram').map((a) => `${a.id}: ${a.label} (${a.tags.slice(0, 4).join(', ')})`),
     `Flags (id "flag-" + the lower-case country code): ${ART.filter((a) => a.kind === 'flag').map((a) => a.id).join(', ')}`,
+    `Country outlines ("shape-" + the lower-case code, the 27 Member States): ${ART.filter((a) => a.kind === 'shape').map((a) => a.id).join(', ')}`,
+    `Backgrounds: ${ART.filter((a) => a.kind === 'background').map((a) => a.id).join(', ')}`,
   ].join('\n')
 
 const known = new Set(ART.map((a) => a.id))
@@ -83,6 +96,9 @@ export const flagsOf = (geos: (string | string[] | undefined)[]): string[] => [.
 
 /** One piece of art by id: a pictogram in its box, a flag in its frame. Unknown ids draw nothing. */
 export function Art({ id, className, label }: { id: string; className?: string; label?: string }): ReactNode {
+  if (id.startsWith('shape-')) return <CountryShape code={id.slice(6)} className={className} label={label} />
+  if (id === 'bg-ribbon') return <img className={className ?? 'art-bg'} src={ribbon} alt="" />
+  if (BACKGROUNDS[id]) return <span className={className ?? 'art-bg'}>{BACKGROUNDS[id]()}</span>
   if (id.startsWith('flag-')) {
     const f = FLAGS[id.slice(5)]
     if (!f) return null

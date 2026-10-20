@@ -10,7 +10,7 @@ What the infographic-style presentation (Present button) can use. **Status:** `d
 - Illustrations: flat colours from the palette below, under 100 KB each.
 - Palette: dark blue `#0b2a7a`, blue `#0e47cb`, light blue `#a9bfee`, yellow `#ffd617`, gold `#c9a227`, white `#ffffff`, ink `#14213d`.
 
-## 1. Energy pictograms (24, status: draw)
+## 1. Energy pictograms (25, status: draw)
 
 | # | File | Shows | Used for |
 |---|---|---|---|
@@ -38,6 +38,7 @@ What the infographic-style presentation (Present button) can use. **Status:** `d
 | 22 | `shield.svg` | Shield | energy security |
 | 23 | `light-bulb.svg` | Bulb | efficiency |
 | 24 | `family.svg` | Adult and child | households, people |
+| 25 | `leaf.svg` | Leaf | renewables, shares |
 
 ## 2. Flags (32, status: draw)
 
@@ -74,7 +75,7 @@ The illustrated style of the examples (people, objects, scenes). Flat, colours f
 
 ## Totals
 
-- To draw: 24 pictograms, 32 flags, 3 backgrounds (one exists) and 27 country shapes from existing data.
+- To draw: 25 pictograms, 32 flags, 3 backgrounds (one exists) and 27 country shapes from existing data.
 - To supply, optional: 6 illustrations. Check that the licence of any Eurostat artwork allows reuse in this tool.
 
-Delivery: drop SVG files in `scripts/temp/` and I will clean them (remove metadata and fixed sizes), recolour where needed and wire them in.
+Delivery: drop SVG files in `scripts/temp/` (not in `public/`). I will clean them (remove metadata and fixed sizes), recolour where needed, move them to `src/genui/deck/art/illustrations/` so they are bundled with the app, give each an id (`scene-wind-farm`, …) and add them to the catalogue.

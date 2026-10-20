@@ -132,6 +132,7 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
               {places.map((id) => (
                 <Art key={id} id={id} className="art-flag art-flag--big" />
               ))}
+              {places.length === 1 && places[0] !== 'flag-eu' && <Art id={places[0].replace('flag-', 'shape-')} className="deck__shape" />}
             </div>
           )}
           {spec.reading && (
@@ -284,6 +285,8 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
           <X size={18} aria-hidden="true" /> {exitLabel}
         </button>
       </div>
+      {slides[current].kind === 'hero' && <Art id="bg-wave" className="deck__bg deck__bg--wave" />}
+      {(slides[current].kind === 'quote' || slides[current].kind === 'ring') && <Art id="bg-blob" className="deck__bg deck__bg--blob" />}
       <div className="deck__slide" key={slides[current].key}>
         {slides[current].kind === 'chart' && <p className="deck__band">{spec.title}</p>}
         {slides[current].node}

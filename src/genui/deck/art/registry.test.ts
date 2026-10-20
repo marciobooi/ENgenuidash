@@ -3,9 +3,11 @@ import { test } from 'node:test'
 import { ART, artCatalog, artPrompt, flagsOf, knownArt, matchArt } from './registry'
 
 // The art of the presentation has ids; slides name them, or they are chosen from the words and places of the data.
-test('the catalogue has 24 pictograms and 32 flags, each id once', () => {
-  assert.equal(ART.filter((a) => a.kind === 'pictogram').length, 24)
+test('the catalogue has 25 pictograms, 32 flags, 27 country outlines and 3 backgrounds, each id once', () => {
+  assert.equal(ART.filter((a) => a.kind === 'pictogram').length, 25)
   assert.equal(ART.filter((a) => a.kind === 'flag').length, 32)
+  assert.equal(ART.filter((a) => a.kind === 'shape').length, 27)
+  assert.equal(ART.filter((a) => a.kind === 'background').length, 3)
   assert.equal(new Set(ART.map((a) => a.id)).size, ART.length)
   assert.equal(artCatalog().length, ART.length)
   assert.match(artPrompt(), /wind-turbine: Wind turbine/)
@@ -14,6 +16,7 @@ test('the catalogue has 24 pictograms and 32 flags, each id once', () => {
 test('a pictogram is chosen from what a figure measures, in English, German and French', () => {
   assert.equal(matchArt('Wind and solar capacity'), 'wind-turbine')
   assert.equal(matchArt('Solar share'), 'solar-panel')
+  assert.equal(matchArt('Overall share'), 'leaf')
   assert.equal(matchArt('Erneuerbarer Strom'), 'pylon')
   assert.equal(matchArt('Electricity'), 'pylon')
   assert.equal(matchArt('Heating and cooling'), 'heat-pump')

@@ -210,6 +210,12 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
   const others = new Map<string, WidgetSpec[]>()
   for (const w of other.widgets) if (!w.cmp && w.type !== 'kpis') others.set(w.type, [...(others.get(w.type) ?? []), w])
   const widgets = spec.widgets.map((w) => {
+    // The key figures of a comparison carry the other place's figure too.
+    if (w.type === 'kpis' && (spec.plan.renewables?.compare || spec.plan.reporting?.compare)) {
+      const twinKpis = other.widgets.find((x) => x.type === 'kpis')
+      if (!twinKpis || twinKpis.type !== 'kpis') return w
+      return { ...w, items: w.items.map((k) => { const t = twinKpis.items.find((x) => x.label === k.label); return t ? { ...k, versus: { name: otherName, value: t.value } } : k }) }
+    }
     if (w.cmp || w.type === 'kpis') return w
     const k = seen.get(w.type) ?? 0
     seen.set(w.type, k + 1)

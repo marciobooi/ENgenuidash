@@ -162,3 +162,15 @@
     border-top: 1px solid var(--ecl-color-dark-10);
   }
 }
+
+.kpi__versus {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--ecl-color-dark-80);
+  font-variant-numeric: tabular-nums;
+}
+.kpi__versus-name {
+  font-weight: 400;
+  font-size: 0.8125rem;
+}

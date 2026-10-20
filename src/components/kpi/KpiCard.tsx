@@ -27,6 +27,8 @@ export interface KpiCardProps {
   trend?: (number | null)[]
   /** BCP 47 locale for number formatting. */
   locale?: string
+  /** The same figure for the place this one is compared with. */
+  versus?: { name: string; value: number }
   /** 'big': a large number and its change, without a card (a strip of headline figures). */
   variant?: 'cards' | 'big'
 }
@@ -47,6 +49,7 @@ export function KpiCard({
   trend,
   locale = 'en',
   variant = 'cards',
+  versus,
 }: KpiCardProps) {
   const fmt = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
   const fmtDelta = new Intl.NumberFormat(locale, {
@@ -65,7 +68,7 @@ export function KpiCard({
     delta !== undefined ? `${fmtDelta.format(delta)}${deltaUnit === '%' ? '' : ' '}${deltaUnit}`.trim() : ''
 
   return (
-    <article className={`kpi${variant === 'big' ? ' kpi--big' : ''}`} aria-label={[label, valueText, deltaText && `${deltaText} ${deltaLabel ?? ''}`].filter(Boolean).join(', ')}>
+    <article className={`kpi${variant === 'big' ? ' kpi--big' : ''}`} aria-label={[label, valueText, versus && `${versus.name}: ${fmt.format(versus.value)}${unit ? ` ${unit}` : ''}`, deltaText && `${deltaText} ${deltaLabel ?? ''}`].filter(Boolean).join(', ')}>
       <header className="kpi__head">
         {Icon && (
           <span className="kpi__icon">
@@ -78,6 +81,12 @@ export function KpiCard({
         {fmt.format(value)}
         {unit && <span className="kpi__unit">{unit}</span>}
       </p>
+      {versus && (
+        <p className="kpi__versus" aria-hidden="true">
+          <span className="kpi__versus-name">{versus.name}</span> {fmt.format(versus.value)}
+          {unit && <span className="kpi__unit">{unit}</span>}
+        </p>
+      )}
       {trend && trend.filter((v) => v != null).length > 2 && <Sparkline values={trend} />}
       {(delta !== undefined || caption) && (
         <p className="kpi__foot" aria-hidden="true">

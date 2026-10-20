@@ -416,6 +416,8 @@ export interface KpiSpec {
   decimals?: number
   /** Values over time for a sparkline in the card. */
   trend?: (number | null)[]
+  /** The same figure for the place this one is compared with ("France 22.4 %"). */
+  versus?: { name: string; value: number }
 }
 
 import type { InsightItem, InsightPart } from '../components/insights'

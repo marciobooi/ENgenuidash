@@ -211,7 +211,7 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
   for (const w of other.widgets) if (!w.cmp && w.type !== 'kpis') others.set(w.type, [...(others.get(w.type) ?? []), w])
   const widgets = spec.widgets.map((w) => {
     // The key figures of a comparison carry the other place's figure too.
-    if (w.type === 'kpis' && (spec.plan.renewables?.compare || spec.plan.reporting?.compare)) {
+    if (w.type === 'kpis' && (spec.plan?.renewables?.compare || spec.plan?.reporting?.compare)) {
       const twinKpis = other.widgets.find((x) => x.type === 'kpis')
       if (!twinKpis || twinKpis.type !== 'kpis') return w
       return { ...w, items: w.items.map((k) => { const t = twinKpis.items.find((x) => x.label === k.label); return t ? { ...k, versus: { name: otherName, value: t.value } } : k }) }
@@ -227,7 +227,7 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
     const twin = others.get(w.type)?.[k]
     if (!twin || twin.role !== w.role || onPage.has(JSON.stringify({ ...twin, alt: undefined }))) return w
     // A line chart of a comparison on the renewables and progress dashboards shows both places at once, not one with a toggle.
-    if ((w.type === 'line' || w.type === 'area') && twin.type === w.type && (spec.plan.renewables?.compare || spec.plan.reporting?.compare)) {
+    if ((w.type === 'line' || w.type === 'area') && twin.type === w.type && (spec.plan?.renewables?.compare || spec.plan?.reporting?.compare)) {
       const cats = [...new Set([...w.categories, ...twin.categories])].sort()
       const column = (x: typeof w, series: (typeof w)['series'][number], who: string) => ({ name: `${series.name} (${who})`, data: cats.map((c) => (x.categories.includes(c) ? (series.data[x.categories.indexOf(c)] ?? null) : null)) })
       return { ...w, subtitle: w.subtitle ? w.subtitle.replace(mainName, `${mainName} / ${otherName}`) : w.subtitle, categories: cats, series: [...w.series.map((x) => column(w, x, mainName)), ...twin.series.map((x) => column(twin, x, otherName))], cmp: true as const }

@@ -114,7 +114,7 @@ export const flagsOf = (geos: (string | string[] | undefined)[]): string[] => [.
 /** One piece of art by id: a pictogram in its box, a flag in its frame. Unknown ids draw nothing. */
 export function Art({ id, className, label }: { id: string; className?: string; label?: string }): ReactNode {
   if (id.startsWith('shape-')) return <CountryShape code={id.slice(6)} className={className} label={label} />
-  if (SCENES[id]) return <span className={className ?? 'art-scene'} role="img" aria-label={label ?? ART.find((a) => a.id === id)?.label} dangerouslySetInnerHTML={{ __html: SCENES[id].replace('<svg ', '<svg preserveAspectRatio="xMidYMid slice" ') }} />
+  if (SCENES[id]) return <span className={className ?? 'art-scene'} role="img" aria-label={label ?? ART.find((a) => a.id === id)?.label} dangerouslySetInnerHTML={{ __html: SCENES[id].replace('<svg ', '<svg preserveAspectRatio="xMaxYMax meet" ') }} />
   if (id === 'bg-ribbon') return <img className={className ?? 'art-bg'} src={ribbon} alt="" />
   if (BACKGROUNDS[id]) return <span className={className ?? 'art-bg'}>{BACKGROUNDS[id]()}</span>
   if (id.startsWith('flag-')) {

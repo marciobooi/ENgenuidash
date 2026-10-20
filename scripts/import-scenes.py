@@ -3,7 +3,7 @@
 
   python3 scripts/import-scenes.py <folder>
 
-Each scene is decoded, its labels removed (the title badge and the text on it: the presentation writes its own words, in
+Each scene is decoded, its backdrop (pale page, sky) removed so the scene's objects and ground sit on any slide, its labels removed (the title badge and the text on it: the presentation writes its own words, in
 the reader's language), its ids made unique (several scenes can be on one page) and its comments dropped. The output is a
 TypeScript module of SVG strings keyed by the id the art catalogue uses ("scene-wind-farm").
 """
@@ -21,6 +21,12 @@ NAMES = {
     'oil_pumps_scene': 'scene-oil-pumps',
 }
 
+def strip_background(svg: str) -> str:
+    """Removes the full-bleed backdrops (the pale page and the sky) so a scene's objects and ground can sit on any slide."""
+    svg = re.sub(r'<rect width="800" height="600" fill="#F4F7FC"\s*/>', '', svg)
+    svg = re.sub(r'<rect width="800" height="\d+" fill="url\(#[^)]*[sS]ky[^)]*\)"\s*/>', '', svg)
+    return svg
+
 def clean(svg: str, sid: str) -> str:
     # the title badge (rect, text, dot) and the other labels that carry words
     svg = re.sub(r'<!--\s*Title Badge[^>]*-->\s*<rect[^>]*/>\s*<text[\s\S]*?</text>\s*<circle[^>]*/>', '', svg)
@@ -29,6 +35,7 @@ def clean(svg: str, sid: str) -> str:
     svg = re.sub(r'<g transform="translate\((?:100, 490|60, 480)\)">[\s\S]*?</g>', '', svg)
     svg = re.sub(r'<text[\s\S]*?</text>', '', svg)
     svg = re.sub(r'<!--[\s\S]*?-->', '', svg)
+    svg = strip_background(svg)
     # ids unique per scene
     ids = re.findall(r'\bid="([^"]+)"', svg)
     for i in ids:

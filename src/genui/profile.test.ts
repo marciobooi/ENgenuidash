@@ -133,3 +133,23 @@ test('the households profile is asked for however households is written', async 
     assert.equal(profilePlan(` energy profile of ${w} in germany `, dict, codelists)?.profile?.focus, 'households', w)
   }
 })
+
+test('a profile carries the renewable shares: over time by use, and the gauge against the national contribution', async () => {
+  const { profilePlan } = await import('./profile')
+  const de = await buildDashboard(profilePlan(' energy profile of germany ', dict, codelists)!, dict, 'en', s)
+  const shares = de.widgets.find((w) => w.type === 'line' && /Renewable share over time/.test(w.title))
+  assert.ok(shares && shares.type === 'line' && shares.series.length >= 2 && shares.categories.length > 2)
+  const gauge = de.widgets.find((w) => w.type === 'gauge' && w.title === s.profile.gaugeRenewables)
+  assert.ok(gauge && gauge.type === 'gauge')
+  assert.equal(gauge.targets?.[0].value, 41)
+  assert.match(gauge.subtitle ?? '', /National contribution.*41\.0 %.*2020 binding target: 18\.0 %/)
+  const eu = await buildDashboard(profilePlan(' energy profile of the eu ', dict, codelists)!, dict, 'en', s)
+  const euGauge = eu.widgets.find((w) => w.type === 'gauge' && w.title === s.profile.gaugeRenewables)
+  assert.ok(euGauge && euGauge.type === 'gauge')
+  assert.equal(euGauge.targets?.[0].value, 42.5)
+  assert.doesNotMatch(euGauge.subtitle ?? '', /National contribution|binding target/)
+  // (the German and French wording carries the same figures)
+  const fr = dashStrings(STRINGS.fr).profile
+  assert.match(fr.gaugeRenewablesNational, /\{national\}.*\{target\}/)
+  assert.match(STRINGS.de.profile.renewables2020, /\{target\}/)
+})

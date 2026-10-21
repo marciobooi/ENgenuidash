@@ -1,6 +1,7 @@
 import { fetchEurostatData, type EnergyCodelists, type EnergyDictionary, type EurostatResult } from '../data/eurostat'
 import type { Strings } from '../i18n'
 import { NoDataError } from './execute'
+import { NATIONAL_RES_2030, RES_2020_TARGET } from './nationalTargets'
 import { pricesPlanFor } from './prices'
 import { mentionsHouseholds } from './sankey/sankeyDashboard'
 import { detectGeos, detectTime, parse } from './planner/parse'
@@ -316,7 +317,7 @@ export async function buildProfileDashboard(
   const more = perCapita || focus
     ? []
     : await Promise.all([
-        ask('nrg_ind_ren', { nrg_bal: RENEWABLE_USES, unit: 'PC' }, window(4)),
+        ask('nrg_ind_ren', { nrg_bal: RENEWABLE_USES, unit: 'PC' }, window(20)),
         ask('nrg_ind_id', { siec: DEPENDENCY_FUELS, unit: 'PC' }, window(4)),
         ask('env_air_gge', { geo: [geo], src_crf: GHG_SECTORS, airpol: 'GHG', unit: 'THS_T' }, window(4)),
         ask('nrg_d_hhq', { geo: [geo], siec: 'TOTAL', nrg_bal: HOUSEHOLD_USES, unit: 'TJ' }, window(4)),
@@ -470,15 +471,19 @@ export async function buildProfileDashboard(
   if (!perCapita && !focus) {
     const r = values.ren
     if (r) {
-      const gap = r.value - REN_TARGET
+      // A Member State is measured against its own contribution to the EU goal (its national plan), the EU against the goal itself.
+      const national = geo === EU ? undefined : NATIONAL_RES_2030[geo]
+      const goal = national?.value ?? REN_TARGET
+      const gap = r.value - goal
+      const binding2020 = geo === EU ? undefined : RES_2020_TARGET[geo]
       gauges.push({
         type: 'gauge',
         title: t.gaugeRenewables,
-        subtitle: `${fill(t.gaugeRenewablesNote, { target: nf(1).format(REN_TARGET), aim: nf(1).format(REN_AIM) })}. ${fill(gap < 0 ? t.pointsBelow : t.pointsAbove, { value: nf(1).format(Math.abs(gap)) })}`,
+        subtitle: `${national ? fill(t.gaugeRenewablesNational, { national: nf(1).format(national.value), target: nf(1).format(REN_TARGET) }) : fill(t.gaugeRenewablesNote, { target: nf(1).format(REN_TARGET), aim: nf(1).format(REN_AIM) })}. ${fill(gap < 0 ? t.pointsBelow : t.pointsAbove, { value: nf(1).format(Math.abs(gap)) })}${binding2020 ? `. ${fill(t.renewables2020, { target: nf(1).format(binding2020) })}` : ''}`,
         value: r.value,
         label: `${geoName}, ${r.year}`,
-        max: Math.max(50, Math.ceil((r.value + 1) / 10) * 10),
-        targets: [{ value: REN_TARGET, label: `${nf(1).format(REN_TARGET)}%` }, { value: REN_AIM, label: '' }],
+        max: Math.max(50, Math.ceil((Math.max(r.value, goal) + 1) / 10) * 10),
+        targets: national ? [{ value: national.value, label: `${nf(1).format(national.value)}%` }, { value: REN_TARGET, label: '' }] : [{ value: REN_TARGET, label: `${nf(1).format(REN_TARGET)}%` }, { value: REN_AIM, label: '' }],
         unit: '%',
         goal: 'reach',
         size: 'half',
@@ -532,6 +537,25 @@ export async function buildProfileDashboard(
         size: 'full',
         role: 'composition',
         source: { code: 'nrg_ind_peh', url: linkFor('nrg_ind_peh', lang) },
+      })
+    }
+  }
+
+  // The renewable shares over the years: overall and in electricity, heating and cooling, and transport (SHARES).
+  if (renewablesByUse) {
+    const years = [...new Set(renewablesByUse.observations.filter((o) => o.keys.geo === geo && o.value != null).map((o) => o.keys.time))].sort()
+    const codes = RENEWABLE_USES.filter((c) => renewablesByUse.observations.some((o) => o.keys.geo === geo && o.keys.nrg_bal === c && o.value != null))
+    if (years.length > 2 && codes.length > 1) {
+      generation.push({
+        type: 'line',
+        title: t.renewableSharesOverTime,
+        subtitle: `${geoName} · ${years[0]}–${years.at(-1)} · %`,
+        categories: years,
+        series: codes.map((c) => ({ name: labelOf(renewablesByUse, 'nrg_bal', c), data: years.map((y) => renewablesByUse.observations.find((o) => o.keys.geo === geo && o.keys.nrg_bal === c && o.keys.time === y)?.value ?? null) })),
+        unit: '%',
+        size: 'half',
+        role: 'evolution',
+        source: { code: 'nrg_ind_ren', url: linkFor('nrg_ind_ren', lang) },
       })
     }
   }

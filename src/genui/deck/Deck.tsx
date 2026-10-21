@@ -34,11 +34,14 @@ function Tile({ k, lang, names, flags }: { k: KpiSpec; lang: string; names?: [st
   const asRing = k.unit === '%' && k.value >= 0 && k.value <= 100
   const DeltaIcon = k.delta === undefined || k.delta === 0 ? ArrowRight : k.delta > 0 ? ArrowUpRight : ArrowDownRight
   const good = k.delta === undefined || k.goodDirection === 'neutral' || k.delta === 0 ? 'neutral' : (k.delta > 0) === (k.goodDirection !== 'down') ? 'good' : 'bad'
+  // (a long number is set smaller so it fits its panel, and its unit goes under it)
+  const digits = fmt.format(k.value).length
+  const size = digits <= 5 ? undefined : digits <= 7 ? '3.4rem' : '2.7rem'
   const value = (
-    <span className="tile__value">
+    <span className="tile__value" style={size && !asRing ? { fontSize: size } : undefined}>
       {fmt.format(k.value)}
-      {k.unit && <span className="tile__unit">{k.unit === '%' ? '' : k.unit}</span>}
       {k.unit === '%' && <span className="tile__unit">%</span>}
+      {k.unit && k.unit !== '%' && asRing && <span className="tile__unit">{k.unit}</span>}
     </span>
   )
   const top = Math.max(k.value, k.versus?.value ?? 0, 0.0001)
@@ -46,17 +49,18 @@ function Tile({ k, lang, names, flags }: { k: KpiSpec; lang: string; names?: [st
     <div className="tile">
       <p className="tile__head">{k.label}</p>
       <div className="tile__panel">
-        {art && (
-          <span className="tile__icon">
-            <Art id={art} />
-          </span>
-        )}
+        <span className="tile__icon" style={art ? undefined : { visibility: 'hidden' }}>
+          {art && <Art id={art} />}
+        </span>
         {asRing ? (
           <Ring value={k.value} max={100} size={190} stroke={18} label={`${k.label}: ${fmt.format(k.value)} %`}>
             {value}
           </Ring>
         ) : (
-          <div className="tile__big">{value}</div>
+          <div className="tile__big">
+            {value}
+            {k.unit && k.unit !== '%' && <span className="tile__unit2">{k.unit}</span>}
+          </div>
         )}
         {k.versus && (
           <div className="pair" aria-label={`${names?.[0] ?? ''} ${fmt.format(k.value)}, ${k.versus.name} ${fmt.format(k.versus.value)}`}>
@@ -132,7 +136,7 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
           )}
           {spec.reading && (
             <p className="deck__chips">
-              {spec.reading.parts.map((p) => (
+              {spec.reading.parts.filter((p) => p !== spec.subtitle && p.length <= 40).map((p) => (
                 <span key={p} className="deck__chip">
                   {p}
                 </span>

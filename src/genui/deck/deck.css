@@ -816,3 +816,20 @@
   background: #ffd617;
   color: #0b2a7a;
 }
+
+.tile__big {
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 190px;
+  text-align: center;
+}
+.tile__unit2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #ffd617;
+}
+.tile__big .tile__value {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}

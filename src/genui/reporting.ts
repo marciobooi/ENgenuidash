@@ -76,6 +76,8 @@ export function refineReporting(current: Plan, text: string, dict: EnergyDiction
   if (asked && 'off' in asked) return current.reporting.compare ? { ...current, reporting: { ...current.reporting, compare: undefined }, notes: [] } : null
   if (asked) return { ...current, reporting: { ...current.reporting, compare: asked.target }, notes: [] }
   const tab = tabOf(p.text) ?? reportingTabByWords(p.text, true) ?? SHORT.find(([, re]) => re.test(p.text))?.[0]
+  // "energy prices" / "electricity prices" name the price dashboards, not this one's small prices tab
+  if (tab === 'prices' && !tabOf(p.text) && /\b(energy|energie|energia|electricity|strom|gas|household)\s+(prices?|preise|prix)\b/.test(p.text)) return null
   const from = FROM_WORDS.find(([, re]) => re.test(p.text))?.[0]
   const rest = p.words.filter((w) => !/^(and|und|et|in|im|en|au|for|fur|pour|of|von|de|du|the|la|le|das|die|der|what|about|show|zeige|montre|now|jetzt|maintenant|energy|energie\w*|since|from|seit|depuis|year|only|nur|zeigen|anzeigen|afficher)$/.test(w) && !/^\d{4}$/.test(w))
   const known = rest.every((w) => SHORT.some(([, re]) => re.test(` ${w} `)) || detectGeos(parse(w), codelists).codes.length > 0 || detectGeos(parse(w), codelists).eu)

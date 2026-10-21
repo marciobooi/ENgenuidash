@@ -150,3 +150,20 @@ export function conceptAnswer(questions: string[], lang: Lang): ConceptAnswer | 
 }
 
 export const conceptCount = () => CONCEPTS.length
+
+export interface ConceptCard {
+  name: string
+  what?: string
+  why?: string
+  how?: string
+  data?: string
+  sources: { title: string; url: string }[]
+}
+
+/** The explanation texts of the concept a dashboard is about (its title, subtitle and source), in the language asked, as written in concepts.json. Null when none matches. */
+export function conceptCard(text: string, lang: Lang): ConceptCard | null {
+  const c = findConcept(text)
+  if (!c) return null
+  const t = (x?: Texts) => (x ? (x[lang] ?? x.en) : undefined)
+  return { name: c.name[lang] ?? c.name.en, what: t(c.what), why: t(c.why), how: t(c.how), data: t(c.data), sources: c.sources }
+}

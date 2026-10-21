@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from 'react'
 import estatLogo from '../../assets/estat-logo-horizontal.svg'
 import type { DashboardSpec, KpiSpec, WidgetSpec } from '../types'
 import { Art, flagsOf, knownArt, matchArt } from './art/registry'
+import { dataSentences, explainLabel, howToRead, topicCard } from './explain'
 import { Highlight } from './Highlight'
 import { BigSpark, Ring, StarRing } from './Svg'
 import './deck.css'
@@ -161,6 +162,47 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
       ),
     })
   }
+  const topic = topicCard(spec, lang)
+  if (topic) {
+    slides.push({
+      key: 'topic',
+      kind: 'about',
+      node: (
+        <>
+          <h2 className="deck__heading">{topic.card.name}</h2>
+          <div className="deck__explain">
+            {topic.blocks.map((b) => (
+              <section key={b.label} className="deck__ex">
+                <h3>{b.label}</h3>
+                <p>{b.text}</p>
+              </section>
+            ))}
+          </div>
+        </>
+      ),
+    })
+  }
+  const sentences = dataSentences(spec, lang)
+  if (sentences.length) {
+    slides.push({
+      key: 'story',
+      kind: 'insights',
+      node: (
+        <>
+          <h2 className="deck__heading">{explainLabel('story', lang)}</h2>
+          <div className="icards">
+            {sentences.map((t) => (
+              <div key={t} className="icard icard--neutral">
+                <p>
+                  <Highlight text={t} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      ),
+    })
+  }
   if (kpis?.type === 'kpis' && kpis.items.length) {
     for (let i = 0; i < kpis.items.length; i += 4) {
       slides.push({
@@ -210,7 +252,17 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
         ),
       })
     } else {
-      slides.push({ key: `chart-${i}`, kind: 'chart', node: <div className="deck__chart">{renderChart(w)}</div> })
+      const how = howToRead(w, lang)
+      slides.push({
+        key: `chart-${i}`,
+        kind: 'chart',
+        node: (
+          <>
+            <div className="deck__chart">{renderChart(w)}</div>
+            {how && <p className="deck__how">{how}</p>}
+          </>
+        ),
+      })
     }
   })
   if (spec.insights.length) {

@@ -833,3 +833,34 @@
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+
+/* Explanations: the topic's own texts, and a line on how to read each chart. */
+.deck__explain {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1.25rem;
+  text-align: left;
+  max-width: 78rem;
+}
+.deck__ex {
+  background: rgb(255 255 255 / 0.1);
+  border-left: 6px solid #ffd617;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+.deck__ex h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  color: #ffd617;
+}
+.deck__ex p {
+  margin: 0;
+  font-size: clamp(1rem, 1.5vw, 1.35rem);
+  line-height: 1.5;
+}
+.deck__how {
+  margin: 0.6rem 0 0;
+  font-size: 0.95rem;
+  opacity: 0.85;
+  text-align: center;
+}

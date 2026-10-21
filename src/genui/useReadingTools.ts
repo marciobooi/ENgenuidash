@@ -28,7 +28,9 @@ const write = (key: string, value: string) => {
  */
 export function useReadingTools(spec: DashboardSpec) {
   const [level, setLevelState] = useState<'plain' | 'details'>(() => (read(LEVEL_KEY) === 'plain' ? 'plain' : 'details'))
-  const [present, setPresent] = useState(false)
+  // (a link with ?present opens the presentation, ?slide=3 at its fourth slide: for sharing, and for checking the slides)
+  const params = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
+  const [present, setPresent] = useState(() => params.has('present'))
   const updated = spec.about?.updated
   const [badgeDate] = useState<string | null>(() => {
     if (!updated) return null
@@ -69,7 +71,7 @@ export function useReadingTools(spec: DashboardSpec) {
     setLevelState(next)
     write(LEVEL_KEY, next)
   }
-  const [slide, setSlide] = useState(0)
+  const [slide, setSlide] = useState(() => Math.max(0, Number(params.get('slide')) || 0))
   const togglePresent = () => {
     if (present) {
       setPresent(false)

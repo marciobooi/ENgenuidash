@@ -101,7 +101,7 @@ export function Dashboard({
 
   const suffixFor = (unit: string | undefined) => (unit ? (unit === '%' ? '%' : ` ${unit}`) : '')
 
-  const renderChart = (w: WidgetSpec, titleExtra?: ReactNode) => {
+  const renderChart = (w: WidgetSpec, titleExtra?: ReactNode, tall?: number) => {
     const unit = 'unit' in w && w.unit ? w.unit : spec.unit
     const common = {
       title: 'title' in w ? w.title : '',
@@ -119,6 +119,8 @@ export function Dashboard({
       lang,
       decimals: w.type === 'bar' && w.decimals != null ? w.decimals : decimals,
       valueSuffix: suffixFor(unit),
+      // (a presentation draws the charts taller)
+      ...(tall ? { height: tall } : {}),
     }
     switch (w.type) {
       case 'line':
@@ -146,7 +148,7 @@ export function Dashboard({
             showValues={w.series.length === 1 && w.categories.length <= (isCrowdedBar(w) ? 24 : 30)}
             reference={w.reference}
             signed={w.signed}
-            height={w.horizontal && !isCrowdedBar(w) ? Math.max(260, w.categories.length * 28 + 90) : isCrowdedBar(w) ? 380 : 320}
+            height={tall ?? (w.horizontal && !isCrowdedBar(w) ? Math.max(260, w.categories.length * 28 + 90) : isCrowdedBar(w) ? 380 : 320)}
           />
         )
       case 'pie':
@@ -405,7 +407,7 @@ export function Dashboard({
             keyLabel={labels.keyIndicators}
             insightsLabel={labels.keyInsights}
             sourceLabel={labels.source}
-            renderChart={(w) => renderChart({ ...w, alt: undefined } as WidgetSpec)}
+            renderChart={(w) => renderChart({ ...w, alt: undefined } as WidgetSpec, undefined, Math.max(380, Math.round(window.innerHeight * 0.56)))}
             charts={charts}
           />,
           document.body,

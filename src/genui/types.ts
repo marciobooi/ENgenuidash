@@ -467,7 +467,7 @@ export interface DashboardSpec {
   /** How the question was read: the view, places, comparison and period, as short phrases (see aboutData.ts). */
   /** Ids of the art of a presentation's title slide (pictograms, flags), set by the builder or chosen by a model; when absent, chosen from the data. */
   art?: string[]
-  reading?: { label: string; parts: string[]; tools: { level: string; plain: string; details: string; present: string; exit: string; print: string; updated: string } }
+  reading?: { label: string; parts: string[]; tools: { level: string; plain: string; details: string; present: string; exit: string; print: string; updated: string; target: string } }
   /** What the data is, and the values behind the charts as a CSV file. */
   about?: { title: string; /** The dataset's last update in Eurostat's catalogue, to tell a returning reader what is new. */ updated?: { code: string; date: string }; rows: { label: string; value: string }[]; download: { label: string; filename: string; csv: string } }
   /** The two places (or years) of a comparison, for the toggle of the charts: [shown, other]. */

@@ -1,7 +1,6 @@
-import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, X } from 'lucide-react'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Minus, Sparkles, TrendingDown, TrendingUp, Trophy, X } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 import estatLogo from '../../assets/estat-logo-horizontal.svg'
-import { InsightsPanel } from '../../components/insights'
 import type { DashboardSpec, KpiSpec, WidgetSpec } from '../types'
 import { Art, flagsOf, knownArt, matchArt } from './art/registry'
 import { Highlight } from './Highlight'
@@ -114,13 +113,17 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
           </p>
           <h2>{spec.title}</h2>
           {spec.subtitle && <p className="deck__subtitle">{spec.subtitle}</p>}
-          {(titleArt.length > 0 || places.length > 0) && (
+          {titleArt.length > 0 && (
             <div className="deck__art">
               {titleArt.map((id) => (
                 <span key={id} className="deck__pict">
                   <Art id={id} />
                 </span>
               ))}
+            </div>
+          )}
+          {places.length > 0 && (
+            <div className="deck__places">
               {places.map((id) => (
                 <Art key={id} id={id} className="art-flag art-flag--big" />
               ))}
@@ -190,7 +193,7 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
                 </li>
                 {w.targets.map((t) => (
                   <li key={`${t.value}-${t.label}`}>
-                    <span className="dot dot--target" /> {t.label || fmt.format(t.value)} {w.unit ?? ''}
+                    <span className="dot dot--target" /> {spec.reading?.tools.target}: {fmt.format(t.value)}{w.unit ? ` ${w.unit}` : ''}
                   </li>
                 ))}
               </ul>
@@ -213,8 +216,21 @@ export function Deck({ spec, lang, slide, setSlide, onKey, onClose, exitLabel, k
       node: (
         <>
           <h2 className="deck__heading">{insightsLabel}</h2>
-          <div className="deck__insights">
-            <InsightsPanel title={insightsLabel} items={spec.insights} />
+          <div className="icards">
+            {spec.insights.map((item, i) => {
+              const Icon = item.tone === 'up' ? TrendingUp : item.tone === 'down' ? TrendingDown : item.tone === 'record' ? Trophy : Minus
+              const text = item.parts.map((p) => (typeof p === 'string' ? p : p.strong)).join('')
+              return (
+                <div key={i} className={`icard icard--${item.tone}`}>
+                  <span className="icard__icon">
+                    <Icon size={30} aria-hidden="true" />
+                  </span>
+                  <p>
+                    <Highlight text={text} />
+                  </p>
+                </div>
+              )
+            })}
           </div>
         </>
       ),

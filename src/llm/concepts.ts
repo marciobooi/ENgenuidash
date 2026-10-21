@@ -46,7 +46,7 @@ export function glossaryDashboards(term: string, lang: Lang): string[] {
 
 const clean = (s: string) => ` ${normalize(s).replace(/[’']/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()} `
 
-const WHAT = /^(what is|what are|what s|whats|what does \S+( \S+)? mean|define|definition of|meaning of|explain|tell me about|was ist|was sind|was bedeutet|erklar\w*|qu est ce|c est quoi|explique\w*|definis\w*|que signifie|que veut dire)\b/
+const WHAT = /^(what means|what is|what are|what s|whats|what does \S+( \S+)? mean|define|definition of|meaning of|explain|tell me about|was ist|was sind|was bedeutet|erklar\w*|qu est ce|c est quoi|explique\w*|definis\w*|que signifie|que veut dire)\b/
 /** Polite and roundabout ways of asking what something is, reduced to "what is X": "can you explain what biogas is", "I'd like to understand energy poverty", "hydropower meaning". */
 function plainWhat(t: string): string {
   return t

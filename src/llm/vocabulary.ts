@@ -29,7 +29,7 @@ const QUESTION_WORDS = new Set(
     'exclude excluded country countries member state states region regions europe european union world global breakdown ' +
     'split mix composition source sources come comes coming happen happened happening full history historical ever ' +
     'available availability typical standard normal good bad best worst big small large share percentage percent part ' +
-    'parts type types kind kinds category categories sector sectors use used using help does did done make made produce ' +
+    'parts type types kind kinds category categories sector sectors use used using help does did done make made produce hold holds held holding bestandteile bestandteil buy buys bought sell sells sold get gets towards toward exactly ' +
     'produced much more less fewer about there here this that these those their them they its were been being have has ' +
     'had would could should will can may might must shall add remove instead without with only except versus vs'
   )
@@ -85,7 +85,9 @@ const APP_WORDS = new Set(
     'dashboard dashboards dash chart charts graph graphs countries country ' +
     // Core energy words (the planner knows them as stems)
     'energy electricity renewable renewables dependency consumption production emissions efficiency poverty ' +
-    'imports exports prices households industry transport nuclear petroleum natural'
+    'imports exports prices households industry transport nuclear petroleum natural ' +
+    // The words that open the custom dashboards
+    'flow flows balance balances security profile sankey diagram partner partners monthly dependence shares capacity supply generation stocks trade overview scorecard'
   ).split(' '),
 )
 
@@ -197,12 +199,14 @@ export function buildVocabulary(
     },
     correct(word, knowledgeDocFreq) {
       const w = normalize(word)
-      if (w.length < 5 || /\d/.test(w)) return null
+      if (w.length < 4 || /\d/.test(w)) return null
       // Only to words the planner understands (energy terms, places, dashboard words), never to
       // any word of Eurostat's titles: "noise" is a word of its own, not a slip of a title word.
       void knowledgeDocFreq
       // Whole known words first ("electrcity" → "electricity"), then words a planner stem starts.
       const candidates = slips(w)
+      // (four-letter words only to the app's own words: "flwo" is "flow", "nice" is not "rice")
+      if (w.length < 5) return candidates.find((s) => APP_WORDS.has(s) && s.length === w.length) ?? null
       return (
         candidates.find((s) => plannerWords.has(s) || placeWords.has(s) || APP_WORDS.has(s)) ??
         candidates.find((s) => stems.some((st) => s.startsWith(st))) ??

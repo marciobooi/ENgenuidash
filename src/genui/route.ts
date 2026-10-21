@@ -5,6 +5,7 @@ import { isExplainRequest } from './actions'
 import { alsoOf } from './alsoOffer'
 import { COMPARE, yearsBack } from './comparing'
 import { planQuestion, refinePlan } from './planner'
+import { detectGeos, parse } from './planner/parse'
 import { prepareQuestion } from './prepare'
 import { presetPlan } from './presets'
 import { balancePlan, refineBalance } from './balance'
@@ -88,6 +89,8 @@ function routeCore(typed: string, ctx: RouteContext): Route {
   if (current && isExplainRequest(text)) return { kind: 'explain' }
   const q = normalize(text).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
   if (current && BACK.test(q)) return { kind: 'back' }
+  // "How do I read the energy flow diagram?": a question about the view, answered in the chat, not a request to open it.
+  if (!current && /^(how (do|can|should|would) (i|we|you) (read|interpret|understand)|how to (read|interpret|understand)) /.test(q)) return { kind: 'answer', conceptual: true, smallTalk: false }
   // "Compare with last year": the energy flow diagram and the balance sheet set it against earlier years; the other dashboards already
   // show the change on the year before (the arrows of the key figures), which is what the explanation of the figures reports.
   if (current && !current.sankey && !current.balance && COMPARE.test(q) && yearsBack(q)) return { kind: 'explain' }
@@ -162,6 +165,11 @@ function routeCore(typed: string, ctx: RouteContext): Route {
 
   // Off-topic questions never reach the model or the planner. A dashboard change such as
   // "show as bar chart" has no energy word but is fine when every word is understood.
+  // "monthly data" with no topic ("show monthly data for Spain"): which of the monthly series.
+  if (verdict === 'off-topic' && !refined && dict && codelists && /\b(monthly|monatliche\w*|monatsdaten|mensuel\w*|mensuelles)\b/.test(q) && (/\bmonatsdaten\b/.test(q) || /\b(data|statistics|figures|numbers|daten|donnees|statistiken)\b/.test(q))) {
+    const code = detectGeos(parse(text), codelists).codes[0]
+    return { kind: 'clarify', clarification: { question: 'whichMonthly', options: [], place: code ? codelists.codelists.GEO?.codes[code]?.en : undefined } }
+  }
   if (verdict === 'off-topic' && !refined) return { kind: 'off-topic', tryActions: !!current && unknown.length === 0 }
 
   // Energy words, but asking about something unknown ("colour of natural gas") → rephrase.

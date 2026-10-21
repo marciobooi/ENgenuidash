@@ -124,7 +124,7 @@ export function hasEnergySignal(text: string, lexicon?: EnergyLexicon): boolean 
 // Tasks outside the tool's purpose, blocked even when they mention energy ("a poem about oil"):
 // ENgenuidash answers questions about energy statistics, it does not write creative or other content.
 const OUT_OF_SCOPE_TASK =
-  /\b(poem|poems|poetry|haiku|limerick|sonnet|rhymes?|short story|bedtime story|fairy tale|novel|jokes?|pun|riddle|songs?|lyrics|rap|essay|love letter|cover letter|tweet|slogan|recipe|write (a |some )?(code|program|script)|\w* ?script|python|javascript|sql query|translate|translation|horoscope|gedichte?|reim|erzahl (mir )?eine geschichte|marchen|witze?|lied|songtext|aufsatz|rezept|ubersetze|ubersetzung|poemes?|poesie|raconte (moi )?une histoire|conte|blagues?|chanson|paroles|dissertation|recette|traduis|traduction)\b/
+  /\b(buy|sell|invest\w*|trade|trading)\b.{0,30}\b(shares|stocks?|etfs?|funds?|bitcoin|crypto\w*)\b|\b(shares|stocks?|etfs?)\b.{0,30}\b(buy|sell|invest\w*)\b|\b(poem|poems|poetry|haiku|limerick|sonnet|rhymes?|short story|bedtime story|fairy tale|novel|jokes?|pun|riddle|songs?|lyrics|rap|essay|love letter|cover letter|tweet|slogan|recipe|write (a |some )?(code|program|script)|\w* ?script|python|javascript|sql query|translate|translation|horoscope|gedichte?|reim|erzahl (mir )?eine geschichte|marchen|witze?|lied|songtext|aufsatz|rezept|ubersetze|ubersetzung|poemes?|poesie|raconte (moi )?une histoire|conte|blagues?|chanson|paroles|dissertation|recette|traduis|traduction)\b/
 
 // A follow-up may contain only places, years, numbers and these connecting/time words
 // ("and in Germany?", "what about 2020?", "only France", "since 2015", "und Österreich?").

@@ -243,7 +243,10 @@ export function withAlternates(spec: DashboardSpec, other: DashboardSpec, names?
 export async function buildDashboard(plan: Plan, dict: EnergyDictionary, lang: string, s: DashStrings, signal?: AbortSignal, chooseVariant?: ChooseVariant): Promise<DashboardSpec> {
   const built = await buildDashboardOne({ ...plan, also: undefined }, dict, lang, s, signal, chooseVariant)
   const geo = built.plan.filters.geo
-  const codes = (Array.isArray(geo) ? geo : geo ? [geo] : []).filter((c) => /^(EU27_2020|[A-Z]{2})$/.test(c))
+  const bp = built.plan
+  // (the place a dashboard is compared with is part of what was read, unless the spec already names the pair)
+  const versus = built.compareNames ? undefined : (bp.profile?.compare ?? bp.renewables?.compare ?? bp.reporting?.compare ?? bp.oil?.compare ?? bp.trade?.compare ?? bp.balance?.compare)
+  const codes = [...(Array.isArray(geo) ? geo : geo ? [geo] : []), ...(versus ? [versus] : [])].filter((c, i, all) => /^(EU27_2020|[A-Z]{2})$/.test(c) && all.indexOf(c) === i)
   const spec = withAbout(built, built.plan, dict, await Promise.all(codes.map((c) => placeName(dict, built.plan.dataset, c, lang))), lang, s.about)
   const other = plan.also
   if (!other) return spec

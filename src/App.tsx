@@ -40,6 +40,7 @@ import { useDashboards } from './app/useDashboards'
 import { useEnergyData } from './app/useEnergyData'
 import { WelcomePage, type Idea } from './app/WelcomePage'
 import { pickPresets, presetPlan, PRESETS, type PresetId } from './genui/presets'
+import { loadKnowledge } from './llm/knowledge'
 import { DownloadNotice } from './components/download-notice'
 import { notify, Toaster } from './components/toast'
 import { Dashboard } from './genui/Dashboard'
@@ -194,7 +195,8 @@ export default function App() {
     const link = readShareLink()
     const plan = link.plan ? decodePlan(link.plan, data.dict) : null
     if (plan) void dash.runPlan(plan, link.question ?? data.dict.datasets[plan.dataset]?.code ?? '')
-    else if (link.question) chat.send(link.question)
+    // (a link with only a question waits for the knowledge base: the word check needs it to read the question like a typed one)
+    else if (link.question) void loadKnowledge().catch(() => undefined).then(() => chat.send(link.question!))
   })
 
   // A starter question: the same plan as typing it (its focus included), else its preset.

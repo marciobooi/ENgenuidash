@@ -250,7 +250,8 @@ export function planQuestion(
   if (!dataset) return { kind: 'none' }
   const ds = dict.datasets[dataset]
   if (!ds) return { kind: 'none' }
-  const freq = freqOf(ds)
+  // (a curated route may pick the monthly series of a dataset that lists annual data first: crude oil prices)
+  const freq = typeof filters.freq === 'string' && ds.dimensions.find((d) => d.id === 'freq')?.codes.includes(filters.freq) ? filters.freq : freqOf(ds)
 
   // Unit: the one the question names, else the planner's choice, else the dictionary default.
   // Datasets with several units always get exactly one — never an invented one.
@@ -345,6 +346,7 @@ export function planQuestion(
   if (time.month && freq === 'M') {
     const { year, month } = time.month
     range = { kind: 'range', since: periodFor('M', year - 1, false, month), until: periodFor('M', year, true, month) }
+    focusPeriod = periodFor('M', year, true, month)
     intent = 'trend'
   } else if (time.range) {
     const perYear = freq === 'M' ? 12 : freq === 'S' ? 2 : freq === 'Q' ? 4 : 1

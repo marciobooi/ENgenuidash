@@ -44,7 +44,7 @@ export type Route =
   | { kind: 'clarify'; clarification: Clarification }
   | { kind: 'answer'; conceptual: boolean; smallTalk: boolean }
 
-const BACK = /^(go back|back|undo|previous|previous dashboard|zuruck|ruckgangig|vorheriges|retour|annuler|precedent)$/
+const BACK = /^(go back|back|undo|previous|previous dashboard|(the )?previous one|(the )?last one|back to the (previous|last) (one|dashboard)|go to the previous( one| dashboard)?|zuruck|ruckgangig|vorheriges|retour|annuler|precedent)$/
 const WHY = /\b(why|warum|wieso|weshalb|pourquoi)\b/
 // Words that point at the dashboard ("it", "this", "das", "ça"…).
 const REFERS = /\b(it|this|that|these|they|es|das|dies|sie|ca|cela|ce|il|elle|ils)\b/
@@ -96,6 +96,13 @@ function routeCore(typed: string, ctx: RouteContext): Route {
   if (current && !current.sankey && !current.balance && COMPARE.test(q) && yearsBack(q)) return { kind: 'explain' }
   // "Why did it rise in 2022?", "is that good?": about the figures on screen.
   if (current && ((WHY.test(q) && REFERS.test(q)) || JUDGE.test(q))) return { kind: 'explain' }
+
+  // A place Eurostat's energy data do not cover ("energy profile of the USA"), unless it is a trade partner ("LNG from the United States").
+  const outside = / (usa|us|u s|united states|america|china|japan|india|brazil|canada|australia|south korea|korea|mexico|south africa|argentina|indonesia|egypt|iran|israel|switzerland)( |$)/.exec(` ${q} `)
+  if (outside && codelists && !/ (from|imports?|imported|exports?|suppliers?|supplies|origin|partners?|russian|sanctions?|embargo|dependen\w*|dependent) /.test(` ${q} `)) {
+    const places = detectGeos(parse(text), codelists)
+    if (!places.codes.length && !places.eu) return { kind: 'rephrase', unknown: [outside[1]] }
+  }
 
   // Energy balance sheets (enbal): a new sheet, or another country, year, unit or fuels for the
   // one on screen. Before the unknown-word check: "Total - main fuel families" is enbal's wording.

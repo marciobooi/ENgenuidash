@@ -8,6 +8,7 @@ import { buildKnowledgeIndex } from '../llm/knowledge'
 import { buildVocabulary } from '../llm/vocabulary'
 import { prepareQuestion } from './prepare'
 import { routeMessage, type Route } from './route'
+import type { Plan } from './types'
 
 // Edge phrasings per dashboard: where each question must go. Custom dashboards (sankey, profile, balance, trade, prices, monthly,
 // renewables, reporting, oil), the general dashboard when none fits ("general"), a chat answer ("concept", "answer"), a question
@@ -971,12 +972,167 @@ const CASES: [string, string][] = [
   ["carbon intensity electricity germany", "general"],
   ["heat pumps germany", "general|concept|answer"],
   ["hydrogen eu", "general|concept|answer"],
+  ["um so like show me the energy flows for germany", "sankey"],
+  ["yo energy flow thing for france", "sankey"],
+  ["can u do the sankey for spain", "sankey"],
+  ["gimme the energy flow diagram of italy", "sankey"],
+  ["ok so energy flow diagram poland now", "sankey"],
+  ["so how is croatia doing energy wise", "profile"],
+  ["tell me everything about energy in slovenia", "profile"],
+  ["whats the energy situation in lithuania", "profile"],
+  ["energy overview latvia pls", "profile"],
+  ["estonia energy at a glance", "profile"],
+  ["who do the netherlands get their gas from", "trade"],
+  ["where does belgium get its gas", "trade"],
+  ["gas comes from where for austria", "trade"],
+  ["norway gas exports by partner", "trade"],
+  ["where does the eu import coal from", "trade"],
+  ["electricity generation last month germany", "monthly"],
+  ["latest month gas consumption france", "monthly"],
+  ["gas use last winter italy monthly", "monthly"],
+  ["electricity production this year by month spain", "monthly"],
+  ["pv capacity germany", "renewables"],
+  ["installed PV in spain", "renewables"],
+  ["RES share heating and cooling sweden dashboard", "renewables"],
+  ["RES-E dashboard denmark", "renewables"],
+  ["renewables in heat pumps sweden dashboard", "renewables"],
+  ["biofuels in transport renewable share germany dashboard", "renewables"],
+  ["how energy efficient is germany", "reporting"],
+  ["is france saving enough energy", "reporting"],
+  ["how secure is italy energy supply", "reporting"],
+  ["how energy poor is bulgaria", "reporting"],
+  ["how many people in greece cannot pay energy bills", "reporting"],
+  ["arrears on utility bills spain", "reporting"],
+  ["how much russian oil does slovakia use", "oil"],
+  ["oil dependence hungary russia", "oil"],
+  ["could the eu cope with an oil embargo", "oil"],
+  ["oil emergency stocks days netherlands", "oil"],
+  ["GHG emissions energy EU", "general"],
+  ["CHP electricity germany", "general"],
+  ["LNG imports spain", "general"],
+  ["EV electricity consumption transport eu", "general"],
+  ["GAE germany", "general"],
+  ["FEC eu 2023", "general"],
+  ["PEC eu 2023", "general"],
+  ["FEC vs 2030 target eu", "general|reporting"],
+  ["PEC target 2030 eu", "general|reporting"],
+  ["electricity consumption germany last decade", "general"],
+  ["gas consumption italy since covid", "general"],
+  ["coal production poland before the war", "general"],
+  ["oil consumption spain over the past 20 years", "general"],
+  ["nuclear electricity france since 2000", "general"],
+  ["renewable share eu between 2010 and 2020", "general"],
+  ["gas consumption germany since the war in ukraine", "monthly|general"],
+  ["energy norway", "general|profile"],
+  ["energy türkiye", "general|profile"],
+  ["energy profile norway", "profile"],
+  ["energy profile iceland", "profile"],
+  ["gas imports by partner norway", "trade"],
+  ["gas imports by partner ukraine", "trade"],
+  ["gas imports by partner turkiye", "trade"],
+  ["energy profile usa", "off-topic|answer|rephrase|general"],
+  ["electricity prices china", "off-topic|answer|rephrase|general"],
+  ["gas imports japan", "off-topic|answer|rephrase|general"],
+  ["bar chart of electricity consumption by country 2023", "general"],
+  ["map of renewable shares in europe", "general"],
+  ["line chart gas prices germany", "general"],
+  ["pie chart energy mix france", "general"],
+  ["table of oil consumption eu countries", "general"],
+  ["not the profile, just electricity consumption germany", "general"],
+  ["electricity consumption germany, not per capita", "general"],
+  ["what can you show me", "answer|off-topic|concept"],
+  ["what dashboards do you have", "answer|off-topic|concept"],
+  ["what data do you have on energy", "answer|off-topic|concept"],
+  ["help", "answer|off-topic|concept"],
+  ["gas", "general|balance"],
+  ["oil", "general|balance"],
+  ["coal", "general|balance"],
+  ["electricity", "general|balance"],
+  ["nuclear", "general|balance"],
+  ["energy germany", "profile|general"],
+  ["spain energy", "profile|general"],
+  ["prices", "clarify|general"],
+  ["renewables", "renewables|general"],
+  ["renewable energy", "renewables|general"],
+  ["poverty", "reporting|general"],
+  ["energy poverty", "reporting|general"],
+  ["efficiency", "reporting|general"],
+  ["energy efficiency", "reporting|general"],
+  ["sankey", "sankey"],
+  ["energy flows", "sankey"],
+  ["balance", "balance"],
+  ["energy balance", "balance"],
+  ["imports", "general|trade"],
+  ["energy imports", "general|trade"],
+  ["2023", "general|answer|off-topic"],
+  ["eu", "general|answer|off-topic"],
+  ["europe", "general|answer|off-topic"],
+  ["is spain more renewable than portugal", "general|renewables"],
+  ["renewable share spain vs portugal", "general|renewables"],
+  ["compare renewables germany france italy", "general|renewables"],
+  ["which eu country has the most solar", "general"],
+  ["who produces the most nuclear electricity in the eu", "general"],
+  ["top 5 gas importers in the eu", "general"],
+  ["lowest electricity prices in europe", "general"],
+  ["cheapest gas in the eu for households", "general"],
+  ["highest energy intensity in the eu", "general"],
+  ["rank eu countries by electricity consumption", "general"],
+  ["which country emits the most co2 from energy", "general"],
+  ["rank countries by energy poverty", "general|reporting"],
+  ["which country has the most energy poverty", "general|reporting"],
+  ["most energy dependent country in the eu", "general|reporting"],
+  ["which country has the highest renewable share", "general|renewables"],
+  ["eu countries ranked by renewable share", "general|renewables"],
+  ["energy flow diagram germany 2015", "sankey"],
+  ["sankey of france for 2010", "sankey"],
+  ["energy balance spain 2005", "balance"],
+  ["energy balance italy 1990", "balance"],
+  ["energy profile poland 2015", "profile"],
+  ["gas imports by partner germany 2015", "trade"],
+  ["where did italy import gas from in 2010", "trade"],
+  ["electricity generation germany january 2020", "monthly"],
+  ["gas consumption france december 2022", "monthly"],
+  ["how much renewable energy does germany produce", "general|renewables"],
+  ["how much wind power does denmark produce", "general|renewables"],
+  ["how much electricity does germany consume", "general"],
+  ["how much gas did italy use in 2022", "general"],
+  ["how much coal does poland produce", "general"],
+  ["how much oil does spain consume", "general"],
+  ["how much nuclear power does france generate", "general"],
+  ["how much gas does germany import from norway", "trade|general|oil"],
+  ["how much oil does italy import from russia", "trade|general|oil"],
+  ["how much energy does the eu import", "general|reporting"],
+  ["what share of energy does the eu import", "general|reporting"],
+  ["why is electricity so expensive in germany", "prices|general|answer"],
+  ["why are gas prices high in italy", "prices|general|answer"],
 ]
 
 test('edge phrasings reach the right dashboard, the general one, a definition or a question back', () => {
   const wrong = CASES.flatMap(([q, want]) => {
     const got = route(q)
     return want.split('|').includes(got) ? [] : [`${q} -> ${got} (want ${want})`]
+  })
+  assert.deepEqual(wrong, [])
+})
+
+// Follow-ups with a dashboard on screen: they change that dashboard (or explain it, or go back), whatever its kind.
+const FOLLOW_UPS = ['same for spain', 'what about italy', 'and in 2019', 'show me germany instead', 'switch to france', 'compare to the eu average', 'vs eu', 'only 2023', 'last 5 years', 'previous one', 'now show the map', 'as bar chart', 'can you compare it with poland', 'how about the netherlands?', 'and for the whole eu', 'do the same for 2018', 'France please', 'what does this mean', 'is this good or bad']
+const ON_SCREEN = ['energy flow diagram Germany', 'energy profile Italy', 'electricity price components France', 'gas imports by partner Germany', 'energy balance Spain', 'oil security Italy', 'renewable shares Poland', 'energy poverty Greece', 'monthly electricity generation Spain', 'electricity consumption Germany']
+
+test('follow-ups change the dashboard on screen, of every kind', () => {
+  const ask = (q: string, current: Plan | null, previous: string[]) => {
+    const text = prepareQuestion(q, { unknownWords, correct })
+    const verdict = scope.classify(text, previous)
+    return routeMessage(text, { current, dict, codelists, classify: () => verdict, unknownWords, correct, previous })
+  }
+  const wrong = ON_SCREEN.flatMap((first) => {
+    const shown = ask(first, null, [])
+    if (shown.kind !== 'plan') return [`${first} -> ${shown.kind}`]
+    const kind = kindOf(shown)
+    return FOLLOW_UPS.flatMap((f) => {
+      const r = ask(f, shown.plan, [first])
+      return (r.kind === 'refine' && kindOf(r) === kind) || r.kind === 'explain' || r.kind === 'back' ? [] : [`${first} + ${f} -> ${r.kind} ${kindOf(r)}`]
+    })
   })
   assert.deepEqual(wrong, [])
 })

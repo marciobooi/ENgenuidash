@@ -29,7 +29,7 @@ const QUESTION_WORDS = new Set(
     'exclude excluded country countries member state states region regions europe european union world global breakdown ' +
     'split mix composition source sources come comes coming happen happened happening full history historical ever ' +
     'available availability typical standard normal good bad best worst big small large share percentage percent part ' +
-    'parts type types kind kinds category categories sector sectors use used using help does did done make made produce hold holds held holding bestandteile bestandteil buy buys bought sell sells sold get gets towards toward exactly trace burn burns burned burnt last lasts profil profils ' +
+    'parts type types kind kinds category categories sector sectors use used using help does did done make made produce hold holds held holding bestandteile bestandteil buy buys bought sell sells sold get gets towards toward exactly trace burn burns burned burnt last lasts emit emits emitted emitting profil profils ' +
     'produced much more less fewer about there here this that these those their them they its were been being have has ' +
     'had would could should will can may might must shall add remove instead without with only except versus vs'
   )

@@ -60,8 +60,8 @@ const VERSUS = / (vs|versus|against|compared? (with|to)|comparison with|compare|
 export function profilePlan(text: string, dict: EnergyDictionary, codelists: EnergyCodelists): Plan | null {
   if (!dict.datasets[DATASET]) return null
   const p = parse(text.replace(/[-–,]/g, ' '))
-  if (DEFINITION.test(p.text)) return null
   const places = detectGeos(p, codelists)
+  if (DEFINITION.test(p.text) && !places.codes.length && !places.eu) return null
   const inList = places.codes.filter((c) => PROFILE_GEOS.includes(c))
   // "energy in Spain", "Greece's energy", "the energy of Sweden": a country and just "energy" is its profile.
   const bare = inList.length > 0 && barePlaceEnergy(p.words, codelists)

@@ -96,6 +96,8 @@ export function tradePlan(text: string, dict: EnergyDictionary, codelists: Energ
   // ("where does the energy come from and go" is the energy flow diagram)
   if (/ (come from and go|comes from and goes|come from and end up|from production to) /.test(p.text)) return null
   if (!byPartner && !PARTNERS.test(p.text) && !monthlyAsk) return null
+  // ("the top 5 gas importers in the EU" ranks the member states, it is not one country's partners)
+  if (/ importers (in|of) (the )?(eu|europe|european union) /.test(p.text)) return null
   // ("where does the electricity of Spain come from" is its mix, not a trade partner list)
   if (/ where .* (comes?|came) from /.test(p.text) && !/ (import|imports|export|exports|supplier|suppliers|partner|partners|origin) /.test(p.text) && !['gas', 'oil', 'coal'].includes(fuelOf(p) ?? '')) return null
   // ("exports of gas from Germany by partner": the only place named is the reporting country, not a partner)

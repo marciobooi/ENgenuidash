@@ -10,6 +10,31 @@ const RULES: [RegExp, string | ((...match: string[]) => string)][] = [
   [/\b(country )?energy (passports?|snapshots?|cards?|summary|summaries|picture|situation|landscape|portraits?|country reports?|reports?|in numbers|in figures|at a glance|state of play)\b/g, 'energy profile'],
   [/\b(country|national) (cards?|profiles?|passports?|snapshots?)\b/g, 'country profile'],
   [/\b(the )?(state|situation|picture) of (the )?energy\b/g, 'energy profile'],
+  // One word on its own: "prices", "balance", "imports".
+  [/^prices?$/g, 'energy prices'],
+  [/^balances?$/g, 'energy balance'],
+  [/^imports?$/g, 'energy imports'],
+  // Comparisons and rankings in words: "is Spain more renewable than Portugal", "rank countries by energy poverty".
+  [/\b(?:is|are|does) (\w+) (?:have )?(?:more|less) (?:renewables?|green)(?: energy)? than (\w+)\b/g, 'renewable share $1 vs $2'],
+  [/\b(?:rank\w*|compare|sort) (?:the )?(?:eu |european |member )?(?:countries|states|member states) by (.+)$/g, '$1 in all eu countries'],
+  [/\bwhich (?:eu |european |member )?(?:country|countries|state|member state) (?:has|have) the (?:most|highest|largest|biggest|lowest|least|smallest) (.+)$/g, '$1 in all eu countries'],
+  // Abbreviations: "PV", "RES", "GHG", "GAE", "FEC", "PEC", "CHP", "EVs".
+  [/\bpv\b/g, 'solar photovoltaic'],
+  [/\bres\b(?![- ]?[eth]\b)/g, 'renewable energy'],
+  [/\bghg\b/g, 'greenhouse gas'],
+  [/\bgae\b/g, 'gross available energy'],
+  [/\bfec\b/g, 'final energy consumption'],
+  [/\bpec\b/g, 'primary energy consumption'],
+  [/\bchp\b/g, 'combined heat and power'],
+  [/\bevs?\b/g, 'electric vehicles'],
+  // Periods in words: "last decade", "since covid", "before the war", "since the war in Ukraine".
+  [/\b(?:in |over )?the (?:last|past) decade\b|\blast decade\b/g, 'last 10 years'],
+  [/\bsince (?:the )?(?:covid|pandemic|corona\w*)(?:[- ]19)?\b/g, 'since 2020'],
+  [/\bsince the (?:war in ukraine|russian invasion|invasion of ukraine|war|energy crisis)\b/g, 'since 2022'],
+  [/\bbefore the (?:war in ukraine|russian invasion|invasion of ukraine|war|energy crisis)\b/g, 'until 2021'],
+  // "How energy poor is Bulgaria", "people who cannot pay their energy bills".
+  [/\b(?:how )?energy poor\b/g, 'energy poverty'],
+  [/\b(?:cannot|can not|can t|cant|unable to|struggl\w* to|could not|couldn t) (?:pay|afford) (?:their |the |for )?(?:energy |utility |electricity |heating |gas )?(?:bills?|prices)\b/g, 'energy poverty arrears on utility bills'],
   // "Polish electricity", "German households": the country named by its adjective.
   [/\b(polish|german|french|spanish|italian|portuguese|greek|swedish|dutch|belgian|austrian|danish|finnish|irish|hungarian|czech|slovak|romanian|bulgarian|croatian|slovenian|lithuanian|latvian|estonian|maltese|cypriot|luxembourgish) (electricity|energy|gas|natural gas|oil|coal|renewables?|households?|industry|grid|power|nuclear|economy)\b/g, (_m: string, adj: string, what: string) => `${what} of ${({ polish: 'poland', german: 'germany', french: 'france', spanish: 'spain', italian: 'italy', portuguese: 'portugal', greek: 'greece', swedish: 'sweden', dutch: 'netherlands', belgian: 'belgium', austrian: 'austria', danish: 'denmark', finnish: 'finland', irish: 'ireland', hungarian: 'hungary', czech: 'czechia', slovak: 'slovakia', romanian: 'romania', bulgarian: 'bulgaria', croatian: 'croatia', slovenian: 'slovenia', lithuanian: 'lithuania', latvian: 'latvia', estonian: 'estonia', maltese: 'malta', cypriot: 'cyprus', luxembourgish: 'luxembourg' } as Record<string, string>)[adj]}`],
   // "Russian gas imports", "Norwegian oil": the partner named by its adjective.

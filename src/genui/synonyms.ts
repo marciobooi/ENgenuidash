@@ -35,7 +35,7 @@ const RULES: [RegExp, string][] = [
   [/^(?:the )?transport renewables?$/g, 'renewables in transport'],
   // ("shares" alone, or "shares Poland": the SHARES renewables dashboard)
   [/^(?:the )?shares\b(?! (?:of|in|for|by|from|tool|database|data|methodology|dashboard|results|statistics|figures|numbers))/g, 'renewable energy dashboard'],
-  [/\b(?:installed|how much) (?:(?:solar|wind|hydro\w*|geothermal|biomass|ocean|tidal)(?: power| energy)?) (?:capacity|capacities|power)?(?: does \w+ have)?(?: installed)?\b/g, 'renewable capacity by technology'],
+  [/\b(?:installed|how much) (?:(?:solar|wind|hydro\w*|geothermal|biomass|ocean|tidal)(?: power| energy)?)(?: (?:capacity|capacities|power))?(?: does (\w+) have)?(?: installed)?\b/g, 'renewable capacity by technology $1'],
   [/\b(?:solar|wind|hydro\w*|hydroelectric|geothermal|tidal|ocean|renewable|green)(?: power| energy)? (?:capacity|capacities)\b/g, 'renewable capacity by technology'],
   [/\b(?:gigawatts?|gw|megawatts?|mw) of (?:solar|wind|hydro\w*|geothermal|renewable)(?: power| energy| capacity)?\b/g, 'renewable capacity by technology'],
   [/\b(?:installed|installierte\w*) (?:renewable |green )?(?:capacity|capacities|leistung)\b/g, 'renewable capacity by technology'],

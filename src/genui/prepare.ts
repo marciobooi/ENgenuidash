@@ -71,7 +71,43 @@ export function withoutLeadIns(q: string): string {
 // ---------- 2. other EU languages → English keywords ----------
 
 // Whole phrases first (before their words are translated one by one).
-const PHRASES: [RegExp, string][] = [
+const PHRASES: [RegExp, string | ((...match: string[]) => string)][] = [
+  // Definition and "why" questions: "qué es la energía solar", "cos è il biogas", "co to jest biogaz", "por qué es importante la eficiencia energética".
+  [/^(que es|que significa|que quer dizer|cos e|che cos e|cosa significa|o que e|co to jest|co znaczy|wat is|wat betekent)\s+(?:(?:la|el|lo|l|un|una|il|uno|o|a|um|uma|de|het|een|le)\s+)?/, 'what is '],
+  [/^(por que|porque|perche|dlaczego|waarom)\s+(?:es |e |sono |jest |is |sa |son )?(?:importante|importanti|wazn\w+|belangrijk\w*)\s+(?:(?:la|el|lo|l|las|los|le|i|gli|a|o|as|os|de|het)\s+)?(.+)$/, 'why is $2 important'],
+  // Energy flow diagram: "flusso di energia", "przepływ energii", "energiestroom".
+  [/\b(flusso|flussi|flujo|flujos|fluxo|fluxos|przeplyw|przeplywy|przeplywu) (de |di |del |do |da |of |van |w )?(energia|energii|energetyczny|energetici|energetico|energetica)\b/g, 'energy flow'],
+  [/\bflussi energetici\b/g, 'energy flows'],
+  [/\benergiestro(?:om|men)(?:diagram\w*)?\b/g, 'energy flow'],
+  // Profile and balance in Dutch and Portuguese: "energieprofiel", "perfil de energia", "energiebalans".
+  [/\b(perfil|profilo|profil) (de |di |del |dell |of )?(energia|energii)\b/g, 'energy profile'],
+  [/\benergie ?profiel\b/g, 'energy profile'],
+  [/\benergie ?balans(en)?\b/g, 'energy balance'],
+  // Trade: "de dónde importa España el gas", "da dove importa l'Italia il gas", "skąd Polska importuje gaz", "waar importeert Nederland gas vandaan".
+  [/\b(de donde|da dove|de onde|skad|waar)\b/g, 'where does'],
+  [/\b(gas|olie|aardolie|kolen|elektriciteit)leveranciers\b/g, '$1 suppliers'],
+  // Price components: "composición del precio de la electricidad", "składniki ceny energii elektrycznej", "samenstelling van de elektriciteitsprijs".
+  [/\b(componentes|componenti|skladniki|componenten|onderdelen|composicion|composizione|composicao|samenstelling|desglose|scomposizione|rozbicie|uitsplitsing|decomposicao)\b(?: (?:de|del|dello|della|di|do|da|van|dei|of|ceny|cen))*(?: (?:el|la|il|o|a|het|de|l)\b)* ?(?:precio|prezzo|preco|prijs|prices?|ceny|cen)s?\b(?: (?:de|della|del|do|da|van|dell|di))*(?: (?:la|el|l|a|o|il)\b)*(?: (electricidad|elettricita|eletricidade|elektriciteit|electricity|stroom|gas|gazu|gaz|energia))?/g, (_m: string, _w: string, fuel?: string) => `${/electric|elettric|eletric|elektric|stroom/.test(fuel ?? '') ? 'electricity' : /gas/.test(fuel ?? '') ? 'gas' : 'energy'} price components`],
+  [/\b(composicion|composizione|composicao|samenstelling)(?: (?:del|dello|della|do|da|van|de|di))*(?: (?:el|la|il|o|a|het|l)\b)* ?(?:elektriciteitsprijs|gasprijs)\b/g, 'energy price components'],
+  [/\belektriciteitsprijz?en\b|\belektriciteitsprijs\b/g, 'electricity price'],
+  [/\belektriciteits(productie|verbruik)\b/g, 'electricity $1'],
+  // Dutch compounds: "gasverbruik", "elektriciteitsproductie", "energieprijs".
+  [/\b(gas|olie|kolen|energie|elektriciteits)(verbruik|productie|prijs|prijzen)\b/g, (_m: string, what: string, kind: string) => `${what === 'elektriciteits' ? 'electricity' : what === 'energie' ? 'energy' : what} ${kind === 'verbruik' ? 'consumption' : kind === 'productie' ? 'production' : 'price'}`],
+  [/\b(oil|olie|energie)crisis\b/g, (_m: string, w: string) => `${w === 'energie' ? 'energy' : 'oil'} crisis`],
+  // Monthly data in Dutch.
+  [/\b(wedlug|wg) (kraju )?(pochodzenia|przeznaczenia)\b|\bper land van (herkomst|oorsprong)\b/g, 'by country of origin'],
+  [/\b(maandelijks\w*|per maand)\b/g, 'monthly'],
+  // Renewables: "cuota de energías renovables", "quota rinnovabili", "udział odnawialnych", "aandeel hernieuwbare energie".
+  [/\b(quota|cuota|participacion|udzial|aandeel|parte|parcela|participacao)\s+(?:(?:de|di|dell|dei|del|da|do|van|w)\s+)?(?:(?:energias?|energii|energie|energia)\s+)?(?:renovables?|rinnovabili|renovaveis|renovavel|odnawialn\w*|hernieuwbare)(?:\s+(?:energie|energia|energias|energii))?/g, 'renewable shares'],
+  [/\b(suministro|approvvigionamento|abastecimento|dostawy|aanbod|oferta|fornitura|fornecimento) (de |di |do |da |of |van )?(biomasa|biomassa|biomasy)\b/g, 'biomass supply'],
+  // Reporting dashboards in Dutch and Polish; oil security.
+  [/\bdywersyfikacja (zrodel )?energii\b/g, 'diversification of energy sources'],
+  [/\b(gas natural licuado|gas naturale liquefatto|gas natural liquefeito|gaz ziemny skroplony|vloeibaar aardgas)\b/g, 'liquefied natural gas'],
+  [/\b(intensidad|intensita|intensidade|intensywnosc|intensiteit) (energetica|energetico|energetyczna|energetische)\b|\benergie[- ]intensiteit\b/g, 'energy intensity'],
+  [/\b(energia|energii) (wodna|wodnej)\b/g, 'hydropower'],
+  [/\benergie[- ]efficientie\b/g, 'energy efficiency'],
+  [/\bzaleznosc energetyczna od krajow trzecich\b/g, 'energy dependence on third countries'],
+  [/\b(olie|aardolie)zekerheid\b/g, 'oil security'],
   [/\b(pobreza energetica|poverta energetica|ubostwo energetyczne|energiearmoede|energie armoede)\b/g, 'energy poverty'],
   [/\b(energia elektryczna|energii elektrycznej)\b/g, 'electricity'],
   [/\b(perfil|profilo|profil) (energetico|energetica|energetyczny|energetico)\b/g, 'energy profile'],
@@ -135,7 +171,7 @@ add('electricity', 'electricidad elettricita eletricidade elektrycznosc elektryc
 add('consumption', 'consumo consumos zuzycie konsumpcja verbruik')
 // (Not French "gaz": French is read natively, "gaz naturel" included.)
 add('gas', 'gazu aardgas')
-add('oil', 'petroleo petrolio ropa ropy olie aardolie')
+add('oil', 'petroleo petrolio ropa ropy olie aardolie petrolifera petrolera petroleira petroliferos naftowe naftowy')
 // (Not Spanish "carbón": "carbon" is English too, as in "carbon emissions".)
 add('coal', 'carbone carvao wegiel wegla steenkool kolen')
 add('nuclear', 'nucleare jadrowa jadrowej jadrowa kernenergie')
@@ -154,14 +190,22 @@ add('transport', 'transporte trasporti transportu vervoer')
 add('supply', 'suministro approvvigionamento abastecimento dostawy levering')
 add('poverty', 'pobreza poverta ubostwo armoede')
 add('in', 'em w')
+add('import', 'importa importan importar importuje importuja importeert importeren compra acquista kupuje koopt')
+add('suppliers', 'proveedores proveedor fornitori fornitore fornecedores fornecedor dostawcy dostawca leveranciers leverancier')
+add('sankey', 'sankeya sankeyem')
+add('stocks', 'existencias scorte zapasy voorraden')
+add('transport', 'transporcie')
+add('indicators', 'indicadores indicatori wskazniki indicatoren')
+add('crisis', 'crisi kryzys crise')
+add('', 'vandaan')
 add('since', 'desde dal dalla od sinds')
 // Countries (the native names, and the Polish forms used after "w": "w Polsce").
 add('spain', 'espana spagna espanha hiszpania hiszpanii spanje')
-add('italy', 'italia italie wlochy wloszech italie')
+add('italy', 'italia italie wlochy wloszech wloch italie')
 add('france', 'francia franca francja francji frankrijk')
-add('germany', 'alemania germania alemanha niemcy niemczech duitsland')
+add('germany', 'alemania germania alemanha niemcy niemczech niemiec duitsland')
 add('portugal', 'portogallo portugalia portugalii')
-add('poland', 'polonia polska polsce polen')
+add('poland', 'polonia polska polsce polen polski')
 add('netherlands', 'holanda olanda holandia holandii nederland')
 add('belgium', 'belgica belgio belgia belgii belgie')
 add('greece', 'grecia grecja grecji griekenland')
@@ -185,12 +229,12 @@ add('malta', 'malcie')
 add('luxembourg', 'luxemburgo lussemburgo luksemburg luksemburgu luxemburg')
 // Function words of those languages (dropped: the rules read the content words).
 // (Not "das", "den" or "de": German and French are read natively.)
-for (const w of 'del della dello delle degli los las gli nei nel nella dos het een voor por para com con uit dla oraz ile jak jaki jaka jakie qual quale quanto cuanto cual'.split(' ')) WORDS[w] = ''
+for (const w of 'del della dello delle degli los las gli nei nel nella dos het een voor por para com con uit dla oraz ile jak jaki jaka jakie qual quale quanto cuanto cual el il lo'.split(' ')) WORDS[w] = ''
 
 /** Energy words and places in Spanish, Italian, Portuguese, Polish or Dutch, in English. */
 export function toEnglishKeywords(q: string): string {
   let text = q
-  for (const [re, en] of PHRASES) text = text.replace(re, en)
+  for (const [re, en] of PHRASES) text = text.replace(re, en as string)
   return text
     .split(' ')
     .map((w) => (w in WORDS ? WORDS[w] : w))

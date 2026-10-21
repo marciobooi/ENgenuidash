@@ -88,6 +88,11 @@ export function useDashboards({
             plan = plan.fallback
             continue
           }
+          // The other way to read the question, when this dashboard has no values for the place ("biomass supply in Finland").
+          if (err instanceof NoDataError && plan.also) {
+            plan = plan.also
+            continue
+          }
           if (!(err instanceof NoDataError) || !plan.retry || attempt >= 2 || !codelists) throw err
           // Next best datasets about the same product ("wood pellets" in the biomass supply, not
           // electricity use in the wood industry); unrelated ones are skipped.
@@ -117,7 +122,7 @@ export function useDashboards({
       announce(answer ? message : `${message} ${spec.summary.join(' ')}`)
       onShown()
     } catch (err) {
-      const message = err instanceof NoDataError ? err.message : err instanceof EurostatUnavailableError ? t.eurostatDown : t.dashboardError
+      const message = err instanceof NoDataError ? (/^[a-z0-9_]+$/.test(err.message) ? t.dNoData : err.message) : err instanceof EurostatUnavailableError ? t.eurostatDown : t.dashboardError
       llm.updateLast((m) => !!m.pending, { content: message, pending: false, kind: 'error' })
       announce(message)
       if (err instanceof NoDataError) recordMiss({ text: question, lang, kind: 'nodata', followUp: hasDashboard })

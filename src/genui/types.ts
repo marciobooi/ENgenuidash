@@ -105,6 +105,8 @@ export type NoteKey = 'noMonthly' | 'assumedHouseholds' | 'assumedEu'
 export interface Clarification {
   question: 'whichPrices' | 'whichMonthly'
   options: { label: string; query: string }[]
+  /** The place the question named (English name), carried into the answers. */
+  place?: string
 }
 
 /** Layout hint: 'full' spans the whole dashboard width, 'half' sits next to another chart. */

@@ -245,6 +245,7 @@ export function useChatFlow({
         track('ask', 'clarify')
         {
           const monthly = route.clarification?.question === 'whichMonthly'
+          const inPlace = route.clarification?.place ? ` in ${route.clarification.place}` : ''
           const ask = monthly ? t.whichMonthly : t.whichPrices
           llm.append(
             { role: 'user', content: typed },
@@ -253,9 +254,9 @@ export function useChatFlow({
               content: ask,
               choices: monthly
                 ? [
-                    { label: t.monthlyElec, query: t.qMonthlyElec },
-                    { label: t.monthlyGas, query: t.qMonthlyGas },
-                    { label: t.monthlyOil, query: t.qMonthlyOil },
+                    { label: t.monthlyElec, query: t.qMonthlyElec + inPlace },
+                    { label: t.monthlyGas, query: t.qMonthlyGas + inPlace },
+                    { label: t.monthlyOil, query: t.qMonthlyOil + inPlace },
                   ]
                 : [
                     { label: t.priceElecHh, query: t.qElecHh },

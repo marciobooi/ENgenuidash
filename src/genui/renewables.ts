@@ -113,6 +113,8 @@ interface Loaded {
   years: string[]
   /** Dataset shown as the source, and its title. */
   source: { code: string; title: string }
+  /** Unit when it is not the tab's usual one (a country that reports wood in volume only). */
+  unit?: string
 }
 
 const yearOf = (o: EurostatResult['observations'][number]) => o.keys.time
@@ -217,9 +219,15 @@ async function loadTransport(ask: Ask, geo: string, since: string): Promise<Load
 }
 
 async function loadBiomass(ask: Ask, geo: string, since: string): Promise<Loaded> {
-  const r = await ask('nrg_cb_bm', { geo, unit: 'TJ', nrg_bal: 'IPRD', siec: BIOMASS_CODES }, since)
-  const v = valuesOf(r, (k) => k.siec)
-  const g = (codes: string[]) => sumSeries(codes.map((c) => v.get(c)), 1000)
+  let r = await ask('nrg_cb_bm', { geo, unit: 'TJ', nrg_bal: 'IPRD', siec: BIOMASS_CODES }, since)
+  let v = valuesOf(r, (k) => k.siec)
+  // Some countries (Finland) report their wood in volume only: shown as it is reported, in thousand m³.
+  const volume = ![...v.values()].some((x) => [...x.values()].some((n) => n > 0))
+  if (volume) {
+    r = await ask('nrg_cb_bm', { geo, unit: 'THS_M3', nrg_bal: 'IPRD', siec: BIOMASS_CODES }, since)
+    v = valuesOf(r, (k) => k.siec)
+  }
+  const g = (codes: string[]) => sumSeries(codes.map((c) => v.get(c)), volume ? 1 : 1000)
   const groups = [
     { key: 'forest', values: g(['R5101']) },
     { key: 'coProducts', values: g(['R5107']) },
@@ -228,7 +236,7 @@ async function loadBiomass(ask: Ask, geo: string, since: string): Promise<Loaded
     { key: 'agricultural', values: g(['R5151']) },
     { key: 'organicWaste', values: g(['W6205', 'W6210', 'W6230', 'W6000RI']) },
   ]
-  return { groups, table: BIOMASS_CODES.filter((c) => v.has(c)).map((c) => ({ label: labelOf(r, 'siec', c), values: sumSeries([v.get(c)], 1000) })), years: yearsOf(groups.map((x) => x.values)), source: { code: 'nrg_cb_bm', title: r?.label ?? '' } }
+  return { groups, table: BIOMASS_CODES.filter((c) => v.has(c)).map((c) => ({ label: labelOf(r, 'siec', c), values: sumSeries([v.get(c)], volume ? 1 : 1000) })), years: yearsOf(groups.map((x) => x.values)), source: { code: 'nrg_cb_bm', title: r?.label ?? '' }, ...(volume ? { unit: 'thousand m³' } : {}) }
 }
 
 async function loadSolid(ask: Ask, geo: string, since: string): Promise<Loaded> {
@@ -434,7 +442,7 @@ export async function buildRenewablesDashboard(plan: Plan, dict: EnergyDictionar
     const probe = await ask(DATASET, { geo, unit: 'PC', nrg_bal: 'REN' }, '2024')
     geoName = geo === EU ? t.sugEu : (labelOf(probe, 'geo', geo) || geo).replace(/\s*\(.*?\)\s*$/, '')
     source = loaded.source
-    const unit = UNITS[tab]
+    const unit = loaded.unit ?? UNITS[tab]
     const groups = loaded.groups.filter((g) => [...g.values.values()].some((x) => Math.abs(x) > 0))
     // Years with nothing reported (some countries have only zeros) are left out.
     const years = loaded.years.filter((y) => groups.some((g) => (g.values.get(y) ?? 0) > 0))

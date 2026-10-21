@@ -42,7 +42,11 @@ export function alsoOf(text: string, plan: Plan, dict: EnergyDictionary, codelis
   // a custom dashboard of the progress kind → the plain indicator the wording also names
   if (plan.renewables || plan.reporting) {
     const general = planQuestion(text, dict, codelists)
-    if (general.kind === 'plan' && !custom(general.plan) && general.plan.dataset !== plan.dataset) return general.plan
+    if (general.kind === 'plan' && !custom(general.plan) && general.plan.dataset !== plan.dataset) {
+      // (the energy balances of a place are the balance sheet dashboard, not a plain chart of one line)
+      if (general.plan.dataset === 'nrg_bal_c') return balancePlan(` energy balance ${text}`, dict, codelists) ?? general.plan
+      return general.plan
+    }
     return undefined
   }
   // the balance sheet and the flow diagram answer "supply and use of energy" alike

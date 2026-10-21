@@ -243,20 +243,30 @@ export function useChatFlow({
         break
       case 'clarify':
         track('ask', 'clarify')
-        llm.append(
-          { role: 'user', content: typed },
-          {
-            role: 'assistant',
-            content: t.whichPrices,
-            choices: [
-              { label: t.priceElecHh, query: t.qElecHh },
-              { label: t.priceElecInd, query: t.qElecInd },
-              { label: t.priceGasHh, query: t.qGasHh },
-              { label: t.priceGasInd, query: t.qGasInd },
-            ],
-          },
-        )
-        announce(t.whichPrices)
+        {
+          const monthly = route.clarification?.question === 'whichMonthly'
+          const ask = monthly ? t.whichMonthly : t.whichPrices
+          llm.append(
+            { role: 'user', content: typed },
+            {
+              role: 'assistant',
+              content: ask,
+              choices: monthly
+                ? [
+                    { label: t.monthlyElec, query: t.qMonthlyElec },
+                    { label: t.monthlyGas, query: t.qMonthlyGas },
+                    { label: t.monthlyOil, query: t.qMonthlyOil },
+                  ]
+                : [
+                    { label: t.priceElecHh, query: t.qElecHh },
+                    { label: t.priceElecInd, query: t.qElecInd },
+                    { label: t.priceGasHh, query: t.qGasHh },
+                    { label: t.priceGasInd, query: t.qGasInd },
+                  ],
+            },
+          )
+          announce(ask)
+        }
         if (hasDashboard) openChat()
         return
     }

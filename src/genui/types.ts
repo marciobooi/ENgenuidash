@@ -103,7 +103,7 @@ export type NoteKey = 'noMonthly' | 'assumedHouseholds' | 'assumedEu'
 
 /** A question the assistant asks back, with one-click answers. */
 export interface Clarification {
-  question: 'whichPrices'
+  question: 'whichPrices' | 'whichMonthly'
   options: { label: string; query: string }[]
 }
 

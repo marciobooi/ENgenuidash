@@ -173,6 +173,8 @@ export function planQuestion(
       if (monthlyKey === 'coal') filters.siec = 'C0100' // hard coal
       if (monthlyKey === 'oil') filters.siec = 'O4600' // oil products
       if (monthlyKey === 'crude') filters.siec = 'O4100_TOT'
+    } else if (!products.length && !flows.length && !metrics.size) {
+      return { kind: 'clarify', clarification: { question: 'whichMonthly', options: [] } }
     } else {
       notes.push('noMonthly')
     }

@@ -73,6 +73,8 @@ export function refinePlan(
   const geoDim = ds.dimensions.find((d) => d.id === 'geo')
   const freq = freqOf(ds)
   const time = detectTime(p)
+  // Monthly data asked of a dashboard that has none (and no monthly twin) is a new question, not "the same, for Spain".
+  if (time.monthly && !current.monthlyDataset && freq !== 'M') return null
   const geo = detectGeos(p, codelists)
   const chart = detectChart(p)
   const top = detectTop(p)

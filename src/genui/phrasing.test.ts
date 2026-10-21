@@ -20,6 +20,8 @@ const vocabulary = buildVocabulary(dict, codelists, scope.places)
 const CASES: [string, string, string?][] = [
   // Broken English, typos, keywords, mixed and other EU languages
   ['what the energy poverty in portugal', 'ilc_mdes01', 'PT'],
+  ['show latest energy monthly data for spain', 'route:clarify'],
+  ['energy prices europe 2022', 'route:clarify'],
   ['portugal how many people cold house', 'ilc_mdes01', 'PT'],
   ['people cant heat home in bulgaria', 'ilc_mdes01', 'BG'],
   ['how much renewable have germany', 'nrg_ind_ren|nrg_bal_c', 'DE'],

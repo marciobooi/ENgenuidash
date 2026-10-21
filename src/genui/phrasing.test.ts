@@ -131,8 +131,8 @@ test('preparing a question: lead-ins, other languages, typing slips', () => {
   assert.equal(prep('montre-moi la consommation de pétrole en France'), 'la consommation de petrole en france')
   assert.equal(prep('pobreza energética en España'), 'energy poverty en spain')
   assert.equal(prep('zużycie węgla w Polsce'), 'consumption coal in poland')
-  // ("dependancy" is read by its stem "depend…" already, so it is left as typed.)
-  assert.equal(prep('enrgy import dependancy of eu'), 'energy import dependancy of eu')
+  // ("dependancy", a common slip, is spelt right)
+  assert.equal(prep('enrgy import dependancy of eu'), 'energy import dependency of eu')
   assert.equal(prep('electrcity prices in france'), 'electricity prices in france')
   // "diese" is German for "these", not a slip of "diesel".
   assert.equal(prep('was bedeuten diese Zahlen?'), 'was bedeuten diese zahlen?')

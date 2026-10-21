@@ -66,6 +66,7 @@ export const FLOWS: (Concept & { nrgBal: string })[] = [
   { id: 'exports', nrgBal: 'EXP', stems: ['export', 'ausfuhr'] },
   // Whole forms, not "produc": that also matched "productivity" and "products".
   { id: 'production', nrgBal: 'PPRD', stems: ['production', 'produced', 'produce', 'producing', 'producer', 'produktion', 'produzier', 'produire', 'produite', 'erzeugung', 'erzeug', 'forder', 'generat', 'gewinn'] },
+  { id: 'grossAvailable', nrgBal: 'GAE', stems: ['gross available', 'bruttoverfugbar', 'energie brute disponible'] },
   { id: 'grossConsumption', nrgBal: 'GIC', stems: ['gross inland', 'bruttoinlands', 'consommation interieure brute'] },
   // Lines of the energy balance (as in Eurostat's energy balances visualisation).
   { id: 'transformationInput', nrgBal: 'TI_E', stems: ['transformation input', 'umwandlungseinsatz', 'entrees en transformation', 'entree en transformation', 'entrees de transformation'] },

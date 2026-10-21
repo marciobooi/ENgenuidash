@@ -33,7 +33,7 @@ const OIL = / (oil|petroleum|crude|brent|petrol|diesel|gasoline|fuel oil|heating
 // (not "prices" or "stocks" alone: those are the monthly dashboards)
 // German compounds that name the topic themselves ("Ölabhängigkeit", "Ölkrise").
 const OIL_COMPOUND = / ol(?:abhang|krise|vorrat|knappheit|embargo|versorg)\w* /
-const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|cover|coverage|days of|reichweite|autonomie|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance|crise|crises|penurie|rupture|risk|risks|risky|vulnerable|vulnerability|running out|run out|shortage|shortages|scarcity|emergency|reserves?|approvisionnement|russe|russes|russie|russland|russischen?|russisches|cut off|disruption|disruptions) /
+const OIL_TOPIC = / (dashboard|security|crisis|crises|shock|shocks|situation|overview|dependence|dependency|dependent|exposure|war|wars|russia|russian|ukraine|sanctions|embargo|embargoes|resilience|cover|coverage|days of|reichweite|autonomie|versorgungssicherheit|krise|abhangigkeit|abhangig|securite|dependance|crise|crises|penurie|rupture|risk|risks|risky|vulnerable|vulnerability|running out|run out|shortage|shortages|scarcity|emergency|reserves?|approvisionnement|russe|russes|russie|russland|russischen?|russisches|cut off|disruption|disruptions|how long|run dry) /
 const DEFINITION = /^ (what is|what are|define|was ist|qu est ce)\b/
 
 /** The oil dashboard a question asks for ("oil security in Germany", "how dependent is Italy on Russian oil"), or null. */

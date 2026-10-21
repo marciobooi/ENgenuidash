@@ -29,7 +29,7 @@ const QUESTION_WORDS = new Set(
     'exclude excluded country countries member state states region regions europe european union world global breakdown ' +
     'split mix composition source sources come comes coming happen happened happening full history historical ever ' +
     'available availability typical standard normal good bad best worst big small large share percentage percent part ' +
-    'parts type types kind kinds category categories sector sectors use used using help does did done make made produce hold holds held holding bestandteile bestandteil buy buys bought sell sells sold get gets towards toward exactly ' +
+    'parts type types kind kinds category categories sector sectors use used using help does did done make made produce hold holds held holding bestandteile bestandteil buy buys bought sell sells sold get gets towards toward exactly trace burn burns burned burnt last lasts profil profils ' +
     'produced much more less fewer about there here this that these those their them they its were been being have has ' +
     'had would could should will can may might must shall add remove instead without with only except versus vs'
   )
@@ -87,7 +87,8 @@ const APP_WORDS = new Set(
     'energy electricity renewable renewables dependency consumption production emissions efficiency poverty ' +
     'imports exports prices households industry transport nuclear petroleum natural ' +
     // The words that open the custom dashboards
-    'flow flows balance balances security profile sankey diagram partner partners monthly dependence shares capacity supply generation stocks trade overview scorecard'
+    'flow flows balance balances security profile sankey diagram partner partners monthly dependence shares capacity supply generation stocks trade overview scorecard ' +
+    'solid heating cooling buildings greenhouse power hydro supplies suppliers supplier intensity biomass crude storage components breakdown structure'
   ).split(' '),
 )
 
@@ -124,6 +125,19 @@ function variants(w: string): string[] {
 }
 
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz'
+/** Slips of more than one letter that people often make. */
+const COMMON_SLIPS: Record<string, string> = {
+  engery: 'energy', enegry: 'energy', eneregy: 'energy', enrgey: 'energy', enrgies: 'energies',
+  elecrticity: 'electricity', electircity: 'electricity', eletcricity: 'electricity', elektricity: 'electricity', electrisity: 'electricity', electricety: 'electricity',
+  renwables: 'renewables', renewbles: 'renewables', renuable: 'renewable', renuables: 'renewables', renewabels: 'renewables',
+  effeciency: 'efficiency', efficeincy: 'efficiency', eficiency: 'efficiency', efficiancy: 'efficiency',
+  dependancy: 'dependency', dependecy: 'dependency',
+  seucrity: 'security', securety: 'security', poverity: 'poverty', povertty: 'poverty',
+  ballance: 'balance', balanse: 'balance', sankee: 'sankey', sanky: 'sankey', sankie: 'sankey',
+  petroluem: 'petroleum', petrolium: 'petroleum', natual: 'natural', natrual: 'natural', nautral: 'natural',
+  emmisions: 'emissions', emisions: 'emissions', emmissions: 'emissions', consumtion: 'consumption', comsumption: 'consumption', consumpion: 'consumption',
+  greenhose: 'greenhouse', gren: 'green', nucleer: 'nuclear', nuculear: 'nuclear', hydrogin: 'hydrogen',
+}
 /** Typing slips of a word, most likely first: swapped letters, a doubled letter, a missing letter, a wrong letter. */
 function slips(w: string): string[] {
   const out: string[] = []
@@ -179,6 +193,26 @@ export function buildVocabulary(
   }
   const placeWords = new Set([...places].flatMap((p) => p.split(' ')))
 
+  // Only to words the planner understands (energy terms, places, dashboard words), never to any word of Eurostat's titles:
+  // "noise" is a word of its own, not a slip of a title word. `strict`: whole words only (no planner stems).
+  const fix = (word: string, strict: boolean): string | null => {
+    const w = normalize(word)
+    if (COMMON_SLIPS[w]) return COMMON_SLIPS[w]
+    if (w.length < 4 || /\d/.test(w)) return null
+    // Whole known words first ("electrcity" → "electricity"), then words a planner stem starts.
+    const candidates = slips(w)
+    // (four-letter words only to the app's own words: "flwo" is "flow", "powr" is "power", "nice" is not "rice")
+    if (w.length < 5) return candidates.find((s) => APP_WORDS.has(s) && s.length <= w.length + 1) ?? null
+    // (a last letter left out, "energ" or "balanc", only for the app's own words: "diese" is not "diesel")
+    const ending = [...LETTERS].map((c) => w + c).find((s) => APP_WORDS.has(s))
+    return (
+      candidates.find((s) => plannerWords.has(s) || placeWords.has(s) || APP_WORDS.has(s)) ??
+      ending ??
+      (strict ? undefined : candidates.find((s) => stems.some((st) => s.startsWith(st)))) ??
+      null
+    )
+  }
+
   return {
     unknownWords(text, knowledgeDocFreq) {
       // Hyphens split words too: "est-elle", "peut-on", "Kraft-Wärme".
@@ -193,26 +227,16 @@ export function buildVocabulary(
         )
       return words.filter((w) => {
         if (w.length <= 2 || STOPWORDS.has(w) || /\d/.test(w) || w.includes('_')) return false
-        if (placeWords.has(w) || hasEnergySignal(w)) return false
+        if (placeWords.has(w)) return false
+        if (COMMON_SLIPS[w] && COMMON_SLIPS[w] !== w) return true
+        // (a word that looks like energy is let through, unless it is a slip of a known word: "electrisity", "petroluem")
+        if (hasEnergySignal(w)) return !known(w) && !!fix(w, true)
         return !known(w)
       })
     },
     correct(word, knowledgeDocFreq) {
-      const w = normalize(word)
-      if (w.length < 4 || /\d/.test(w)) return null
-      // Only to words the planner understands (energy terms, places, dashboard words), never to
-      // any word of Eurostat's titles: "noise" is a word of its own, not a slip of a title word.
       void knowledgeDocFreq
-      // Whole known words first ("electrcity" → "electricity"), then words a planner stem starts.
-      const candidates = slips(w)
-      // (four-letter words only to the app's own words: "flwo" is "flow", "nice" is not "rice")
-      if (w.length < 5) return candidates.find((s) => APP_WORDS.has(s) && s.length === w.length) ?? null
-      return (
-        candidates.find((s) => plannerWords.has(s) || placeWords.has(s) || APP_WORDS.has(s)) ??
-        candidates.find((s) => stems.some((st) => s.startsWith(st))) ??
-        null
-      )
-      return null
+      return fix(word, false)
     },
   }
 }

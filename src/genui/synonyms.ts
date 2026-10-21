@@ -5,11 +5,18 @@
  * prepared question (lower case, no accents, apostrophes as spaces; see prepare.ts), in English,
  * German and French. Only the routing reads the result; the chat keeps what was typed.
  */
-const RULES: [RegExp, string][] = [
+const RULES: [RegExp, string | ((...match: string[]) => string)][] = [
   // ---- the country energy profile ----
   [/\b(country )?energy (passports?|snapshots?|cards?|summary|summaries|picture|situation|landscape|portraits?|country reports?|reports?|in numbers|in figures|at a glance|state of play)\b/g, 'energy profile'],
   [/\b(country|national) (cards?|profiles?|passports?|snapshots?)\b/g, 'country profile'],
   [/\b(the )?(state|situation|picture) of (the )?energy\b/g, 'energy profile'],
+  // "Polish electricity", "German households": the country named by its adjective.
+  [/\b(polish|german|french|spanish|italian|portuguese|greek|swedish|dutch|belgian|austrian|danish|finnish|irish|hungarian|czech|slovak|romanian|bulgarian|croatian|slovenian|lithuanian|latvian|estonian|maltese|cypriot|luxembourgish) (electricity|energy|gas|natural gas|oil|coal|renewables?|households?|industry|grid|power|nuclear|economy)\b/g, (_m: string, adj: string, what: string) => `${what} of ${({ polish: 'poland', german: 'germany', french: 'france', spanish: 'spain', italian: 'italy', portuguese: 'portugal', greek: 'greece', swedish: 'sweden', dutch: 'netherlands', belgian: 'belgium', austrian: 'austria', danish: 'denmark', finnish: 'finland', irish: 'ireland', hungarian: 'hungary', czech: 'czechia', slovak: 'slovakia', romanian: 'romania', bulgarian: 'bulgaria', croatian: 'croatia', slovenian: 'slovenia', lithuanian: 'lithuania', latvian: 'latvia', estonian: 'estonia', maltese: 'malta', cypriot: 'cyprus', luxembourgish: 'luxembourg' } as Record<string, string>)[adj]}`],
+  // "Russian gas imports", "Norwegian oil": the partner named by its adjective.
+  [/\b(russian|norwegian|american|algerian|qatari|azerbaijani|libyan|nigerian|kazakh|saudi|iraqi|british|ukrainian) (natural gas|gas|crude oil|oil|coal|lng)(?: imports?)?\b/g, (_m: string, who: string, what: string) => `${what} imports from ${({ russian: 'russia', norwegian: 'norway', american: 'united states', algerian: 'algeria', qatari: 'qatar', azerbaijani: 'azerbaijan', libyan: 'libya', nigerian: 'nigeria', kazakh: 'kazakhstan', saudi: 'saudi arabia', iraqi: 'iraq', british: 'united kingdom', ukrainian: 'ukraine' } as Record<string, string>)[who]}`],
+  [/\b(?:key|main|basic|headline) energy (?:figures|facts|numbers|statistics|stats|data)\b|\bwhat does energy look like in\b/g, 'energy profile of'],
+  [/\b(?:full )?energy accounts?\b|\bsupply transformation (?:and )?consumption(?: balance)?\b(?!.*\bmonthly\b)/g, 'energy balance'],
+  [/\bfrom (?:supply|source|sources|production) to (?:final |end[ -]?)?(?:use|uses|consumption)\b/g, 'energy flow diagram'],
   [/\bhow (is|are) (?:the )?(.+?) doing (?:on |in |with |regarding )?(?:the )?energy(?:[- ]?wise)?\b/g, 'energy profile of $2'],
   [/\bhow (?:is|are) (?:the )?(.+?) (?:on the whole|overall|in general|generally|altogether|all in all|as a whole)\b/g, 'energy profile of $1'],
   [/\bhow (?:the )?(.+?) (?:is|are) doing (?:on |in |with |regarding )?(?:the )?energy(?:[- ]?wise)?\b/g, 'energy profile of $1'],
@@ -70,6 +77,7 @@ const RULES: [RegExp, string][] = [
   [/\bhow (?:energy )?efficient (?:is|are) (?:the )?/g, 'energy efficiency dashboard of '],
   [/\b(?:energy|power) (?:savings?|saving) (?:progress|needed|target|targets|trajectory|trajectories)\b|\bhow much energy (?:does|do|must|should|can) (?:the )?.+? (?:need to |have to )?save\b|\bare we (?:reducing|cutting|lowering) (?:our )?(?:energy|power) (?:consumption|use|demand)\b|\b(?:reduc\w+|cut\w*|lower\w*) (?:the |our )?(?:energy|power) (?:consumption|use|demand)\b/g, 'energy efficiency dashboard'],
   [/\b(?:final |primary )?energy (?:consumption|demand|use) (?:target|targets|trajectory|trajectories|ceiling|ceilings|path)\b|\b(?:final |primary )?energy (?:consumption|demand|use) (?:against|vs|versus|compared with|relative to) the 2030 (?:target|targets|ceiling|ceilings)\b|\b(?:final )?energy (?:consumption|demand|use) by (?:end[ -]?use )?sectors?\b|(?<!(?:electricity|gas|oil|coal|heat|power|fuel) )\bconsumption by sector\b|\beed progress\b|\bnational (?:energy )?(?:efficiency )?contributions?\b/g, 'energy efficiency dashboard'],
+  [/\benergieeffizienz(?= [a-z]+$)/g, 'energy efficiency'],
   [/\b(?:energieeffizienz|effizienz) (?:in|von|fur|ziele?|fortschritt\w*)\b|\bwie effizient (?:ist|sind)\b|\benergieverbrauch (?:ziele?|entwicklung|nach sektor\w*)\b|\benergiesparen\b/g, 'energy efficiency dashboard'],
   [/\b(?:efficacite energetique|economies d energie)|\bcomment (?:est |sont )?efficace\b|\bconsommation d energie par secteur\b/g, 'energy efficiency dashboard'],
   [/\bhow (?:secure|safe|resilient|vulnerable) (?:is|are) (?:the )?(.+?)(?: s| 's)?(?: energy)?(?: supply| system)?\??$/g, 'energy security dashboard of $1'],
@@ -116,7 +124,7 @@ const RULES: [RegExp, string][] = [
 /** The question with other names of a view's subject turned into the words the rules read. */
 export function withCanonicalWords(q: string): string {
   let text = q
-  for (const [re, to] of RULES) text = text.replace(re, to)
+  for (const [re, to] of RULES) text = text.replace(re, to as string)
   // ("prices prices": both a synonym and the word itself were there)
   return text.replace(/\bprices(?: prices)+\b/g, 'prices').replace(/\s+/g, ' ').trim()
 }

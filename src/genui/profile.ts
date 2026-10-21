@@ -66,6 +66,8 @@ export function profilePlan(text: string, dict: EnergyDictionary, codelists: Ene
   // "energy in Spain", "Greece's energy", "the energy of Sweden": a country and just "energy" is its profile.
   const bare = inList.length > 0 && barePlaceEnergy(p.words, codelists)
   if (!PROFILE.test(p.text) && !bare) return null
+  // ("which country uses the most energy per person" is a ranking of countries, not one country's profile)
+  if (/ (which|what) countr(y|ies) | (most|least|highest|lowest|ranking|rank|top \d+) /.test(p.text) && !/ (profiles?|profil\w*|scorecard|overview) /.test(p.text)) return null
   const geo = inList[0] ?? EU
   const compare = inList[1] ?? (inList[0] && places.eu ? EU : undefined)
   const year = detectTime(p).years.at(-1)

@@ -261,6 +261,8 @@ export function prepareQuestion(text: string, { unknownWords, correct }: { unkno
     .trim()
     // Politeness at the end: "… please", "… bitte", "… s'il vous plaît".
     .replace(/\s+(please|pls|thanks|thank you|bitte|danke|s il (te|vous) plait|svp|stp|merci)\s*\??$/, '')
+  // Words run together or chained with hyphens: "energyflow", "monthly-electricity-generation".
+  q = q.replace(/\benergy(flows?|profiles?|balances?|security|poverty|efficiency|mix|prices?|dependency|dashboard)\b/g, 'energy $1').replace(/\b[a-z]+(?:-[a-z]+){2,}\b/g, (m) => m.replace(/-/g, ' '))
   // "whats" is "what is" (a definition question stays one).
   q = q.replace(/\bwhats\b/g, 'what is')
   q = withoutLeadIns(q)

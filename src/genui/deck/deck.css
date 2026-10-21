@@ -843,7 +843,7 @@
   max-width: 78rem;
 }
 .deck__ex {
-  background: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.6);
   border-left: 6px solid #ffd617;
   border-radius: 8px;
   padding: 1rem 1.25rem;
@@ -851,7 +851,8 @@
 .deck__ex h3 {
   margin: 0 0 0.4rem;
   font-size: 1.05rem;
-  color: #ffd617;
+  font-weight: 700;
+  color: #0e47cb;
 }
 .deck__ex p {
   margin: 0;

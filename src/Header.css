@@ -155,7 +155,8 @@
   /* Three columns: the ribbon is hidden here (display: none takes it out of the grid), so the
      logo is the third item. It scales into its column on a 375 px phone. */
   .es-header__inner {
-    grid-template-columns: auto 56px minmax(0, 128px);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 110px);
+    column-gap: 0.5rem;
   }
 
   .es-header__logo {
@@ -164,7 +165,7 @@
   }
 
   .es-header__title {
-    font-size: 1.35rem;
+    font-size: 1.1rem;
     text-shadow: #000 0 0 2px;
   }
 
@@ -224,6 +225,23 @@
 .es-header__home {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 10px;
+  padding: 10px 14px;
   margin-right: 0.75rem;
+  flex: none;
+  white-space: nowrap;
+}
+
+.es-header__home svg {
+  flex: none;
+}
+
+@media (max-width: 768px) {
+  .es-header__home {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    margin-right: 0.5rem;
+    justify-content: center;
+  }
 }

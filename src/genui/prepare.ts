@@ -261,6 +261,8 @@ export function prepareQuestion(text: string, { unknownWords, correct }: { unkno
     .trim()
     // Politeness at the end: "… please", "… bitte", "… s'il vous plaît".
     .replace(/\s+(please|pls|thanks|thank you|bitte|danke|s il (te|vous) plait|svp|stp|merci)\s*\??$/, '')
+  // German written without umlauts ("Oesterreich", "Energiefluesse", "Uebersicht") and French "-t-elle" inversions.
+  q = q.replace(/\b(oesterreich|fluesse|energiefluesse|uebersicht|laender\w*|abhaengigkeit|waerme|kaelte|oel\w*|haushaltsstrompreis\w*|energieueberblick|energie-ueberblick|ueberblick)\b/g, (w) => w.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u')).replace(/-t-(il|elle|on|ils|elles)\b/g, ' $1')
   // Words run together or chained with hyphens: "energyflow", "monthly-electricity-generation".
   q = q.replace(/\benergy(flows?|profiles?|balances?|security|poverty|efficiency|mix|prices?|dependency|dashboard)\b/g, 'energy $1').replace(/\b[a-z]+(?:-[a-z]+){2,}\b/g, (m) => m.replace(/-/g, ' '))
   // "not the profile, just electricity consumption in Germany": what is asked comes after the correction.

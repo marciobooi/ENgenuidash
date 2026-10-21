@@ -144,7 +144,7 @@ export function isExplainRequest(text: string): boolean {
   const q = plain(text)
   if (EXPLAIN_LABELS.has(q)) return true
   // "can you interpret this?", "why is it so high?", "warum ist das so niedrig?", "pourquoi c'est si élevé ?"
-  if (/^(please )?(explain|describe|summari[sz]e|tell me about|walk me through) (this|it|that|these|them)( please)?$|^what (does|do) (this|it|that|these) (mean|show|say)$|^(erklar\w*|beschreib\w*) (das|dies|dieses|diese)( bitte)?$|^(explique|expliquez|decris|decrivez) (moi )?(ca|cela|ceci|ces chiffres)$/.test(q)) return true
+  if (/^(please )?(explain|describe|summari[sz]e|tell me about|walk me through) (this|it|that|these|them)( please)?$|^what (does|do) (this|it|that|these) (mean|show|say)$|^(erklar\w*|beschreib\w*) (das|dies|dieses|diese)( bitte)?$|^(explique|expliquez|decris|decrivez) (moi )?(ca|cela|ceci|ces chiffres)$|^was (bedeutet|heisst|zeigt) (das|dies|diese grafik)$|^(qu est ce que|que) (cela|ca|ceci) (signifie|veut dire|montre)$/.test(q)) return true
   if (/\binterpret\w* (this|it|that|these|them)\b|\binterpretier|\binterpret\w* (ca|cela|ces)\b/.test(q)) return true
   if (/\b(why is (it|this|that)|why are (they|these)|warum ist (es|das|der wert)|pourquoi (est ce|c est|est il|est elle)) (so |si |aussi )?(high|low|higher|lower|hoch|niedrig|eleve|elevee|bas|basse|faible)\b/.test(q)) return true
   return (

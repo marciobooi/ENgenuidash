@@ -29,7 +29,7 @@ const fill = (template: string, values: Record<string, string>) => template.repl
 
 // ---------- questions ----------
 
-const OIL = / (oil|petroleum|crude|brent|petrol|diesel|gasoline|fuel oil|heating oil|erdol\w*|\w*olversorgung|ol|ol(?:import|export|abhang|krise|vorrat|preis|lieferung|knappheit|embargo)\w*|mineralol\w*|petrole|petroli\w+|gasoil|carburants?) /
+const OIL = / (oil|petroleum|crude|brent|petrol|diesel|gasoline|fuel oil|heating oil|erdol\w*|\w*olversorgung\w*|ol|ol(?:import|export|abhang|krise|vorrat|preis|lieferung|knappheit|embargo)\w*|mineralol\w*|petrole|petroli\w+|gasoil|carburants?) /
 // (not "prices" or "stocks" alone: those are the monthly dashboards)
 // German compounds that name the topic themselves ("Ölabhängigkeit", "Ölkrise").
 const OIL_COMPOUND = / ol(?:abhang|krise|vorrat|knappheit|embargo|versorg)\w* /
@@ -41,6 +41,8 @@ export function oilPlan(text: string, dict: EnergyDictionary, codelists: EnergyC
   if (!dict.datasets[DATASET]) return null
   const p = parse(text.replace(/[-–,?]/g, ' '))
   if (!OIL.test(p.text) || !(OIL_TOPIC.test(p.text) || OIL_COMPOUND.test(p.text)) || DEFINITION.test(p.text)) return null
+  // ("monthly oil stocks", "monatliche Ölvorräte", "stocks de pétrole mensuels": the monthly stock levels)
+  if (/ (monthly|monatlich\w*|mensuel\w*) /.test(p.text)) return null
   const places = detectGeos(p, codelists)
   const geo = places.codes.find((c) => OIL_GEOS.includes(c)) ?? EU
   const year = detectTime(p).years.at(-1)

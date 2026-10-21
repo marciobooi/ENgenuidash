@@ -72,6 +72,7 @@ const GENERIC = new Set([
 export const normalize = (s: string) =>
   s
     .toLowerCase()
+    .replace(/ß/g, 'ss')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 
@@ -115,6 +116,8 @@ export function hasEnergySignal(text: string, lexicon?: EnergyLexicon): boolean 
     return words.some((w) => w.startsWith(stem))
   }
   if (NORMALIZED_STEMS.some(matchesStem)) return true
+  // German compounds with "energie" or "verbrauch" inside ("Endenergieverbrauch", "Primärenergie") and French "consommation".
+  if (words.some((w) => (w.length > 8 && /energie|verbrauch/.test(w)) || /^consommation/.test(w))) return true
   if (lexicon) {
     for (const phrase of lexicon.phrases) if (joined.includes(` ${phrase} `)) return true
   }

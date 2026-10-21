@@ -10,6 +10,13 @@ const RULES: [RegExp, string | ((...match: string[]) => string)][] = [
   [/\b(country )?energy (passports?|snapshots?|cards?|summary|summaries|picture|situation|landscape|portraits?|country reports?|reports?|in numbers|in figures|at a glance|state of play)\b/g, 'energy profile'],
   [/\b(country|national) (cards?|profiles?|passports?|snapshots?)\b/g, 'country profile'],
   [/\b(the )?(state|situation|picture) of (the )?energy\b/g, 'energy profile'],
+  // German and French wordings of the profile, the flow diagram, efficiency and capacity.
+  [/\b(?:landerprofil\w*(?: energie)?|energie[- ]?uberblick|uberblick (?:uber )?(?:die )?energie|kennzahlen (?:zur |der )?energie|energiekennzahlen|wie steht \w+ bei der energie da|indicateurs cles (?:de l )?energie|ou en est (?:la |le |l )?\w+ en matiere d energie)\b/g, 'energy profile'],
+  [/\b(?:wie fliesst (?:die )?energie|comment circule (?:l )?energie)\b/g, 'energy flow diagram'],
+  [/\benergieeffizienzziele?\b/g, 'energy efficiency targets'],
+  [/\benergieeffizienz\b/g, 'energy efficiency'],
+  [/\b(?:installierte )?(?:solar|photovoltaik|wind|windkraft|wasserkraft)\w*(?:kapazitat|leistung)\w*\b/g, 'renewable capacity by technology'],
+  [/\bnetz(?:entgelte?|kosten)(?: (?:fur |im )?(?:strom|gas))?\b/g, 'electricity price components network costs'],
   // One word on its own: "prices", "balance", "imports".
   [/^prices?$/g, 'energy prices'],
   [/^balances?$/g, 'energy balance'],
@@ -102,7 +109,6 @@ const RULES: [RegExp, string | ((...match: string[]) => string)][] = [
   [/\bhow (?:energy )?efficient (?:is|are) (?:the )?/g, 'energy efficiency dashboard of '],
   [/\b(?:energy|power) (?:savings?|saving) (?:progress|needed|target|targets|trajectory|trajectories)\b|\bhow much energy (?:does|do|must|should|can) (?:the )?.+? (?:need to |have to )?save\b|\bare we (?:reducing|cutting|lowering) (?:our )?(?:energy|power) (?:consumption|use|demand)\b|\b(?:reduc\w+|cut\w*|lower\w*) (?:the |our )?(?:energy|power) (?:consumption|use|demand)\b/g, 'energy efficiency dashboard'],
   [/\b(?:final |primary )?energy (?:consumption|demand|use) (?:target|targets|trajectory|trajectories|ceiling|ceilings|path)\b|\b(?:final |primary )?energy (?:consumption|demand|use) (?:against|vs|versus|compared with|relative to) the 2030 (?:target|targets|ceiling|ceilings)\b|\b(?:final )?energy (?:consumption|demand|use) by (?:end[ -]?use )?sectors?\b|(?<!(?:electricity|gas|oil|coal|heat|power|fuel) )\bconsumption by sector\b|\beed progress\b|\bnational (?:energy )?(?:efficiency )?contributions?\b/g, 'energy efficiency dashboard'],
-  [/\benergieeffizienz(?= [a-z]+$)/g, 'energy efficiency'],
   [/\b(?:energieeffizienz|effizienz) (?:in|von|fur|ziele?|fortschritt\w*)\b|\bwie effizient (?:ist|sind)\b|\benergieverbrauch (?:ziele?|entwicklung|nach sektor\w*)\b|\benergiesparen\b/g, 'energy efficiency dashboard'],
   [/\b(?:efficacite energetique|economies d energie)|\bcomment (?:est |sont )?efficace\b|\bconsommation d energie par secteur\b/g, 'energy efficiency dashboard'],
   [/\bhow (?:secure|safe|resilient|vulnerable) (?:is|are) (?:the )?(.+?)(?: s| 's)?(?: energy)?(?: supply| system)?\??$/g, 'energy security dashboard of $1'],

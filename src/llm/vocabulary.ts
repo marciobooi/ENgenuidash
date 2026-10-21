@@ -136,7 +136,7 @@ const COMMON_SLIPS: Record<string, string> = {
   ballance: 'balance', balanse: 'balance', sankee: 'sankey', sanky: 'sankey', sankie: 'sankey',
   petroluem: 'petroleum', petrolium: 'petroleum', natual: 'natural', natrual: 'natural', nautral: 'natural',
   emmisions: 'emissions', emisions: 'emissions', emmissions: 'emissions', consumtion: 'consumption', comsumption: 'consumption', consumpion: 'consumption',
-  greenhose: 'greenhouse', gren: 'green', nucleer: 'nuclear', nuculear: 'nuclear', hydrogin: 'hydrogen',
+  greenhose: 'greenhouse', energiflussdiagramm: 'energieflussdiagramm', energieefizienz: 'energieeffizienz', energiebillanz: 'energiebilanz', energetqiue: 'energetique', energetiqe: 'energetique', energitique: 'energetique',  gren: 'green', nucleer: 'nuclear', nuculear: 'nuclear', hydrogin: 'hydrogen',
 }
 /** Typing slips of a word, most likely first: swapped letters, a doubled letter, a missing letter, a wrong letter. */
 function slips(w: string): string[] {

@@ -61,7 +61,7 @@ export function howToRead(w: DashboardSpec['widgets'][number], lang: string): st
 /** The explanation of the topic: what the concept is, why it matters, how it is measured, about the data (only the parts concepts.json has). */
 export function topicCard(spec: DashboardSpec, lang: string): { card: ConceptCard; blocks: { label: string; text: string }[] } | null {
   const l = lg(lang)
-  const card = conceptCard([spec.title, spec.subtitle ?? ''].join(' . '), l) ?? conceptCard(spec.source.title, l)
+  const card = conceptCard([spec.title, spec.subtitle ?? ''].join(' . '), l)
   if (!card) return null
   const blocks = (['what', 'why', 'how', 'data'] as const).flatMap((k) => (card[k] ? [{ label: T[k][l], text: card[k] as string }] : []))
   return blocks.length ? { card, blocks } : null

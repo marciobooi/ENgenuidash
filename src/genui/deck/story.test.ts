@@ -24,6 +24,12 @@ test('how it changed, who is highest and lowest, what it is made of', () => {
   assert.deepEqual(s.makeup?.parts.map((p) => [p.name, Math.round(p.share)]), [['Wind', 70], ['Gas', 30]])
 })
 
+test('bars over years are not a ranking of countries', () => {
+  const years = Array.from({ length: 12 }, (_, i) => String(2010 + i))
+  const s = storyOf({ widgets: [{ type: 'bar', title: 'Change', categories: years, series: [{ name: 'x', data: years.map((_, i) => i) }] }] } as unknown as DashboardSpec)
+  assert.equal(s.ranking, undefined)
+})
+
 test('a dashboard without those charts has no story, and charts name how they are read', () => {
   assert.deepEqual(storyOf({ widgets: [{ type: 'kpis', items: [] }] } as unknown as DashboardSpec), { change: undefined, ranking: undefined, makeup: undefined })
   assert.equal(howKey(spec.widgets[0]), 'line')

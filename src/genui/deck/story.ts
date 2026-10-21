@@ -55,7 +55,7 @@ function changeOf(spec: DashboardSpec): StoryChange | undefined {
 }
 
 function rankingOf(spec: DashboardSpec): StoryRanking | undefined {
-  const w = spec.widgets.find((x): x is Bar => x.type === 'bar' && !x.stacked && x.categories.length >= 10 && x.series.length >= 1)
+  const w = spec.widgets.find((x): x is Bar => x.type === 'bar' && !x.stacked && x.categories.length >= 10 && x.series.length >= 1 && x.categories.filter((c) => /^(19|20)\d{2}/.test(c)).length < x.categories.length / 2)
   if (!w) return undefined
   const rows = w.categories.map((name, i) => ({ name, value: w.series[0].data[i] })).filter((r): r is { name: string; value: number } => num(r.value) && !/^(eu|eu-27|total|all)$/i.test(r.name))
   if (rows.length < 6) return undefined

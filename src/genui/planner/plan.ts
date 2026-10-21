@@ -174,7 +174,7 @@ export function planQuestion(
       if (monthlyKey === 'oil') filters.siec = 'O4600' // oil products
       if (monthlyKey === 'crude') filters.siec = 'O4100_TOT'
     } else if (!products.length && !flows.length && !metrics.size) {
-      const place = geo.codes[0] ? codelists.codelists.geo?.codes[geo.codes[0]]?.en : undefined
+      const place = geo.codes[0] ? codelists.codelists.GEO?.codes[geo.codes[0]]?.en : undefined
       return { kind: 'clarify', clarification: { question: 'whichMonthly', options: [], place } }
     } else {
       notes.push('noMonthly')
